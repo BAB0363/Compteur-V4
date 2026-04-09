@@ -1,4 +1,4 @@
- { ui } from './jsui.js';
+import { ui } from './jsui.js';
 import { gps } from './jsgps.js';
 import { ml } from './jsml.js';
 
