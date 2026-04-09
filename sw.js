@@ -1,5 +1,5 @@
 // sw.js
-const CACHE_NAME = 'compteur-cache-v34'; 
+const CACHE_NAME = 'compteur-cache-v35'; 
 const urlsToCache = [
   './',
   './index.html',
