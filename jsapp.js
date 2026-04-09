@@ -236,9 +236,10 @@ const app = {
         
         items.forEach(item => {
             let distVehicule = Math.max(0.1, this.liveCarDistance - (item.distAtSighting || 0));
-            let co2 = item.co2 !== undefined ? item.co2 : (this.vehicleSpecs[item.type] ? (this.vehicleSpecs[item.type].cMin + this.vehicleSpecs[item.type].cMax) / 2 : 120);
+            let categoryAverage = this.vehicleSpecs[item.type] ? (this.vehicleSpecs[item.type].cMin + this.vehicleSpecs[item.type].cMax) / 2 : 120;
+            let co2 = item.co2 !== undefined ? item.co2 : categoryAverage;
             totalRealCo2 += co2 * distVehicule;
-            quota += 150 * distVehicule; 
+            quota += categoryAverage * distVehicule; 
         });
         
         let pct = quota > 0 ? (totalRealCo2 / quota) * 100 : 0;
@@ -274,9 +275,10 @@ const app = {
 
         items.forEach(item => {
             let distVehicule = Math.max(0.1, this.liveCarDistance - (item.distAtSighting || 0));
-            let co2 = item.co2 !== undefined ? item.co2 : (this.vehicleSpecs[item.type] ? (this.vehicleSpecs[item.type].cMin + this.vehicleSpecs[item.type].cMax) / 2 : 120);
+            let categoryAverage = this.vehicleSpecs[item.type] ? (this.vehicleSpecs[item.type].cMin + this.vehicleSpecs[item.type].cMax) / 2 : 120;
+            let co2 = item.co2 !== undefined ? item.co2 : categoryAverage;
             totalRealCo2 += co2 * distVehicule;
-            quota += 150 * distVehicule;
+            quota += categoryAverage * distVehicule;
         });
 
         let diff = quota - totalRealCo2; 
@@ -431,10 +433,6 @@ const app = {
             return "Autoroute (>80 km/h)";
         }
     },
-
-    // ==========================================
-    // jsapp.js (PARTIE 2 / 4)
-    // ==========================================
 
     brands: ["Renault Trucks", "Mercedes-Benz", "Volvo Trucks", "Scania", "DAF", "MAN", "Iveco", "Ford Trucks"],
     vehicleTypes: ["Voitures", "Utilitaires", "Motos", "Camions", "Camping-cars", "Bus/Car", "Engins agricoles", "Vélos"],
@@ -902,21 +900,26 @@ const app = {
                     if (elapsed > 0 && elapsed % 300 === 0) { 
                         let currentHour = new Date().getHours();
                         let isNight = (currentHour >= 21 || currentHour < 6);
-                        let baseToll = isNight ? 20 : 10;
-                        let stepToll = isNight ? 20 : 10;
-                        let maxToll = isNight ? 200 : 100;
+                        let isRushHour = (currentHour >= 7 && currentHour < 9) || (currentHour >= 17 && currentHour < 19);
+            
+                        let baseToll = isRushHour ? 20 : (isNight ? 5 : 10);
+                        let stepToll = isRushHour ? 20 : (isNight ? 5 : 10);
+                        let maxToll = isRushHour ? 200 : (isNight ? 50 : 100);
+            
                         let inflationMultiplier = Math.floor(elapsed / 900);
                         let currentToll = baseToll + (inflationMultiplier * stepToll);
                         if (currentToll > maxToll) currentToll = maxToll;
-                        
-                        this.addBankTransaction(-currentToll, "Péage" + (isNight ? " de nuit 🌙" : " ☀️"));
+            
+                        let tollName = "Péage" + (isRushHour ? " (Heure de pointe) 🚗🚗🚗" : (isNight ? " de nuit 🌙" : " ☀️"));
+                        this.addBankTransaction(-currentToll, tollName);
                         if(window.ui) {
-                            window.ui.showToast(`💸 Péage : - ${currentToll} €`, "anomaly");
+                            window.ui.showToast(`💸 ${tollName} : - ${currentToll} €`, "anomaly");
                             window.ui.playGamiSound('siren');
                         }
                     }
 
-                    if (elapsed > 0 && elapsed % 60 === 0 && this.bankBalance < 0) {
+                    // AGIOS SEULEMENT TOUTES LES 10 MINUTES (600 secondes) !
+                    if (elapsed > 0 && elapsed % 600 === 0 && this.bankBalance < 0) {
                         let agios = Math.abs(this.bankBalance) * 0.05;
                         this.addBankTransaction(-agios, "Agios (5%)");
                         if(window.ui) {
@@ -950,10 +953,6 @@ const app = {
             }
         }
     },
-
-// ==========================================
-    // jsapp.js (PARTIE 3 / 4)
-    // ==========================================
 
     updateCounter(mode, key1, key2, amount, e) {
         let isTruck = mode === 'trucks';
@@ -1001,7 +1000,7 @@ const app = {
                     }
                 }
 
-                // ⚖️ NOUVEAU : Génération Poids et CO2 Dynamique
+                // ⚖️ Génération Poids et CO2 Dynamique (Quota calculé sur la moyenne)
                 let specs = this.vehicleSpecs[key1] || { wMin: 1500, wMax: 1500, cMin: 120, cMax: 120 };
                 if (isTruck) specs = this.vehicleSpecs["Camions"]; 
                 
@@ -1011,6 +1010,25 @@ const app = {
 
                 if (!isTruck) {
                     let baseVal = this.bankValues[key1] || 1;
+                    let currentHour = new Date().getHours();
+                    let isNight = (currentHour >= 21 || currentHour < 6);
+                    let isRushHour = (currentHour >= 7 && currentHour < 9) || (currentHour >= 17 && currentHour < 19);
+            
+                    // LOI DE L'OFFRE ET LA DEMANDE
+                    if (isNight) {
+                        if (key1 === "Camions" || key1 === "Utilitaires") {
+                            baseVal = Math.round(baseVal * 0.5); // Marché saturé de camions la nuit
+                        } else {
+                            baseVal = Math.round(baseVal * 5); // Le reste est très rare !
+                        }
+                    } else if (isRushHour) {
+                        if (key1 === "Voitures" || key1 === "Utilitaires") {
+                            baseVal = Math.round(baseVal * 0.5); // Bouchons, abondance de voitures
+                        } else if (key1 === "Motos" || key1 === "Vélos") {
+                            baseVal = Math.round(baseVal * 2); // Très prisé en interfile dans les bouchons
+                        }
+                    }
+
                     let nowTs = Date.now();
 
                     this.sessionPaveWeight = (this.sessionPaveWeight || 0) + randWeight;
@@ -1042,12 +1060,11 @@ const app = {
                     }
                     this.lastCountTime = nowTs;
 
-                    // 💥 NOUVEAU SYSTÈME DE KRACH BOURSIER (Tolérant & Dynamique)
+                    // SYSTÈME DE KRACH BOURSIER
                     let consecutive = 0;
                     let justHistory = history.filter(h => !h.isEvent);
                     let lastTs = nowTs;
 
-                    // Timer de 45 secondes pour réinitialiser la série
                     for (let i = justHistory.length - 1; i >= 0; i--) {
                         let h = justHistory[i];
                         if (lastTs - h.timestamp > 45000) break; 
@@ -1058,12 +1075,10 @@ const app = {
                         } else { break; }
                     }
 
-                    // Adaptation pour l'Autoroute
                     let speedKmh = window.gps ? window.gps.getSlidingSpeedKmh() : 0;
                     let isHighway = speedKmh > 80;
                     let threshold = isHighway ? 10 : 4; 
 
-                    // 👁️ TALENT : Oeil de Lynx (+10% si prédiction correcte)
                     if (isExact) {
                         baseVal *= 3;
                         if (window.gami && window.gami.state.unlockedTalents && window.gami.state.unlockedTalents.oeilDeLynx) {
@@ -1072,7 +1087,6 @@ const app = {
                         }
                     }
 
-                    // Paliers du Krach
                     if (consecutive >= threshold + 2) { 
                         baseVal = -Math.max(1, Math.round(Math.abs(baseVal) * 0.2)); 
                         if(window.ui) { window.ui.showToast(`🚧 Frais de congestion ! Trop de ${key1} !`, "anomaly"); window.ui.playGamiSound('crash'); }
@@ -1116,8 +1130,8 @@ const app = {
                     chronoTime: this.formatTime(isTruck ? this.truckSeconds : this.carSeconds), 
                     timestamp: nowTs,
                     distAtSighting: isTruck ? this.liveTruckDistance : this.liveCarDistance,
-                    weight: randWeight, // Enregistrement du poids dynamique
-                    co2: randCo2        // Enregistrement du CO2 dynamique
+                    weight: randWeight, 
+                    co2: randCo2        
                 };
                 
                 if (isTruck) { histItem.brand = key1; histItem.type = key2; }
@@ -1210,7 +1224,6 @@ const app = {
                 if (!isTruck) this.updateCarbonGauge();
 
             } else if (amount < 0) {
-                // 🔙 GESTION DES ANNULATIONS
                 let lastIndex = history.map(h => !h.isEvent && (isTruck ? (h.brand === key1 && h.type === key2) : (h.type === key1))).lastIndexOf(true);
                 
                 if (lastIndex !== -1) {
@@ -1463,10 +1476,6 @@ const app = {
             setTimeout(() => { location.reload(); }, 1500);
         }
     },
-
-    // ==========================================
-    // jsapp.js (PARTIE 4 / 4)
-    // ==========================================
 
     renderTrucks() {
         const container = document.getElementById('truck-container'); if(!container) return;
@@ -1843,10 +1852,11 @@ const app = {
                     distVehicule = 0.5;
                 }
 
-                let co2 = h.co2 !== undefined ? h.co2 : (this.vehicleSpecs[h.type] ? (this.vehicleSpecs[h.type].cMin + this.vehicleSpecs[h.type].cMax) / 2 : 120);
+                let categoryAverage = this.vehicleSpecs[h.type] ? (this.vehicleSpecs[h.type].cMin + this.vehicleSpecs[h.type].cMax) / 2 : 120;
+                let co2 = h.co2 !== undefined ? h.co2 : categoryAverage;
                 
                 let emitted = co2 * distVehicule;
-                let allowed = 150 * distVehicule;
+                let allowed = categoryAverage * distVehicule;
 
                 totalCo2 += emitted;
                 totalQuota += allowed;
@@ -1861,9 +1871,10 @@ const app = {
             let sQuota = 0;
             sHist.forEach(h => {
                 let distVehicule = (s.distanceKm || 0) / (sHist.length || 1);
-                let co2 = h.co2 !== undefined ? h.co2 : (this.vehicleSpecs[h.type] ? (this.vehicleSpecs[h.type].cMin + this.vehicleSpecs[h.type].cMax) / 2 : 120);
+                let categoryAverage = this.vehicleSpecs[h.type] ? (this.vehicleSpecs[h.type].cMin + this.vehicleSpecs[h.type].cMax) / 2 : 120;
+                let co2 = h.co2 !== undefined ? h.co2 : categoryAverage;
                 sCo2 += co2 * distVehicule;
-                sQuota += 150 * distVehicule;
+                sQuota += categoryAverage * distVehicule;
             });
             let ratio = sQuota > 0 ? (sCo2 / sQuota) * 100 : 0;
             evolutionLabels.push(`Sess. ${idx + 1}`);
@@ -2696,4 +2707,3 @@ if (document.readyState === 'loading') {
 } else {
     startApp();
 }
-
