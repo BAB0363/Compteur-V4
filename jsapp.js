@@ -414,7 +414,7 @@ const app = {
         let actions = document.getElementById('sponsor-offer-actions');
         
         if(elTitle) elTitle.innerText = `🤝 Aucun contrat`;
-        if(elDesc) elDesc.innerText = `Lance le chrono...`;
+        if(elDesc) elDesc.innerText = this.isCarRunning ? `Recherche de sponsor en cours... 👀` : `Lance le chrono...`;
         if(elProg) elProg.style.display = 'none';
         if(elBanner) elBanner.classList.remove('sponsor-active');
         if(btnValidate) btnValidate.style.display = 'none';
@@ -864,6 +864,11 @@ const app = {
                 this.carStartTime = startTime; this.storage.set('carStartTime', startTime); 
                 this.lastGlobalCarTick = startTime; 
                 this.lastCountTime = Date.now(); 
+
+                let sponsorDesc = document.getElementById('sponsor-desc');
+                if (sponsorDesc && !this.activeSponsor && !this.pendingSponsor) {
+                    sponsorDesc.innerText = "Recherche de sponsor en cours... 👀";
+                }
             }
             
             let interval = setInterval(() => { 
@@ -945,6 +950,11 @@ const app = {
                 this.globalAnaTrucks.lastVehicles = []; 
                 this.storage.set('globalAnaTrucks', this.globalAnaTrucks);
             } else {
+                let sponsorDesc = document.getElementById('sponsor-desc');
+                if (sponsorDesc && !this.activeSponsor && !this.pendingSponsor) {
+                    sponsorDesc.innerText = "Chrono en pause ⏸️";
+                }
+
                 clearInterval(this.carInterval); 
                 this.carAccumulatedTime = this.carSeconds;
                 this.storage.set('carAccumulatedTime', this.carAccumulatedTime);
@@ -1521,6 +1531,7 @@ const app = {
         let barEtr = document.getElementById('bar-etr'); if(barEtr) { barEtr.style.width = (100 - pctFr) + '%'; barEtr.innerText = grandTotal > 0 ? `🌍 ${100 - pctFr}%` : ''; }
     },
 
+    // 🛠️ MODIFIÉ : Ajout des icônes dans la barre de progression !
     renderCars() {
         const container = document.getElementById('car-container'); if(!container) return;
         container.innerHTML = ''; 
@@ -1543,15 +1554,18 @@ const app = {
 
         const slugMap = { "Voitures": "voitures", "Utilitaires": "utilitaires", "Camions": "camions", "Engins agricoles": "engins", "Bus/Car": "bus", "Camping-cars": "camping", "Motos": "motos", "Vélos": "velos" };
         const nameMap = { "Camions": "Poids Lourds" }; 
+        const icons = { Voitures: "🚗", Utilitaires: "🚐", Camions: "🚛", "Engins agricoles": "🚜", "Bus/Car": "🚌", "Camping-cars": "🏕️", Motos: "🏍️", Vélos: "🚲" };
 
         this.vehicleTypes.forEach(v => {
             let pct = grandTotal === 0 ? (100 / this.vehicleTypes.length) : Math.round(((this.vehicleCounters[v]||0) / grandTotal) * 100); 
             let slug = slugMap[v];
             let bar = document.getElementById(`bar-${slug}`);
-            if (bar) { bar.style.width = pct + '%'; bar.innerText = (grandTotal > 0 && this.vehicleCounters[v] > 0) ? `${pct}%` : ''; }
+            if (bar) { 
+                bar.style.width = pct + '%'; 
+                bar.innerText = (grandTotal > 0 && this.vehicleCounters[v] > 0) ? `${icons[v]} ${pct}%` : ''; 
+            }
         });
 
-        const icons = { Voitures: "🚗", Utilitaires: "🚐", Camions: "🚛", "Engins agricoles": "🚜", "Bus/Car": "🚌", "Camping-cars": "🏕️", Motos: "🏍️", Vélos: "🚲" };
         this.vehicleTypes.forEach(v => {
             let score = this.vehicleCounters[v] || 0;
             let displayName = nameMap[v] || v;
