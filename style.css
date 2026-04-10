@@ -88,14 +88,15 @@ body {
 .main-tabs button { flex: 1; min-width: 75px; padding: 10px 2px; font-size: 0.9em; background-color: var(--btn-bg); color: var(--btn-text); border: none; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.2s; white-space: nowrap;}
 .main-tabs button.active { background-color: #34495e; color: white; }
 #tab-dashboard.active { background-color: #e67e22; color: white; }
+#tab-company.active { background-color: #f1c40f; color: #333; } /* Nouvel onglet Entreprise */
 #tab-settings.active { background-color: #7f8c8d; color: white; }
 
 /* ==========================================
    Composants Principaux
    ========================================== */
 .header-dashboard { background: var(--card-bg); padding: 10px; border-radius: 8px; margin-bottom: 10px; box-shadow: 0 1px 3px var(--shadow); transition: 0.3s; }
-.header-title { margin-top: 0; color: var(--text-color); }
-.header-desc { font-size: 0.85em; color: #7f8c8d; }
+.header-title { margin-top: 0; margin-bottom: 5px; color: var(--text-color); }
+.header-desc { font-size: 0.85em; color: #7f8c8d; margin-bottom: 0; }
 
 .top-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-weight: bold; font-size: 1.1em; }
 .chrono-container { display: flex; align-items: center; gap: 5px; }
@@ -416,3 +417,77 @@ button:active { transform: scale(0.95); }
 }
 .btn-sponsor:hover { background: #34495e; }
 .sponsor-active { border: 2px solid #2ecc71; background: rgba(46, 204, 113, 0.1); }
+
+/* ==========================================
+   Tycoon / Entreprise (Nouveau !)
+   ========================================== */
+.tycoon-card { 
+    background: var(--card-bg); 
+    padding: 12px; 
+    border-radius: 8px; 
+    box-shadow: 0 1px 3px var(--shadow); 
+    display: flex; 
+    flex-direction: column; 
+    justify-content: space-between; 
+    gap: 8px; 
+    border: 1px solid var(--border-color); 
+    position: relative; 
+    overflow: hidden; 
+}
+.tycoon-card.locked { 
+    opacity: 0.6; 
+    filter: grayscale(80%); 
+}
+.tycoon-card.owned { 
+    border-color: #27ae60; 
+    background: rgba(39, 174, 96, 0.05); 
+}
+.tycoon-title { 
+    font-weight: bold; 
+    font-size: 1.05em; 
+    color: var(--text-color); 
+}
+.tycoon-price { 
+    font-size: 0.9em; 
+    color: #e74c3c; 
+    font-weight: bold; 
+}
+.tycoon-revenue { 
+    font-size: 0.85em; 
+    color: #27ae60; 
+}
+.tycoon-owned-badge { 
+    position: absolute; 
+    top: 10px; 
+    right: 10px; 
+    background: #27ae60; 
+    color: white; 
+    font-size: 0.7em; 
+    padding: 2px 6px; 
+    border-radius: 10px; 
+    font-weight: bold; 
+}
+.btn-buy { 
+    background-color: #3498db; 
+    color: white; 
+    padding: 8px; 
+    border-radius: 6px; 
+    border: none; 
+    font-weight: bold; 
+    cursor: pointer; 
+    transition: 0.2s; 
+    width: 100%; 
+}
+.btn-buy:disabled { 
+    background-color: #bdc3c7; 
+    cursor: not-allowed; 
+    color: #7f8c8d;
+}
+.btn-buy:hover:not(:disabled) { 
+    background-color: #2980b9; 
+    transform: scale(0.98);
+}
+.tycoon-count { 
+    font-size: 0.8em; 
+    color: #7f8c8d; 
+}

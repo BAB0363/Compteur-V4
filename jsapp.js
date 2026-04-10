@@ -34,6 +34,29 @@ const app = {
     },
 
     // ==========================================
+    // 🏢 VARIABLES DE L'ENTREPRISE (TYCOON)
+    // ==========================================
+    companyCatalog: {
+        buildings: {
+            terrain: { id: 'terrain', name: 'Terrain vague', price: 15000, slots: 3, icon: '🚧' },
+            depot: { id: 'depot', name: 'Dépôt Sécurisé', price: 120000, slots: 10, icon: '🏭' },
+            hub: { id: 'hub', name: 'Hub Logistique', price: 800000, slots: 999, icon: '🏢' } // 999 = illimité
+        },
+        fleet: {
+            vul: { id: 'vul', name: 'VUL d\'occasion', price: 15000, income: 0.50, icon: '🚐' },
+            porteur: { id: 'porteur', name: 'Petit Porteur 19t', price: 45000, income: 1.50, icon: '🚚' },
+            tracteur: { id: 'tracteur', name: 'Tracteur Routier', price: 110000, income: 4.00, icon: '🚛' },
+            frigo: { id: 'frigo', name: 'Ens. Frigorifique', price: 170000, income: 6.00, icon: '❄️' },
+            convoi: { id: 'convoi', name: 'Convoi Exceptionnel', price: 350000, income: 12.00, icon: '⚠️' }
+        }
+    },
+    companyState: {
+        buildings: { terrain: 0, depot: 0, hub: 0 },
+        fleet: { vul: 0, porteur: 0, tracteur: 0, frigo: 0, convoi: 0 },
+        pendingIncome: 0
+    },
+
+    // ==========================================
     // 🏦 VARIABLES DE LA BOURSE DE L'ASPHALTE
     // ==========================================
     bankBalance: 0,
@@ -91,8 +114,18 @@ const app = {
         
         let savedStats = localStorage.getItem('bankStats_' + this.currentUser);
         this.bankStats = savedStats ? JSON.parse(savedStats) : { gains: 0, losses: 0 };
+
+        let savedCompany = localStorage.getItem('companyState_' + this.currentUser);
+        if (savedCompany) {
+            this.companyState = JSON.parse(savedCompany);
+            // S'assurer que pendingIncome est réinitialisé si on relance l'app 
+            this.companyState.pendingIncome = 0; 
+        } else {
+            this.companyState = { buildings: { terrain: 0, depot: 0, hub: 0 }, fleet: { vul: 0, porteur: 0, tracteur: 0, frigo: 0, convoi: 0 }, pendingIncome: 0 };
+        }
         
         this.updateBankUI();
+        this.renderCompanyUI();
     },
 
     saveBank() {
@@ -103,20 +136,127 @@ const app = {
         this.checkBankruptcy();
     },
 
+    saveCompany() {
+        localStorage.setItem('companyState_' + this.currentUser, JSON.stringify(this.companyState));
+        this.renderCompanyUI();
+    },
+
+    getCompanyStats() {
+        let maxSlots = (this.companyState.buildings.terrain * 3) + (this.companyState.buildings.depot * 10) + (this.companyState.buildings.hub * 999);
+        let usedSlots = Object.values(this.companyState.fleet).reduce((a, b) => a + b, 0);
+        let incomePerMin = 0;
+        Object.keys(this.companyState.fleet).forEach(k => {
+            incomePerMin += this.companyState.fleet[k] * this.companyCatalog.fleet[k].income;
+        });
+        // Bonus du Hub Logistique : +10% de rentabilité globale
+        if (this.companyState.buildings.hub > 0) {
+            incomePerMin *= 1.10;
+        }
+        return { maxSlots, usedSlots, incomePerMin };
+    },
+
+    buyCompanyItem(category, id) {
+        let item = this.companyCatalog[category][id];
+        if (!item) return;
+        
+        if (this.bankBalance < item.price) {
+            if(window.ui) window.ui.showToast("❌ Fonds insuffisants pour cet investissement !");
+            return;
+        }
+        
+        if (category === 'fleet') {
+            let stats = this.getCompanyStats();
+            if (stats.usedSlots >= stats.maxSlots) {
+                if(window.ui) window.ui.showToast("🅿️ Plus de place de parking ! Achète des infrastructures d'abord.");
+                return;
+            }
+        }
+
+        if(confirm(`Investir ${item.price.toLocaleString('fr-FR')} € dans : ${item.name} ?`)) {
+            this.addBankTransaction(-item.price, `Achat Actif : ${item.name}`);
+            this.companyState[category][id] = (this.companyState[category][id] || 0) + 1;
+            this.saveCompany();
+            
+            if(window.ui) {
+                window.ui.playGamiSound('cash');
+                window.ui.showToast(`🏢 Achat réussi : ${item.name} !`);
+            }
+        }
+    },
+
+    renderCompanyUI() {
+        let stats = this.getCompanyStats();
+        
+        let elSlotsUsed = document.getElementById('company-slots-used');
+        let elSlotsMax = document.getElementById('company-slots-max');
+        let elRate = document.getElementById('company-rate-display');
+        let elPending = document.getElementById('company-pending-income');
+
+        if(elSlotsUsed) elSlotsUsed.innerText = stats.usedSlots;
+        if(elSlotsMax) elSlotsMax.innerText = stats.maxSlots === 0 ? "0" : (stats.maxSlots >= 999 ? "∞" : stats.maxSlots);
+        if(elRate) elRate.innerText = `Rythme actuel : + ${stats.incomePerMin.toFixed(2)} € / min`;
+        if(elPending) elPending.innerText = this.companyState.pendingIncome.toFixed(2) + ' €';
+
+        let buildList = document.getElementById('company-buildings-list');
+        if(buildList) {
+            buildList.innerHTML = '';
+            Object.keys(this.companyCatalog.buildings).forEach(k => {
+                let item = this.companyCatalog.buildings[k];
+                let count = this.companyState.buildings[k] || 0;
+                let canBuy = this.bankBalance >= item.price;
+                
+                buildList.innerHTML += `
+                    <div class="tycoon-card ${count > 0 ? 'owned' : ''}">
+                        ${count > 0 ? `<div class="tycoon-owned-badge">${count}x</div>` : ''}
+                        <div class="tycoon-title">${item.icon} ${item.name}</div>
+                        <div class="tycoon-revenue">Places : +${item.slots >= 999 ? 'Illimitées' : item.slots}</div>
+                        <div class="tycoon-price">${item.price.toLocaleString('fr-FR')} €</div>
+                        <button class="btn-buy" ${!canBuy ? 'disabled' : ''} onclick="window.app.buyCompanyItem('buildings', '${k}')">Acheter</button>
+                    </div>
+                `;
+            });
+        }
+
+        let fleetList = document.getElementById('company-fleet-list');
+        if(fleetList) {
+            fleetList.innerHTML = '';
+            Object.keys(this.companyCatalog.fleet).forEach(k => {
+                let item = this.companyCatalog.fleet[k];
+                let count = this.companyState.fleet[k] || 0;
+                let canBuy = this.bankBalance >= item.price && stats.usedSlots < stats.maxSlots;
+                let btnTxt = stats.usedSlots >= stats.maxSlots && stats.maxSlots > 0 ? "Parking plein" : "Acheter";
+
+                fleetList.innerHTML += `
+                    <div class="tycoon-card ${count > 0 ? 'owned' : ''}">
+                        ${count > 0 ? `<div class="tycoon-owned-badge">${count}x</div>` : ''}
+                        <div class="tycoon-title">${item.icon} ${item.name}</div>
+                        <div class="tycoon-revenue">Revenu net : +${item.income.toFixed(2)} €/min</div>
+                        <div class="tycoon-price">${item.price.toLocaleString('fr-FR')} €</div>
+                        <button class="btn-buy" ${!canBuy ? 'disabled' : ''} onclick="window.app.buyCompanyItem('fleet', '${k}')">${btnTxt}</button>
+                    </div>
+                `;
+            });
+        }
+    },
+
     resetBankData() {
-        if (confirm(`🚨 ATTENTION SYLVAIN ! Tu vas vider ton compte en banque et effacer tout l'historique financier de ce profil. Es-tu sûr de vouloir déclarer faillite pour repartir de zéro ?`)) {
+        if (confirm(`🚨 ATTENTION SYLVAIN ! Tu vas vider ton compte en banque, ton historique financier ET revendre toute ton entreprise pour zéro euro ! Es-tu sûr de vouloir déclarer faillite ?`)) {
             this.bankBalance = 0;
             this.bankHistory = [];
             this.bankStats = { gains: 0, losses: 0 };
             this.sessionFinance = { gains: 0, losses: 0, carbon: 0 };
             
+            this.companyState = { buildings: { terrain: 0, depot: 0, hub: 0 }, fleet: { vul: 0, porteur: 0, tracteur: 0, frigo: 0, convoi: 0 }, pendingIncome: 0 };
+            
             localStorage.removeItem('bankState_' + this.currentUser);
             localStorage.removeItem('bankHistory_' + this.currentUser);
             localStorage.removeItem('bankStats_' + this.currentUser);
+            localStorage.removeItem('companyState_' + this.currentUser);
             
             this.updateBankUI();
+            this.renderCompanyUI();
             
-            if (window.ui) window.ui.showToast("💸 La Bourse de l'Asphalte a été remise à zéro !");
+            if (window.ui) window.ui.showToast("💸 La Bourse et l'Entreprise ont été remises à zéro !");
         }
     },
 
@@ -140,6 +280,11 @@ const app = {
 
         if (this.bankHistory.length > 50) this.bankHistory.pop();
         this.saveBank();
+        
+        // Rafraichit la vue entreprise (pour débloquer/griser les boutons d'achat)
+        if(window.ui && window.ui.activeTab === 'company') {
+            this.renderCompanyUI();
+        }
     },
 
     updateBankUI() {
@@ -198,6 +343,10 @@ const app = {
             }
             this.addBankTransaction(Math.abs(this.bankBalance), "Saisie Totale (Faillite)"); 
             
+            // On saisit les entreprises aussi !
+            this.companyState = { buildings: { terrain: 0, depot: 0, hub: 0 }, fleet: { vul: 0, porteur: 0, tracteur: 0, frigo: 0, convoi: 0 }, pendingIncome: 0 };
+            this.saveCompany();
+
             if (window.gami) {
                 window.gami.state.level = 1;
                 window.gami.state.xp = 0;
@@ -665,6 +814,7 @@ const app = {
             localStorage.removeItem('bankState_' + this.currentUser);
             localStorage.removeItem('bankHistory_' + this.currentUser);
             localStorage.removeItem('bankStats_' + this.currentUser);
+            localStorage.removeItem('companyState_' + this.currentUser);
             this.usersList = this.usersList.filter(u => u !== this.currentUser);
             localStorage.setItem('usersList', JSON.stringify(this.usersList));
             this.changeUser(this.usersList[0]);
@@ -824,6 +974,24 @@ const app = {
         if(elDist) elDist.innerText = `📍 ${dist.toFixed(2)} km`; 
     },
 
+    // Déclencheur des événements aléatoires de l'entreprise pendant le chrono
+    triggerCompanyRandomEvents() {
+        let stats = this.getCompanyStats();
+        if (stats.usedSlots > 0 && Math.random() < 0.20) { // 20% de chance d'avoir un event
+            if (Math.random() > 0.5) {
+                // Événement Positif (Bonus = 5 minutes de revenus)
+                let bonus = Math.round(stats.incomePerMin * 5); 
+                this.addBankTransaction(bonus, "🏢 Fret exceptionnel (Entreprise)");
+                if(window.ui) { window.ui.showToast(`🏢 Ton entreprise a décroché un fret express : +${bonus} € !`); window.ui.playGamiSound('cash'); }
+            } else {
+                // Événement Négatif (Malus = 3 minutes de revenus perdus)
+                let malus = Math.round(stats.incomePerMin * 3); 
+                this.addBankTransaction(-malus, "🏢 Réparation d'urgence (Entreprise)");
+                if(window.ui) { window.ui.showToast(`⚠️ Crevaison sur un de tes camions d'entreprise ! Frais : -${malus} €`, 'anomaly'); window.ui.playGamiSound('crash'); }
+            }
+        }
+    },
+
     toggleChrono(type) {
         let isTruck = type === 'trucks';
         let isRunning = isTruck ? this.isTruckRunning : this.isCarRunning;
@@ -873,8 +1041,10 @@ const app = {
             
             let interval = setInterval(() => { 
                 let now = Date.now();
+                let elapsed = 0;
+                
                 if(isTruck) {
-                    let elapsed = Math.floor((now - this.truckStartTime) / 1000);
+                    elapsed = Math.floor((now - this.truckStartTime) / 1000);
                     this.truckSeconds = this.truckAccumulatedTime + elapsed; 
                     this.storage.set('truckChronoSec', this.truckSeconds); 
                     
@@ -886,7 +1056,7 @@ const app = {
                         this.lastGlobalTruckTick += add * 1000;
                     }
                 } else {
-                    let elapsed = Math.floor((now - this.carStartTime) / 1000);
+                    elapsed = Math.floor((now - this.carStartTime) / 1000);
                     this.carSeconds = this.carAccumulatedTime + elapsed; 
                     this.storage.set('carChronoSec', this.carSeconds); 
                     
@@ -923,7 +1093,7 @@ const app = {
                         }
                     }
 
-                    // AGIOS SEULEMENT TOUTES LES 10 MINUTES (600 secondes) !
+                    // AGIOS
                     if (elapsed > 0 && elapsed % 600 === 0 && this.bankBalance < 0) {
                         let agios = Math.abs(this.bankBalance) * 0.05;
                         this.addBankTransaction(-agios, "Agios (5%)");
@@ -935,6 +1105,20 @@ const app = {
 
                     this.updateCarbonGauge();
                 }
+
+                // 🏢 GESTION REVENUS ENTREPRISE (Actif pour les deux chronos)
+                let cStats = this.getCompanyStats();
+                if (cStats.incomePerMin > 0) {
+                    this.companyState.pendingIncome += (cStats.incomePerMin / 60); // Ajout d'une fraction par seconde
+                    let displayPending = document.getElementById('company-pending-income');
+                    if (displayPending) displayPending.innerText = this.companyState.pendingIncome.toFixed(2) + ' €';
+                }
+
+                // Événements aléatoires d'entreprise toutes les 5 minutes
+                if (elapsed > 0 && elapsed % 300 === 0) {
+                    this.triggerCompanyRandomEvents();
+                }
+
                 this.updateChronoDisp(type); 
                 this.renderLiveStats(type);
             }, 1000); 
@@ -1027,15 +1211,15 @@ const app = {
                     // LOI DE L'OFFRE ET LA DEMANDE
                     if (isNight) {
                         if (key1 === "Camions" || key1 === "Utilitaires") {
-                            baseVal = Math.round(baseVal * 0.5); // Marché saturé de camions la nuit
+                            baseVal = Math.round(baseVal * 0.5); 
                         } else {
-                            baseVal = Math.round(baseVal * 5); // Le reste est très rare !
+                            baseVal = Math.round(baseVal * 5); 
                         }
                     } else if (isRushHour) {
                         if (key1 === "Voitures" || key1 === "Utilitaires") {
-                            baseVal = Math.round(baseVal * 0.5); // Bouchons, abondance de voitures
+                            baseVal = Math.round(baseVal * 0.5); 
                         } else if (key1 === "Motos" || key1 === "Vélos") {
-                            baseVal = Math.round(baseVal * 2); // Très prisé en interfile dans les bouchons
+                            baseVal = Math.round(baseVal * 2); 
                         }
                     }
 
@@ -1390,6 +1574,20 @@ const app = {
 
         if (isRunning) this.toggleChrono(type); 
         
+        // 🏢 ENCAISSEMENT DES REVENUS DE L'ENTREPRISE A L'ARRET
+        if (this.companyState.pendingIncome > 0) {
+            let earned = Math.round(this.companyState.pendingIncome);
+            if (earned > 0) {
+                this.addBankTransaction(earned, "🏢 Bénéfices de l'Entreprise (Session)");
+                if (window.ui) {
+                    window.ui.playGamiSound('cash');
+                    window.ui.showToast(`🏢 L'entreprise a généré +${earned} € pendant la session !`);
+                }
+            }
+            this.companyState.pendingIncome = 0;
+            this.saveCompany();
+        }
+
         if (seconds === 0 && history.length === 0) { 
             this.resetSessionData(type); 
             return; 
@@ -1473,6 +1671,7 @@ const app = {
             localStorage.removeItem(`bankState_${this.currentUser}`);
             localStorage.removeItem(`bankHistory_${this.currentUser}`);
             localStorage.removeItem(`bankStats_${this.currentUser}`);
+            localStorage.removeItem(`companyState_${this.currentUser}`); // Efface l'entreprise
 
             try {
                 if (typeof tf !== 'undefined') {
@@ -1531,7 +1730,6 @@ const app = {
         let barEtr = document.getElementById('bar-etr'); if(barEtr) { barEtr.style.width = (100 - pctFr) + '%'; barEtr.innerText = grandTotal > 0 ? `🌍 ${100 - pctFr}%` : ''; }
     },
 
-    // 🛠️ MODIFIÉ : Ajout des icônes dans la barre de progression !
     renderCars() {
         const container = document.getElementById('car-container'); if(!container) return;
         container.innerHTML = ''; 
@@ -2721,3 +2919,4 @@ if (document.readyState === 'loading') {
 } else {
     startApp();
 }
+

@@ -4,10 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Compteur Trafic</title>
-    <link rel="manifest" href="manifest.json?v=36">
+    <link rel="manifest" href="manifest.json?v=37">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <link rel="stylesheet" href="style.css?v=36">
-    <link rel="stylesheet" href="gami.css?v=36">
+    <link rel="stylesheet" href="style.css?v=37">
+    <link rel="stylesheet" href="gami.css?v=37">
     
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/bodymovin/5.12.2/lottie.min.js"></script>
@@ -88,6 +88,7 @@
         <button id="tab-trucks" class="active" onclick="window.ui.switchTab('trucks')">🚛 Camions</button>
         <button id="tab-cars" onclick="window.ui.switchTab('cars')">🚗 Véhicules</button>
         <button id="tab-dashboard" onclick="window.ui.switchTab('dashboard')">📈 Tableau de Bord</button>
+        <button id="tab-company" onclick="window.ui.switchTab('company')">🏢 Entreprise</button>
         <button id="tab-settings" onclick="window.ui.switchTab('settings')">⚙️ Paramètres</button>
     </div>
 
@@ -330,6 +331,30 @@
         </div>
     </div>
 
+    <div id="section-company" style="display: none;" class="no-print">
+        <div class="header-dashboard" style="border-left: 4px solid #f1c40f;">
+            <h3 class="header-title">🏢 Mon Empire</h3>
+            <p class="header-desc">Investis tes gains pour construire ta flotte et générer des revenus passifs.</p>
+        </div>
+
+        <div class="km-stats-container" style="border-top: 3px solid #27ae60; text-align: center;">
+            <h4 class="text-success">💸 Revenus en attente (Session active)</h4>
+            <div id="company-pending-income" style="font-size: 2.2em; color: #27ae60; font-weight: bold; margin: 10px 0; text-shadow: 1px 1px 2px rgba(0,0,0,0.1);">0.00 €</div>
+            <p class="header-desc mt-neg5">L'argent sera versé sur ton compte à l'arrêt du chrono !</p>
+            <div id="company-rate-display" style="font-size: 0.9em; font-weight: bold; color: #7f8c8d; margin-top: 10px;">Rythme actuel : + 0.00 € / min</div>
+        </div>
+
+        <div class="km-stats-container">
+            <h4>🏭 Infrastructures (<span id="company-slots-used">0</span> / <span id="company-slots-max">0</span> places)</h4>
+            <div id="company-buildings-list" class="km-stats-grid"></div>
+        </div>
+
+        <div class="km-stats-container">
+            <h4>🚚 Ma Flotte</h4>
+            <div id="company-fleet-list" class="km-stats-grid"></div>
+        </div>
+    </div>
+
     <div id="section-settings" style="display: none;" class="no-print">
         <div class="header-dashboard border-blue">
             <h3 class="header-title">⚙️ Paramètres & Données</h3>
@@ -485,14 +510,14 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
     
-    <script type="module" src="jsml.js?v=36"></script>
-    <script type="module" src="jsgami.js?v=36"></script>
-    <script type="module" src="jsapp.js?v=36"></script>
+    <script type="module" src="jsml.js?v=37"></script>
+    <script type="module" src="jsgami.js?v=37"></script>
+    <script type="module" src="jsapp.js?v=37"></script>
     
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('./sw.js?v=36')
+          navigator.serviceWorker.register('./sw.js?v=37')
             .then(registration => {
               console.log('Service Worker Compteur enregistré !', registration.scope);
             })
