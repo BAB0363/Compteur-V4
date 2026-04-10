@@ -1,5 +1,5 @@
 // sw.js
-const CACHE_NAME = 'compteur-cache-v38'; // 🚀 On passe à la v38 !
+const CACHE_NAME = 'compteur-cache-v39'; // 🚀 On passe à la v39 !
 const urlsToCache = [
   './',
   './index.html',
@@ -25,7 +25,7 @@ self.addEventListener('install', event => {
   self.skipWaiting(); 
   event.waitUntil(
     caches.open(CACHE_NAME).then(cache => {
-        console.log('📦 Mise en cache des fichiers Compteur Trafic v38...');
+        console.log('📦 Mise en cache des fichiers Compteur Trafic v39...');
         return cache.addAll(urlsToCache);
     })
   );
@@ -37,7 +37,7 @@ self.addEventListener('activate', event => {
       return Promise.all(
         cacheNames.map(cacheName => {
           if (cacheName !== CACHE_NAME) {
-            console.log('🧹 Nettoyage de l\\'ancien cache:', cacheName);
+            console.log('🧹 Nettoyage de l\'ancien cache:', cacheName);
             return caches.delete(cacheName);
           }
         })
