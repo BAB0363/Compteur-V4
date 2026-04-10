@@ -1,5 +1,5 @@
 // sw.js
-const CACHE_NAME = 'compteur-cache-v37'; 
+const CACHE_NAME = 'compteur-cache-v38'; // 🚀 On passe à la v38 !
 const urlsToCache = [
   './',
   './index.html',
@@ -10,6 +10,7 @@ const urlsToCache = [
   './jsgps.js',
   './jsml.js',
   './jsgami.js',
+  './jsml-worker.js', // 👨‍🍳 NOUVEAU : Le Web Worker pour l'IA en arrière-plan !
   './manifest.json',
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',
@@ -24,7 +25,7 @@ self.addEventListener('install', event => {
   self.skipWaiting(); 
   event.waitUntil(
     caches.open(CACHE_NAME).then(cache => {
-        console.log('📦 Mise en cache des fichiers Compteur Trafic v37...');
+        console.log('📦 Mise en cache des fichiers Compteur Trafic v38...');
         return cache.addAll(urlsToCache);
     })
   );
@@ -36,14 +37,13 @@ self.addEventListener('activate', event => {
       return Promise.all(
         cacheNames.map(cacheName => {
           if (cacheName !== CACHE_NAME) {
-            console.log('🧹 Nettoyage de l\'ancien cache:', cacheName);
+            console.log('🧹 Nettoyage de l\\'ancien cache:', cacheName);
             return caches.delete(cacheName);
           }
         })
       );
-    })
+    }).then(() => self.clients.claim())
   );
-  self.clients.claim();
 });
 
 self.addEventListener('fetch', event => {

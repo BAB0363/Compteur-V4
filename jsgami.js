@@ -55,9 +55,15 @@ export const gami = {
         }
     },
 
-    saveState() {
-        let user = window.app && window.app.currentUser ? window.app.currentUser : "Default";
-        localStorage.setItem(`gami_state_${user}`, JSON.stringify(this.state));
+    // 🗄️ NOUVEAU : Sauvegarde asynchrone ultra-sécurisée via IndexedDB
+    async saveState() {
+        if (window.app && typeof window.app.saveUserData === 'function') {
+            await window.app.saveUserData();
+        } else {
+            // Sécurité au cas où app n'est pas encore complètement chargé
+            let user = window.app && window.app.currentUser ? window.app.currentUser : "Default";
+            localStorage.setItem(`gami_state_${user}`, JSON.stringify(this.state));
+        }
         try { this.updateUI(); } catch(e) {} 
     },
 

@@ -105,40 +105,68 @@ const app = {
         }
     },
 
-    initBank() {
-        let savedBank = localStorage.getItem('bankState_' + this.currentUser);
-        this.bankBalance = savedBank ? parseFloat(savedBank) : 0;
+    async initBank() {
+        let userData = null;
+        if (this.idb && this.idb.db) {
+            userData = await this.idb.getUserData(this.currentUser);
+        }
         
-        let savedHist = localStorage.getItem('bankHistory_' + this.currentUser);
-        this.bankHistory = savedHist ? JSON.parse(savedHist) : [];
-        
-        let savedStats = localStorage.getItem('bankStats_' + this.currentUser);
-        this.bankStats = savedStats ? JSON.parse(savedStats) : { gains: 0, losses: 0 };
+        let needsMigration = false;
 
-        let savedCompany = localStorage.getItem('companyState_' + this.currentUser);
-        if (savedCompany) {
-            this.companyState = JSON.parse(savedCompany);
-            // S'assurer que pendingIncome est réinitialisé si on relance l'app 
-            this.companyState.pendingIncome = 0; 
+        if (userData) {
+            this.bankBalance = userData.bankBalance || 0;
+            this.bankHistory = userData.bankHistory || [];
+            this.bankStats = userData.bankStats || { gains: 0, losses: 0 };
+            this.companyState = userData.companyState || { buildings: { terrain: 0, depot: 0, hub: 0 }, fleet: { vul: 0, porteur: 0, tracteur: 0, frigo: 0, convoi: 0 }, pendingIncome: 0 };
+            
+            if (window.gami && userData.gamiState) {
+                window.gami.state = userData.gamiState;
+            }
         } else {
             this.companyState = { buildings: { terrain: 0, depot: 0, hub: 0 }, fleet: { vul: 0, porteur: 0, tracteur: 0, frigo: 0, convoi: 0 }, pendingIncome: 0 };
         }
-        
+
+        // Script de migration sécurisé
+        let savedBank = localStorage.getItem('bankState_' + this.currentUser);
+        if (savedBank !== null) {
+            this.bankBalance = parseFloat(savedBank);
+            this.bankHistory = JSON.parse(localStorage.getItem('bankHistory_' + this.currentUser) || "[]");
+            this.bankStats = JSON.parse(localStorage.getItem('bankStats_' + this.currentUser) || '{"gains":0,"losses":0}');
+            
+            let savedComp = localStorage.getItem('companyState_' + this.currentUser);
+            if (savedComp) this.companyState = JSON.parse(savedComp);
+            
+            let savedGami = localStorage.getItem('gami_state_' + this.currentUser);
+            if (savedGami && window.gami) window.gami.state = JSON.parse(savedGami);
+
+            needsMigration = true;
+        }
+
+        if (needsMigration) {
+            await this.saveUserData();
+            localStorage.removeItem('bankState_' + this.currentUser);
+            localStorage.removeItem('bankHistory_' + this.currentUser);
+            localStorage.removeItem('bankStats_' + this.currentUser);
+            localStorage.removeItem('companyState_' + this.currentUser);
+            localStorage.removeItem('gami_state_' + this.currentUser);
+        }
+
+        this.companyState.pendingIncome = 0; 
         this.updateBankUI();
         this.renderCompanyUI();
     },
 
-    saveBank() {
-        localStorage.setItem('bankState_' + this.currentUser, this.bankBalance);
-        localStorage.setItem('bankHistory_' + this.currentUser, JSON.stringify(this.bankHistory));
-        localStorage.setItem('bankStats_' + this.currentUser, JSON.stringify(this.bankStats));
-        this.updateBankUI();
-        this.checkBankruptcy();
-    },
-
-    saveCompany() {
-        localStorage.setItem('companyState_' + this.currentUser, JSON.stringify(this.companyState));
-        this.renderCompanyUI();
+    async saveUserData() {
+        let data = {
+            bankBalance: this.bankBalance,
+            bankHistory: this.bankHistory,
+            bankStats: this.bankStats,
+            companyState: this.companyState,
+            gamiState: window.gami ? window.gami.state : null
+        };
+        if (this.idb && this.idb.db) {
+            await this.idb.saveUserData(this.currentUser, data);
+        }
     },
 
     getCompanyStats() {
@@ -148,7 +176,6 @@ const app = {
         Object.keys(this.companyState.fleet).forEach(k => {
             incomePerMin += this.companyState.fleet[k] * this.companyCatalog.fleet[k].income;
         });
-        // Bonus du Hub Logistique : +10% de rentabilité globale
         if (this.companyState.buildings.hub > 0) {
             incomePerMin *= 1.10;
         }
@@ -175,7 +202,8 @@ const app = {
         if(confirm(`Investir ${item.price.toLocaleString('fr-FR')} € dans : ${item.name} ?`)) {
             this.addBankTransaction(-item.price, `Achat Actif : ${item.name}`);
             this.companyState[category][id] = (this.companyState[category][id] || 0) + 1;
-            this.saveCompany();
+            this.saveUserData();
+            this.renderCompanyUI();
             
             if(window.ui) {
                 window.ui.playGamiSound('cash');
@@ -239,7 +267,7 @@ const app = {
         }
     },
 
-    resetBankData() {
+    async resetBankData() {
         if (confirm(`🚨 ATTENTION SYLVAIN ! Tu vas vider ton compte en banque, ton historique financier ET revendre toute ton entreprise pour zéro euro ! Es-tu sûr de vouloir déclarer faillite ?`)) {
             this.bankBalance = 0;
             this.bankHistory = [];
@@ -248,10 +276,7 @@ const app = {
             
             this.companyState = { buildings: { terrain: 0, depot: 0, hub: 0 }, fleet: { vul: 0, porteur: 0, tracteur: 0, frigo: 0, convoi: 0 }, pendingIncome: 0 };
             
-            localStorage.removeItem('bankState_' + this.currentUser);
-            localStorage.removeItem('bankHistory_' + this.currentUser);
-            localStorage.removeItem('bankStats_' + this.currentUser);
-            localStorage.removeItem('companyState_' + this.currentUser);
+            await this.saveUserData();
             
             this.updateBankUI();
             this.renderCompanyUI();
@@ -279,9 +304,8 @@ const app = {
         });
 
         if (this.bankHistory.length > 50) this.bankHistory.pop();
-        this.saveBank();
+        this.saveUserData(); // Sauvegarde centralisée IndexedDB
         
-        // Rafraichit la vue entreprise (pour débloquer/griser les boutons d'achat)
         if(window.ui && window.ui.activeTab === 'company') {
             this.renderCompanyUI();
         }
@@ -335,7 +359,7 @@ const app = {
         document.getElementById('bank-modal').style.display = 'flex';
     },
 
-    checkBankruptcy() {
+    async checkBankruptcy() {
         if (this.bankBalance <= -10000) {
             if(window.ui) {
                 window.ui.showToast("☠️ LIQUIDATION JUDICIAIRE ! La faillite est prononcée.", "anomaly");
@@ -343,9 +367,8 @@ const app = {
             }
             this.addBankTransaction(Math.abs(this.bankBalance), "Saisie Totale (Faillite)"); 
             
-            // On saisit les entreprises aussi !
             this.companyState = { buildings: { terrain: 0, depot: 0, hub: 0 }, fleet: { vul: 0, porteur: 0, tracteur: 0, frigo: 0, convoi: 0 }, pendingIncome: 0 };
-            this.saveCompany();
+            await this.saveUserData(); // Sauvegarde centralisée
 
             if (window.gami) {
                 window.gami.state.level = 1;
@@ -462,7 +485,7 @@ const app = {
         
         // 💼 TALENT : Négociateur
         if (window.gami && window.gami.state.unlockedTalents.negociateur) {
-            advance = Math.round(advance * 1.20); // +20% d'avance
+            advance = Math.round(advance * 1.20); 
         }
 
         this.pendingSponsor = { type: t, target: target, advance: advance, penalty: advance * 2 };
@@ -575,6 +598,7 @@ const app = {
         if (mode === 'voiture') {
             if (speedKmh <= 50) return "Ville (0-50 km/h)";
             if (speedKmh <= 100) return "Route (50-100 km/h)";
+            // 🏎️ CORRIGÉ : L'autoroute en voiture est bien à > 100 km/h !
             return "Autoroute (>100 km/h)";
         } else {
             if (speedKmh <= 40) return "Ville (0-40 km/h)";
@@ -619,15 +643,34 @@ const app = {
         db: null,
         async init() {
             return new Promise((resolve, reject) => {
-                const req = indexedDB.open("CompteurTraficDB", 1);
+                const req = indexedDB.open("CompteurTraficDB", 2); // 🗄️ V2 avec UserData
                 req.onupgradeneeded = e => {
                     let db = e.target.result;
                     if (!db.objectStoreNames.contains('sessions')) {
                         db.createObjectStore('sessions', { keyPath: 'id' });
                     }
+                    if (!db.objectStoreNames.contains('userData')) {
+                        db.createObjectStore('userData', { keyPath: 'id' });
+                    }
                 };
                 req.onsuccess = e => { this.db = e.target.result; resolve(); };
                 req.onerror = e => reject("Erreur IDB");
+            });
+        },
+        async getUserData(userId) {
+            return new Promise(resolve => {
+                let tx = this.db.transaction('userData', 'readonly');
+                let req = tx.objectStore('userData').get(userId);
+                req.onsuccess = e => resolve(e.target.result);
+                req.onerror = () => resolve(null);
+            });
+        },
+        async saveUserData(userId, data) {
+            return new Promise(resolve => {
+                let tx = this.db.transaction('userData', 'readwrite');
+                data.id = userId; 
+                tx.objectStore('userData').put(data);
+                tx.oncomplete = () => resolve();
             });
         },
         async getAllRaw() {
@@ -841,12 +884,13 @@ const app = {
         if (window.ui) window.ui.showToast(`🔄 Mode changé : ${newMode === 'voiture' ? '🚘 Voiture' : '🚛 Camion'}`);
     },
 
+
     async init(isProfileSwitch = false) {
         if (!isProfileSwitch) { await this.idb.init(); await this.migrateData(); }
         if (window.ml) await window.ml.init();
 
         this.storage.init();
-        this.initBank();
+        await this.initBank();
 
         let userSel = document.getElementById('user-selector');
         if(userSel) {
@@ -932,7 +976,6 @@ const app = {
         
         this.renderDashboard('trucks');
         this.updatePrediction('trucks');
-        this.updatePrediction('cars');
         this.updateCarbonGauge();
 
         if (document.getElementById('truck-stats-view') && document.getElementById('truck-stats-view').style.display !== 'none') this.renderAdvancedStats('trucks');
@@ -974,17 +1017,14 @@ const app = {
         if(elDist) elDist.innerText = `📍 ${dist.toFixed(2)} km`; 
     },
 
-    // Déclencheur des événements aléatoires de l'entreprise pendant le chrono
     triggerCompanyRandomEvents() {
         let stats = this.getCompanyStats();
-        if (stats.usedSlots > 0 && Math.random() < 0.20) { // 20% de chance d'avoir un event
+        if (stats.usedSlots > 0 && Math.random() < 0.20) { 
             if (Math.random() > 0.5) {
-                // Événement Positif (Bonus = 5 minutes de revenus)
                 let bonus = Math.round(stats.incomePerMin * 5); 
                 this.addBankTransaction(bonus, "🏢 Fret exceptionnel (Entreprise)");
                 if(window.ui) { window.ui.showToast(`🏢 Ton entreprise a décroché un fret express : +${bonus} € !`); window.ui.playGamiSound('cash'); }
             } else {
-                // Événement Négatif (Malus = 3 minutes de revenus perdus)
                 let malus = Math.round(stats.incomePerMin * 3); 
                 this.addBankTransaction(-malus, "🏢 Réparation d'urgence (Entreprise)");
                 if(window.ui) { window.ui.showToast(`⚠️ Crevaison sur un de tes camions d'entreprise ! Frais : -${malus} €`, 'anomaly'); window.ui.playGamiSound('crash'); }
@@ -1093,7 +1133,6 @@ const app = {
                         }
                     }
 
-                    // AGIOS
                     if (elapsed > 0 && elapsed % 600 === 0 && this.bankBalance < 0) {
                         let agios = Math.abs(this.bankBalance) * 0.05;
                         this.addBankTransaction(-agios, "Agios (5%)");
@@ -1106,15 +1145,13 @@ const app = {
                     this.updateCarbonGauge();
                 }
 
-                // 🏢 GESTION REVENUS ENTREPRISE (Actif pour les deux chronos)
                 let cStats = this.getCompanyStats();
                 if (cStats.incomePerMin > 0) {
-                    this.companyState.pendingIncome += (cStats.incomePerMin / 60); // Ajout d'une fraction par seconde
+                    this.companyState.pendingIncome += (cStats.incomePerMin / 60); 
                     let displayPending = document.getElementById('company-pending-income');
                     if (displayPending) displayPending.innerText = this.companyState.pendingIncome.toFixed(2) + ' €';
                 }
 
-                // Événements aléatoires d'entreprise toutes les 5 minutes
                 if (elapsed > 0 && elapsed % 300 === 0) {
                     this.triggerCompanyRandomEvents();
                 }
@@ -1194,7 +1231,6 @@ const app = {
                     }
                 }
 
-                // ⚖️ Génération Poids et CO2 Dynamique (Quota calculé sur la moyenne)
                 let specs = this.vehicleSpecs[key1] || { wMin: 1500, wMax: 1500, cMin: 120, cMax: 120 };
                 if (isTruck) specs = this.vehicleSpecs["Camions"]; 
                 
@@ -1208,7 +1244,6 @@ const app = {
                     let isNight = (currentHour >= 21 || currentHour < 6);
                     let isRushHour = (currentHour >= 7 && currentHour < 9) || (currentHour >= 17 && currentHour < 19);
             
-                    // LOI DE L'OFFRE ET LA DEMANDE
                     if (isNight) {
                         if (key1 === "Camions" || key1 === "Utilitaires") {
                             baseVal = Math.round(baseVal * 0.5); 
@@ -1254,7 +1289,6 @@ const app = {
                     }
                     this.lastCountTime = nowTs;
 
-                    // SYSTÈME DE KRACH BOURSIER
                     let consecutive = 0;
                     let justHistory = history.filter(h => !h.isEvent);
                     let lastTs = nowTs;
@@ -1331,6 +1365,13 @@ const app = {
                 if (isTruck) { histItem.brand = key1; histItem.type = key2; }
                 else { histItem.type = key1; }
                 history.push(histItem);
+
+                // 🤖 OPTION B : Déclenchement automatique de l'IA en direct !
+                let justVehiclesCount = history.filter(h => !h.isEvent).length;
+                if (justVehiclesCount > 0 && justVehiclesCount % 50 === 0) {
+                    if(window.ui) window.ui.showToast(`🧠 Palier de ${justVehiclesCount} ! Gégé apprend en direct...`);
+                    if(window.ml) window.ml.trainModel(mode);
+                }
 
                 if (window.ml) {
                     let recentHist = history.filter(h => !h.isEvent);
@@ -1585,7 +1626,7 @@ const app = {
                 }
             }
             this.companyState.pendingIncome = 0;
-            this.saveCompany();
+            await this.saveUserData();
         }
 
         if (seconds === 0 && history.length === 0) { 
@@ -1671,7 +1712,7 @@ const app = {
             localStorage.removeItem(`bankState_${this.currentUser}`);
             localStorage.removeItem(`bankHistory_${this.currentUser}`);
             localStorage.removeItem(`bankStats_${this.currentUser}`);
-            localStorage.removeItem(`companyState_${this.currentUser}`); // Efface l'entreprise
+            localStorage.removeItem(`companyState_${this.currentUser}`); 
 
             try {
                 if (typeof tf !== 'undefined') {
@@ -2618,7 +2659,7 @@ const app = {
                     if (data.globalSummary?.analysesPermanentesVehicules) this.storage.set('globalAnaCars', data.globalSummary.analysesPermanentesVehicules);
                     if (data.globalSummary?.bankBalance) {
                         this.bankBalance = parseFloat(data.globalSummary.bankBalance);
-                        this.saveBank();
+                        await this.saveUserData();
                     }
                     
                     alert("✅ Historique et analyses importés avec succès ! Redémarrage..."); location.reload();
@@ -2919,4 +2960,3 @@ if (document.readyState === 'loading') {
 } else {
     startApp();
 }
-
