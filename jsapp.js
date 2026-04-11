@@ -121,7 +121,7 @@ const app = {
             
             this.companyState = JSON.parse(JSON.stringify(defaultCompany));
             if (userData.companyState) {
-                if (userData.companyState.buildings) this.companyState.buildings = { ...defaultCompany.buildings, ...userData.companyState.buildings };
+                if (userData.companyState.buildings) this.companyState.buildings = { ...defaultCompany.buildings, ...userData.mpanyState.buildings };
                 if (userData.companyState.fleet) this.companyState.fleet = { ...defaultCompany.fleet, ...userData.companyState.fleet };
                 this.companyState.pendingIncome = userData.companyState.pendingIncome || 0;
             }
@@ -2505,6 +2505,53 @@ const app = {
             }
         }
 
+        // 📊 NOUVEAU GRAPHIQUE 24H (Empilé par catégorie)
+        let ctx24h = document.getElementById('dashboard24hChart');
+        if (ctx24h) {
+            if (this.dashboard24hChart) this.dashboard24hChart.destroy();
+            
+            let labels24h = [];
+            for (let i = 0; i < 24; i++) labels24h.push(`${i}h`);
+            
+            let datasets24h = [];
+            let colors24h = ['#3498db', '#e67e22', '#2ecc71', '#9b59b6', '#f1c40f', '#e74c3c', '#1abc9c', '#34495e'];
+            let cIdx = 0;
+            
+            // Trouver les catégories les plus fréquentes pour ne pas surcharger
+            let topCategories = Object.keys(anaData.byVeh).sort((a,b) => {
+                let sumA = Object.values(anaData.byVeh[a].hours).reduce((x,y)=>x+y,0);
+                let sumB = Object.values(anaData.byVeh[b].hours).reduce((x,y)=>x+y,0);
+                return sumB - sumA;
+            }).slice(0, 8);
+
+            topCategories.forEach(veh => {
+                let dataPoint = [];
+                for (let i = 0; i < 24; i++) {
+                    dataPoint.push(anaData.byVeh[veh].hours[`${i}h`] || 0);
+                }
+                datasets24h.push({
+                    label: veh.replace('_fr','🇫🇷').replace('_etr','🇪🇺'),
+                    data: dataPoint,
+                    backgroundColor: colors24h[cIdx % colors24h.length]
+                });
+                cIdx++;
+            });
+
+            this.dashboard24hChart = new Chart(ctx24h, {
+                type: 'bar',
+                data: { labels: labels24h, datasets: datasets24h },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, color: textColor, font: { size: 10 } } } },
+                    scales: {
+                        x: { stacked: true, ticks: { color: textColor } },
+                        y: { stacked: true, ticks: { color: textColor } }
+                    }
+                }
+            });
+        }
+
         let ctxAi = document.getElementById('aiEvolutionChart');
         if (ctxAi) {
             if (this.aiEvolutionChart) this.aiEvolutionChart.destroy();
@@ -2946,10 +2993,11 @@ const app = {
         }
     },
 
-    renderPredictionUI(type, top3, method) {
+        renderPredictionUI(type, top3, method) {
         let elMain = document.getElementById(type === 'trucks' ? 'pred-main-trucks' : 'pred-main-cars');
         let elGauge = document.getElementById(type === 'trucks' ? 'pred-gauge-trucks' : 'pred-gauge-cars');
         let elPodium = document.getElementById(type === 'trucks' ? 'pred-podium-trucks' : 'pred-podium-cars');
+        let elJournal = document.getElementById(type === 'trucks' ? 'pred-journal-trucks' : 'pred-journal-cars'); // NOUVEAU
 
         if (!elMain || !elGauge || !elPodium || !top3 || top3.length === 0) return;
 
@@ -2973,13 +3021,53 @@ const app = {
         }
         elPodium.innerHTML = podiumHtml;
 
-        // 🧠 NOUVEAU : Sauvegarde de la classe ET du niveau de confiance pour calculer les gains x5/x3/x2 !
         if (type === 'trucks') {
             this.currentPredictionTruck = { class: best.candidate, confidence: best.confidence };
         } else {
             this.currentPredictionCar = { class: best.candidate, confidence: best.confidence };
         }
-    },
+
+        // 🧠 NOUVEAU : LE MICRO-JOURNAL GÉGÉ
+        if (elJournal) {
+            let speed = window.gps ? window.gps.getSlidingSpeedKmh() : 0;
+            let hour = new Date().getHours();
+            let isNight = hour < 5 || hour > 22;
+            let hist = type === 'trucks' ? this.truckHistory.filter(h=>!h.isEvent) : this.carHistory.filter(h=>!h.isEvent);
+            
+            let factor1 = "", factor2 = "", factor3 = "";
+
+            if (type === 'cars') {
+                if (speed > 100) factor1 = `🛣️ Autoroute (+40%)`;
+                else if (speed > 50) factor1 = `🚗 Route (+20%)`;
+                else factor1 = `🏙️ Ville (+30%)`;
+
+                if (hist.length >= 2) {
+                    let last1 = hist[0].type ? hist[0].type.substring(0, 3) : '';
+                    let last2 = hist[1].type ? hist[1].type.substring(0, 3) : '';
+                    factor2 = `🔁 Combo [${last2}-${last1}] (+25%)`;
+                } else {
+                    factor2 = `📊 Tendance (+15%)`;
+                }
+
+                if (isNight) factor3 = `🕒 Nuit (+15%)`;
+                else if (hour >= 7 && hour <= 9) factor3 = `🕒 Pointe (+20%)`;
+                else factor3 = `🕒 Jour (+10%)`;
+            } else {
+                factor1 = speed > 80 ? `🛣️ Vitesse Max (+35%)` : `🏙️ Allure réduite (+25%)`;
+                if (hist.length >= 2) {
+                    let l1 = hist[0].brand ? hist[0].brand.split(' ')[0] : 'Camion';
+                    let l2 = hist[1].brand ? hist[1].brand.split(' ')[0] : 'Camion';
+                    factor2 = `🔁 Suivi [${l2}-${l1}] (+30%)`;
+                } else {
+                    factor2 = `📊 Tendance (+20%)`;
+                }
+                factor3 = isNight ? `🕒 Nuit/Fret (+25%)` : `🕒 Jour (+15%)`;
+            }
+
+            elJournal.innerHTML = `🔍 <strong>Logique :</strong> ${factor1} | ${factor2} | ${factor3}`;
+        }
+    }, 
+
 
     async updatePrediction(type) {
         let elMain = document.getElementById(type === 'trucks' ? 'pred-main-trucks' : 'pred-main-cars');

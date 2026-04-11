@@ -4,10 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Compteur Trafic</title>
-    <link rel="manifest" href="manifest.json?v=40">
+    <link rel="manifest" href="manifest.json?v=41">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <link rel="stylesheet" href="style.css?v=40">
-    <link rel="stylesheet" href="gami.css?v=40">
+    <link rel="stylesheet" href="style.css?v=41">
+    <link rel="stylesheet" href="gami.css?v=41">
     
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/bodymovin/5.12.2/lottie.min.js"></script>
@@ -119,9 +119,10 @@
                 <div id="bar-etr"></div>
             </div>
             <div id="prediction-box-trucks" class="prediction-box">
-                <div id="pred-main-trucks" class="pred-main-result">🔮 Prédiction IA : <span class="text-purple">Analyse en cours...</span></div>
+                <div id="pred-main-trucks" class="pred-main-result">🔮 Prédiction : <span class="text-purple">Analyse en cours...</span></div>
                 <div class="pred-gauge-bg"><div id="pred-gauge-trucks" class="pred-gauge-fill"></div></div>
                 <div id="pred-podium-trucks" class="pred-podium"></div>
+                <div id="pred-journal-trucks" class="micro-journal">🔍 Raisonnement : <span class="text-purple">En attente...</span></div>
             </div>
         </div>
         
@@ -196,9 +197,10 @@
             </div>
             
             <div id="prediction-box-cars" class="prediction-box">
-                <div id="pred-main-cars" class="pred-main-result">🔮 Prédiction IA : <span class="text-purple">Analyse en cours...</span></div>
+                <div id="pred-main-cars" class="pred-main-result">🔮 Prédiction : <span class="text-purple">Analyse en cours...</span></div>
                 <div class="pred-gauge-bg"><div id="pred-gauge-cars" class="pred-gauge-fill"></div></div>
                 <div id="pred-podium-cars" class="pred-podium"></div>
+                <div id="pred-journal-cars" class="micro-journal">🔍 Raisonnement : <span class="text-purple">En attente...</span></div>
             </div>
 
             <div id="carbon-gauge-container" class="prediction-box" style="margin-top: 5px; padding: 5px; display: none; border-color: #27ae60;">
@@ -277,6 +279,12 @@
                 <h4 class="text-purple">🧠 Évolution de la Précision IA</h4>
                 <div class="chart-wrapper"><canvas id="aiEvolutionChart"></canvas></div>
                 <p class="chart-desc">Affiche le taux de réussite des prédictions sur les 10 dernières sessions.</p>
+            </div>
+
+            <div class="km-stats-container">
+                <h4>📊 Répartition sur 24 Heures (Type/Marque)</h4>
+                <div class="chart-wrapper"><canvas id="dashboard24hChart"></canvas></div>
+                <p class="chart-desc">Affiche l'intensité du trafic heure par heure par catégorie.</p>
             </div>
 
             <div class="km-stats-container" id="dash-nat-container" style="display: none;">
@@ -514,14 +522,14 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
     
-    <script type="module" src="jsml.js?v=40"></script>
-    <script type="module" src="jsgami.js?v=40"></script>
-    <script type="module" src="jsapp.js?v=40"></script>
+    <script type="module" src="jsml.js?v=41"></script>
+    <script type="module" src="jsgami.js?v=41"></script>
+    <script type="module" src="jsapp.js?v=41"></script>
     
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('./sw.js?v=40')
+          navigator.serviceWorker.register('./sw.js?v=41')
             .then(registration => {
               console.log('Service Worker Compteur enregistré !', registration.scope);
             })
