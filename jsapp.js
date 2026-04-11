@@ -281,7 +281,7 @@ const app = {
             });
         }
 
-        // 🧾 NOUVEAU : Affichage des Tickets de Caisse cliquables
+          // 🧾 NOUVEAU : Affichage des Tickets de Caisse cliquables (Version Détaillée)
         let histContainer = document.getElementById('company-financial-history');
         if (histContainer && this.idb && this.idb.db) {
             let carSessions = await this.idb.getAll('cars');
@@ -296,30 +296,61 @@ const app = {
                 html = '<span style="color:#7f8c8d; font-size:0.9em; padding: 10px; display: block; text-align: center;">Aucun ticket de caisse généré. Fais un trajet ! 🚗💨</span>';
             } else {
                 financialSessions.slice(0, 15).forEach(s => {
-                    let gains = s.sessionFinance.gains || 0;
-                    let losses = s.sessionFinance.losses || 0;
-                    let carb = s.sessionFinance.carbon || 0;
-                    let bal = gains - losses + carb; // Prise en compte de la taxe/bonus carbone dans le solde affiché
+                    let sf = s.sessionFinance || { gains: 0, losses: 0, carbon: 0 };
+                    let gains = sf.gains || 0;
+                    let losses = sf.losses || 0;
+                    let carb = sf.carbon || 0;
+                    let bal = gains - losses + carb; // Prise en compte de la taxe/bonus carbone
                     
                     let color = bal >= 0 ? '#27ae60' : '#e74c3c';
                     let sign = bal > 0 ? '+' : '';
                     
+                    // Construction du détail des véhicules comptés
+                    let htmlDetailVehicules = '';
+                    if (s.summary) {
+                        Object.keys(s.summary).forEach(type => {
+                            let count = s.summary[type];
+                            if (count > 0) {
+                                let icon = type === "Voitures" ? "🚗" : type === "Utilitaires" ? "🚐" : type === "Camions" ? "🚛" : type === "Engins agricoles" ? "🚜" : type === "Bus/Car" ? "🚌" : type === "Camping-cars" ? "🏕️" : type === "Motos" ? "🏍️" : type === "Vélos" ? "🚲" : "🚘";
+                                htmlDetailVehicules += `<div style="display:flex; justify-content: space-between; font-size:0.8em; margin-bottom:2px; color: var(--text-color);">
+                                    <span>${icon} ${type === "Camions" ? "Poids Lourds" : type} (x${count})</span>
+                                </div>`;
+                            }
+                        });
+                    }
+
                     html += `
-                    <div class="tycoon-card clickable" style="cursor:pointer; padding: 10px; border-left: 4px solid ${color};" onclick="window.app.showSessionDetails('cars', '${s.id}')">
-                        <div style="display:flex; justify-content: space-between; margin-bottom: 5px;">
-                            <strong style="font-size:0.9em;">🚗 ${s.date.split(' ')[0]}</strong>
+                    <div class="tycoon-card clickable" style="cursor:pointer; padding: 12px; border-left: 4px solid ${color}; margin-bottom:10px;" onclick="window.app.showSessionDetails('cars', '${s.id}')">
+                        <div style="display:flex; justify-content: space-between; border-bottom: 1px dashed var(--border-color); padding-bottom: 5px; margin-bottom: 8px;">
+                            <strong style="font-size:0.9em;">🧾 SESSION ${s.date.split(' ')[0]}</strong>
                             <strong style="color:${color};">${sign}${bal} €</strong>
                         </div>
-                        <div style="font-size:0.8em; color:#7f8c8d; display:flex; justify-content: space-between;">
-                            <span>📈 +${gains}€ | 📉 -${losses}€</span>
-                            <span>🌿 Carbone: ${carb > 0 ? '+' : ''}${carb}€</span>
+                        
+                        <div style="margin-bottom: 8px;">
+                            <strong style="font-size:0.75em; color:#7f8c8d; display:block; margin-bottom:4px; text-transform:uppercase;">Détail du comptage :</strong>
+                            ${htmlDetailVehicules}
+                        </div>
+
+                        <div style="border-top: 1px solid rgba(0,0,0,0.05); padding-top: 5px; font-size:0.8em;">
+                            <div style="display:flex; justify-content: space-between; margin-bottom:2px;">
+                                <span style="color:#7f8c8d;">📈 Gains & Bonus</span>
+                                <span style="color:#27ae60; font-weight:bold;">+${gains}€</span>
+                            </div>
+                            <div style="display:flex; justify-content: space-between; margin-bottom:2px;">
+                                <span style="color:#7f8c8d;">💸 Péages & Amendes</span>
+                                <span style="color:#e74c3c; font-weight:bold;">-${losses}€</span>
+                            </div>
+                            <div style="display:flex; justify-content: space-between;">
+                                <span style="color:#7f8c8d;">🌿 Bilan Carbone</span>
+                                <span style="color:${carb >= 0 ? '#27ae60' : '#e74c3c'}; font-weight:bold;">${carb > 0 ? '+' : ''}${carb}€</span>
+                            </div>
                         </div>
                     </div>`;
                 });
             }
             histContainer.innerHTML = html;
         }
-    },
+
 
     async resetBankData() {
         if (confirm(`🚨 ATTENTION SYLVAIN ! Tu vas vider ton compte en banque, ton historique financier ET revendre toute ton entreprise pour zéro euro ! Es-tu sûr de vouloir déclarer faillite ?`)) {
