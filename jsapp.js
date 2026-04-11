@@ -350,7 +350,7 @@ const app = {
             }
             histContainer.innerHTML = html;
         }
-
+}, 
 
     async resetBankData() {
         if (confirm(`🚨 ATTENTION SYLVAIN ! Tu vas vider ton compte en banque, ton historique financier ET revendre toute ton entreprise pour zéro euro ! Es-tu sûr de vouloir déclarer faillite ?`)) {
