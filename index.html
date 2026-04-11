@@ -65,7 +65,7 @@
     <div id="lottie-container" class="lottie-fx"></div>
 
     <div class="top-bar-controls no-print">
-        <div style="display: flex; gap: 5px; flex-wrap: wrap;">
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
             <div id="current-profile-display" class="profile-badge">
                 👤 <span id="display-user">Sylvain</span> <span class="badge-separator">|</span> <span id="display-mode">🚗 Voiture</span>
             </div>
@@ -87,9 +87,9 @@
     <div class="main-tabs no-print">
         <button id="tab-trucks" class="active" onclick="window.ui.switchTab('trucks')">🚛 Camions</button>
         <button id="tab-cars" onclick="window.ui.switchTab('cars')">🚗 Véhicules</button>
-        <button id="tab-dashboard" onclick="window.ui.switchTab('dashboard')">📈 Tableau de Bord</button>
-        <button id="tab-company" onclick="window.ui.switchTab('company')">🏢 Entreprise</button>
-        <button id="tab-settings" onclick="window.ui.switchTab('settings')">⚙️ Paramètres</button>
+        <button id="tab-dashboard" onclick="window.ui.switchTab('dashboard')">📈 Stats</button>
+        <button id="tab-company" onclick="window.ui.switchTab('company')">🏢 Empire</button>
+        <button id="tab-settings" onclick="window.ui.switchTab('settings')">⚙️ Config</button>
     </div>
 
     <div class="status-row no-print">
@@ -108,7 +108,7 @@
                     <button id="btn-truck-chrono" class="btn-chrono" onclick="window.app.toggleChrono('trucks')">▶️ Start</button>
                     <button class="btn-chrono-reset" onclick="window.app.stopSession('trucks')">⏹️ Stop</button>
                 </div>
-                <button id="btn-truck-stats" class="btn-stats-toggle" onclick="window.ui.toggleTruckStats()">🗺️ Carte & Actuel</button>
+                <button id="btn-truck-stats" class="btn-stats-toggle" onclick="window.ui.toggleTruckStats()">🗺️ Carte</button>
             </div>
             
             <div class="totals-row">
@@ -152,21 +152,21 @@
     </div>
 
     <div id="section-cars" style="display: none;">
-        <div id="huissier-banner" class="no-print" style="display:none; background: linear-gradient(90deg, #c0392b, #8e44ad); color: white; text-align: center; padding: 8px; font-size: 0.85em; font-weight: bold; margin-bottom: 10px; border-radius: 6px; box-shadow: 0 2px 5px rgba(0,0,0,0.3);">⚖️ MAÎTRE ASPHALTE EST LÀ : Saisie de 80% sur vos gains !</div>
+        <div id="huissier-banner" class="no-print" style="display:none; background: linear-gradient(90deg, #c0392b, #8e44ad); color: white; text-align: center; padding: 10px; font-size: 0.9em; font-weight: bold; margin-bottom: 15px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.3);">⚖️ MAÎTRE ASPHALTE EST LÀ : Saisie de 80% sur vos gains !</div>
         
-        <div id="sponsor-banner" class="sponsor-card no-print" style="padding: 8px; display: flex; flex-direction: column; gap: 5px;">
+        <div id="sponsor-banner" class="sponsor-card no-print">
             <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px;">
-                <div id="sponsor-title" style="font-size: 0.9em; text-align: left;">🤝 Aucun contrat</div>
-                <div id="sponsor-desc" style="font-size: 0.75em; font-weight: normal; text-align: right; margin: 0; line-height: 1.2;">Lance le chrono...</div>
+                <div id="sponsor-title" style="font-size: 1em; text-align: left;">🤝 Aucun contrat</div>
+                <div id="sponsor-desc" style="font-size: 0.85em; font-weight: normal; text-align: right; margin: 0; line-height: 1.3;">Lance le chrono...</div>
             </div>
             
-            <div id="sponsor-offer-actions" style="display: none; gap: 5px; margin-top: 5px;">
-                <button class="btn-sponsor" style="background: #e74c3c; flex: 1; padding: 6px; font-size: 0.9em; margin: 0;" onclick="window.app.refuseSponsorOffer()">Refuser</button>
-                <button class="btn-sponsor" style="background: #27ae60; flex: 1; padding: 6px; font-size: 0.9em; margin: 0;" onclick="window.app.signSponsorContract()">Signer !</button>
+            <div id="sponsor-offer-actions" style="display: none; gap: 10px; margin-top: 10px;">
+                <button class="btn-sponsor" style="background: var(--danger-color); flex: 1; padding: 8px; font-size: 0.95em; margin: 0;" onclick="window.app.refuseSponsorOffer()">Refuser</button>
+                <button class="btn-sponsor" style="background: var(--success-color); flex: 1; padding: 8px; font-size: 0.95em; margin: 0;" onclick="window.app.signSponsorContract()">Signer !</button>
             </div>
 
-            <div id="sponsor-progress" style="display: none; margin-top: 5px; font-size: 0.9em; color: #2ecc71; font-weight: bold; text-align: left;"></div>
-            <button id="btn-validate-sponsor" class="btn-sponsor" style="display: none; background: #27ae60; width: 100%; margin-top: 5px; padding: 8px; font-size: 0.9em;" onclick="window.app.validateSponsorContract()">💰 Valider et Encaisser !</button>
+            <div id="sponsor-progress" style="display: none; margin-top: 10px; font-size: 1em; color: var(--success-color); font-weight: bold; text-align: center;"></div>
+            <button id="btn-validate-sponsor" class="btn-sponsor" style="display: none; background: var(--success-color); width: 100%; margin-top: 10px; padding: 12px; font-size: 1em;" onclick="window.app.validateSponsorContract()">💰 Valider et Encaisser !</button>
         </div>
 
         <div class="header-dashboard">
@@ -179,7 +179,7 @@
                     <button id="btn-car-chrono" class="btn-chrono" onclick="window.app.toggleChrono('cars')">▶️ Start</button>
                     <button class="btn-chrono-reset" onclick="window.app.stopSession('cars')">⏹️ Stop</button>
                 </div>
-                <button id="btn-car-stats" class="btn-stats-toggle" onclick="window.ui.toggleCarStats()">🗺️ Carte & Actuel</button>
+                <button id="btn-car-stats" class="btn-stats-toggle" onclick="window.ui.toggleCarStats()">🗺️ Carte</button>
             </div>
 
             <div class="totals-row">
@@ -203,10 +203,10 @@
                 <div id="pred-journal-cars" class="micro-journal">🔍 Raisonnement : <span class="text-purple">En attente...</span></div>
             </div>
 
-            <div id="carbon-gauge-container" class="prediction-box" style="margin-top: 5px; padding: 5px; display: none; border-color: #27ae60; min-height: auto;">
-                <div style="font-size: 0.85em; font-weight: bold; margin-bottom: 4px; color: var(--text-color);">🌿 Bilan Carbone (Session)</div>
-                <div class="pred-gauge-bg" style="margin-bottom: 2px;"><div id="carbon-gauge-fill" class="pred-gauge-fill" style="background-color: #27ae60; width: 0%;"></div></div>
-                <div id="carbon-gauge-text" style="font-size: 0.75em; color: #7f8c8d;">0 g / 0 g autorisés</div>
+            <div id="carbon-gauge-container" class="prediction-box" style="margin-top: 12px; padding: 12px; display: none; border-color: var(--success-color);">
+                <div style="font-size: 0.9em; font-weight: bold; margin-bottom: 6px; color: var(--text-color);">🌿 Bilan Carbone (Session)</div>
+                <div class="pred-gauge-bg" style="margin-bottom: 4px; height: 8px;"><div id="carbon-gauge-fill" class="pred-gauge-fill" style="width: 0%;"></div></div>
+                <div id="carbon-gauge-text" style="font-size: 0.8em; color: #7f8c8d; font-weight: bold;">0 g / 0 g autorisés</div>
             </div>
 
         </div>
@@ -282,7 +282,7 @@
             </div>
 
             <div class="km-stats-container">
-                <h4>📊 Répartition sur 24 Heures (Type/Marque)</h4>
+                <h4>📊 Répartition sur 24 Heures</h4>
                 <div class="chart-wrapper"><canvas id="dashboard24hChart"></canvas></div>
                 <p class="chart-desc">Affiche l'intensité du trafic heure par heure par catégorie.</p>
             </div>
@@ -319,11 +319,11 @@
         </div>
 
         <div id="dash-env-container" style="display: none;">
-            <div class="km-stats-container" style="border-top: 3px solid #27ae60;">
+            <div class="km-stats-container" style="border-top: 3px solid var(--success-color);">
                 <h4 class="text-success">🌍 Bilan Écologique (Véhicules)</h4>
                 <div class="dash-total-display">Émissions : <span id="dash-env-co2" class="text-danger">0 kg</span></div>
                 <div class="dash-total-display" style="font-size: 1em;">Quota : <span id="dash-env-quota" class="text-success">0 kg</span></div>
-                <div id="dash-env-diff" style="text-align: center; font-weight: bold; margin-top: 10px; font-size: 0.9em;"></div>
+                <div id="dash-env-diff" style="text-align: center; font-weight: bold; margin-top: 10px; font-size: 1em;"></div>
             </div>
 
             <div class="km-stats-container">
@@ -345,11 +345,11 @@
             <p class="header-desc">Investis tes gains pour construire ta flotte et générer des revenus passifs.</p>
         </div>
 
-        <div class="km-stats-container" style="border-top: 3px solid #27ae60; text-align: center;">
+        <div class="km-stats-container" style="border-top: 3px solid var(--success-color); text-align: center;">
             <h4 class="text-success">💸 Revenus en attente (Session active)</h4>
-            <div id="company-pending-income" style="font-size: 2.2em; color: #27ae60; font-weight: bold; margin: 10px 0; text-shadow: 1px 1px 2px rgba(0,0,0,0.1);">0.00 €</div>
+            <div id="company-pending-income" style="font-size: 2.5em; color: var(--success-color); font-weight: bold; margin: 15px 0; text-shadow: 0 4px 10px rgba(40, 167, 69, 0.3);">0.00 €</div>
             <p class="header-desc mt-neg5">L'argent sera versé sur ton compte à l'arrêt du chrono !</p>
-            <div id="company-rate-display" style="font-size: 0.9em; font-weight: bold; color: #7f8c8d; margin-top: 10px;">Rythme actuel : + 0.00 € / min</div>
+            <div id="company-rate-display" style="font-size: 1em; font-weight: bold; color: #7f8c8d; margin-top: 15px;">Rythme actuel : + 0.00 € / min</div>
         </div>
 
         <div class="km-stats-container">
@@ -364,7 +364,7 @@
 
         <div class="km-stats-container">
             <h4>🧾 Historique Financier (Tickets de Caisse)</h4>
-            <div id="company-financial-history" style="display: flex; flex-direction: column; gap: 10px;"></div>
+            <div id="company-financial-history" style="display: flex; flex-direction: column; gap: 12px;"></div>
         </div>
     </div>
 
@@ -376,7 +376,7 @@
 
         <div class="km-stats-container border-purple">
             <h4 class="text-purple">🧠 Intelligence Artificielle</h4>
-            <p class="header-desc mt-neg5">L'IA s'entraîne automatiquement en arrière-plan à chaque session.</p>
+            <p class="header-desc mt-neg5 mb-10">L'IA s'entraîne automatiquement en arrière-plan à chaque session.</p>
             
             <div class="ai-status-row">
                 <span>Modèle Camions :</span>
@@ -388,7 +388,7 @@
             </div>
 
             <button class="share-btn btn-full btn-purple" onclick="window.ml.forceTraining()">
-                🏋️ Forcer l'entraînement de l'IA maintenant
+                🏋️ Forcer l'entraînement de l'IA
             </button>
             <div id="ai-training-progress" class="ai-progress">
                 Entraînement en cours... ⏳
@@ -406,7 +406,7 @@
                 </div>
                 <div class="input-group">
                     <input type="text" id="new-user-input" class="input-styled flex-1" placeholder="Nouvel utilisateur...">
-                    <button class="btn-add-fr btn-small" onclick="window.app.createUser()">Ajouter</button>
+                    <button class="btn-add-fr btn-small" style="color: white; font-weight: bold;" onclick="window.app.createUser()">Ajouter</button>
                 </div>
             </div>
 
@@ -427,8 +427,8 @@
         </div>
 
         <div class="km-stats-container border-red">
-            <h4 class="text-danger">🧨 Gestion Globale des Données</h4>
-            <p class="header-desc mt-neg5">Gère la suppression de l'historique et des statistiques.</p>
+            <h4 class="text-danger">🧨 Gestion Globale</h4>
+            <p class="header-desc mt-neg5 mb-10">Attention, actions irréversibles !</p>
             
             <div class="date-filter-row mb-10">
                 <div class="flex-1">
@@ -442,14 +442,14 @@
             </div>
             
             <div class="danger-buttons-col">
-                <button class="reset-btn btn-full btn-darkred mb-10" style="background-color: #8e44ad;" onclick="window.app.resetBankData()">
-                    💸 Réinitialiser la Bourse (Remise à zéro de l'argent)
+                <button class="reset-btn btn-full mb-10" style="background-color: var(--purple-text);" onclick="window.app.resetBankData()">
+                    💸 Vider la Bourse
                 </button>
                 <button class="reset-btn btn-full btn-orange mb-10" onclick="window.app.deleteSessionsByDateRange()">
-                    🗑️ Supprimer la période sélectionnée
+                    🗑️ Supprimer la période
                 </button>
                 <button class="reset-btn btn-full btn-darkred" onclick="window.app.resetProfileData()">
-                    🚨 Effacer TOUT le profil (Remise à zéro totale)
+                    🚨 Effacer TOUT le profil
                 </button>
             </div>
         </div>
@@ -499,16 +499,16 @@
     <div id="bank-modal" class="modal-overlay" style="display:none;">
         <div class="modal-content">
             <div class="modal-header-row">
-                <h3 class="modal-title" style="color:#27ae60;">🏦 La Bourse de l'Asphalte</h3>
+                <h3 class="modal-title" style="color:var(--success-color);">🏦 La Bourse de l'Asphalte</h3>
                 <button onclick="document.getElementById('bank-modal').style.display='none'" class="btn-close-modal">X</button>
             </div>
             
             <div class="km-stats-grid mb-15">
-                <div class="km-stat-card" style="border-color:#27ae60;">
+                <div class="km-stat-card" style="border-color:var(--success-color);">
                     <span class="km-stat-title">Gains Totaux</span>
                     <span id="bank-total-gains" class="km-stat-value text-success">0 €</span>
                 </div>
-                <div class="km-stat-card" style="border-color:#e74c3c;">
+                <div class="km-stat-card" style="border-color:var(--danger-color);">
                     <span class="km-stat-title">Pertes & Frais</span>
                     <span id="bank-total-losses" class="km-stat-value text-danger">0 €</span>
                 </div>
