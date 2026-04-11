@@ -121,7 +121,7 @@ const app = {
             
             this.companyState = JSON.parse(JSON.stringify(defaultCompany));
             if (userData.companyState) {
-                if (userData.companyState.buildings) this.companyState.buildings = { ...defaultCompany.buildings, ...userData.mpanyState.buildings };
+                if (userData.companyState.buildings) this.companyState.buildings = { ...defaultCompany.buildings, ...userData.companyState.buildings };
                 if (userData.companyState.fleet) this.companyState.fleet = { ...defaultCompany.fleet, ...userData.companyState.fleet };
                 this.companyState.pendingIncome = userData.companyState.pendingIncome || 0;
             }
