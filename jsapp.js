@@ -3027,46 +3027,38 @@ const app = {
             this.currentPredictionCar = { class: best.candidate, confidence: best.confidence };
         }
 
-        // 🧠 NOUVEAU : LE MICRO-JOURNAL GÉGÉ
+                // 🧠 NOUVEAU : LE MICRO-JOURNAL GÉGÉ (Reflet des 10 Neurones)
         if (elJournal) {
-            let speed = window.gps ? window.gps.getSlidingSpeedKmh() : 0;
-            let hour = new Date().getHours();
-            let isNight = hour < 5 || hour > 22;
             let hist = type === 'trucks' ? this.truckHistory.filter(h=>!h.isEvent) : this.carHistory.filter(h=>!h.isEvent);
+            let speed = window.gps ? window.gps.getSlidingSpeedKmh() : 0;
+            let alt = window.gps && window.gps.currentPos && window.gps.currentPos.alt ? window.gps.currentPos.alt : 0;
             
-            let factor1 = "", factor2 = "", factor3 = "";
-
-            if (type === 'cars') {
-                if (speed > 100) factor1 = `🛣️ Autoroute (+40%)`;
-                else if (speed > 50) factor1 = `🚗 Route (+20%)`;
-                else factor1 = `🏙️ Ville (+30%)`;
-
-                if (hist.length >= 2) {
-                    let last1 = hist[0].type ? hist[0].type.substring(0, 3) : '';
-                    let last2 = hist[1].type ? hist[1].type.substring(0, 3) : '';
-                    factor2 = `🔁 Combo [${last2}-${last1}] (+25%)`;
-                } else {
-                    factor2 = `📊 Tendance (+15%)`;
-                }
-
-                if (isNight) factor3 = `🕒 Nuit (+15%)`;
-                else if (hour >= 7 && hour <= 9) factor3 = `🕒 Pointe (+20%)`;
-                else factor3 = `🕒 Jour (+10%)`;
-            } else {
-                factor1 = speed > 80 ? `🛣️ Vitesse Max (+35%)` : `🏙️ Allure réduite (+25%)`;
-                if (hist.length >= 2) {
-                    let l1 = hist[0].brand ? hist[0].brand.split(' ')[0] : 'Camion';
-                    let l2 = hist[1].brand ? hist[1].brand.split(' ')[0] : 'Camion';
-                    factor2 = `🔁 Suivi [${l2}-${l1}] (+30%)`;
-                } else {
-                    factor2 = `📊 Tendance (+20%)`;
-                }
-                factor3 = isNight ? `🕒 Nuit/Fret (+25%)` : `🕒 Jour (+15%)`;
+            // 1. Les Neurones de Séquence (n-1 et n-2 réels)
+            let seqText = "📊 Init.";
+            if (hist.length >= 2) {
+                // On prend vraiment les deux derniers !
+                let l1 = type === 'trucks' ? hist[hist.length-1].brand.split(' ')[0] : (hist[hist.length-1].type === 'Camions' ? 'PL' : hist[hist.length-1].type.substring(0,4));
+                let l2 = type === 'trucks' ? hist[hist.length-2].brand.split(' ')[0] : (hist[hist.length-2].type === 'Camions' ? 'PL' : hist[hist.length-2].type.substring(0,4));
+                seqText = `🔁 [${l2}➡️${l1}]`;
+            } else if (hist.length === 1) {
+                let l1 = type === 'trucks' ? hist[0].brand.split(' ')[0] : (hist[0].type === 'Camions' ? 'PL' : hist[0].type.substring(0,4));
+                seqText = `🔁 [${l1}]`;
             }
 
-            elJournal.innerHTML = `🔍 <strong>Logique :</strong> ${factor1} | ${factor2} | ${factor3}`;
+            // 2. Les Neurones d'Environnement (Vitesse & Altitude)
+            let envText = speed > 80 ? `🛣️ >80km/h` : (speed > 40 ? `🚗 >40km/h` : `🏙️ <40km/h`);
+            if (alt > 400) envText += ` (⛰️ ${Math.round(alt)}m)`;
+
+            // 3. Les Neurones de Tendance (Activité sur les 10 dernières minutes)
+            let tenMinsAgo = Date.now() - 600000;
+            let count10m = hist.filter(item => item.timestamp >= tenMinsAgo).length;
+            let trendText = count10m > 15 ? `🔥 Pic` : (count10m > 5 ? `🌊 Régulier` : `⏳ Calme`);
+
+            // Affichage ultra-compact
+            elJournal.innerHTML = `🔍 <strong>Facteurs IA :</strong> ${seqText} | ${envText} | ${trendText}`;
         }
-    }, 
+
+   }, 
 
 
     async updatePrediction(type) {
