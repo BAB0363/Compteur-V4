@@ -160,7 +160,6 @@ export const ml = {
     },
 
     checkAnomaly(type, vehKey, speedKmh, recentHistory) {
-        // Correction du seuil : 100km/h pour les voitures, 80km/h pour les camions
         let isHighway = type === 'cars' ? speedKmh >= 100 : speedKmh >= 80; 
         
         if (type === 'cars' && isHighway) {
@@ -172,18 +171,6 @@ export const ml = {
             }
         }
 
-        if (recentHistory && recentHistory.length >= 3) {
-            let v1 = type === 'trucks' ? recentHistory[recentHistory.length - 3].brand : recentHistory[recentHistory.length - 3].type;
-            let v2 = type === 'trucks' ? recentHistory[recentHistory.length - 2].brand : recentHistory[recentHistory.length - 2].type;
-            let v3 = vehKey;
-            
-            if (v1 === v2 && v2 === v3) {
-                if (type === 'trucks' || (v1 !== 'Voitures' && v1 !== 'Utilitaires')) {
-                    return { type: 'rare-combo', msg: `🎰 JACKPOT ! 3x ${v1} d'affilée !` };
-                }
-            }
-        }
-        
         return null;
     },
 
@@ -198,7 +185,6 @@ export const ml = {
 
         if(window.ui) window.ui.showToast("🧠 Début de l'entraînement de l'IA (Nouvelle architecture 10 neurones)...");
 
-        // On lance les deux entraînements
         this.trainModel('trucks');
         setTimeout(() => this.trainModel('cars'), 500); 
     },
@@ -223,19 +209,17 @@ export const ml = {
         let prev2 = getPrevIndex(2);
         let prev3 = getPrevIndex(3);
 
-        // NOUVEAU : Tendance sur 10 minutes
         let tenMinsAgo = h.timestamp - 600000;
         let count10m = recentHistory.filter(item => item.timestamp >= tenMinsAgo).length;
-        let tendance = Math.min(count10m / 200.0, 1.0); // Normalisé (max estimé 200 veh / 10min)
+        let tendance = Math.min(count10m / 200.0, 1.0); 
 
-        // NOUVEAU : Rythme par heure
         let rythmeH = 0;
         if (recentHistory.length > 1) {
             let firstTs = recentHistory[0].timestamp;
             let durationSec = (h.timestamp - firstTs) / 1000;
             if (durationSec > 0) rythmeH = (recentHistory.length / (durationSec / 3600));
         }
-        let rythmeNorm = Math.min(rythmeH / 1200.0, 1.0); // Normalisé (max estimé 1200 veh / heure)
+        let rythmeNorm = Math.min(rythmeH / 1200.0, 1.0); 
 
         return [hour, dayOfWeek, speed, alt, road, prev1, prev2, prev3, rythmeNorm, tendance];
     },
@@ -266,7 +250,7 @@ export const ml = {
             let labelIndex = labelsList.indexOf(labelText);
             
             if (labelIndex !== -1 && h.timestamp) {
-                let pastHistory = allItems.slice(Math.max(0, i - 15), i); // On prend plus d'historique pour calculer les rythmes
+                let pastHistory = allItems.slice(Math.max(0, i - 15), i); 
                 features.push(this.extractFeatures(h, pastHistory, labelsList, type));
                 labels.push(labelIndex);
             }

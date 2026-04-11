@@ -227,7 +227,7 @@ const app = {
         }
     },
 
-    renderCompanyUI() {
+    async renderCompanyUI() {
         let stats = this.getCompanyStats();
         
         let elSlotsUsed = document.getElementById('company-slots-used');
@@ -280,6 +280,45 @@ const app = {
                 `;
             });
         }
+
+        // 🧾 NOUVEAU : Affichage des Tickets de Caisse cliquables
+        let histContainer = document.getElementById('company-financial-history');
+        if (histContainer && this.idb && this.idb.db) {
+            let carSessions = await this.idb.getAll('cars');
+            // On trie par ID (qui est un timestamp) du plus récent au plus ancien
+            carSessions.sort((a,b) => b.id - a.id);
+            
+            let html = '';
+            // On ne garde que les sessions qui ont eu un impact financier
+            let financialSessions = carSessions.filter(s => s.sessionFinance && (s.sessionFinance.gains > 0 || s.sessionFinance.losses > 0 || s.sessionFinance.carbon !== 0));
+
+            if(financialSessions.length === 0) {
+                html = '<span style="color:#7f8c8d; font-size:0.9em; padding: 10px; display: block; text-align: center;">Aucun ticket de caisse généré. Fais un trajet ! 🚗💨</span>';
+            } else {
+                financialSessions.slice(0, 15).forEach(s => {
+                    let gains = s.sessionFinance.gains || 0;
+                    let losses = s.sessionFinance.losses || 0;
+                    let carb = s.sessionFinance.carbon || 0;
+                    let bal = gains - losses + carb; // Prise en compte de la taxe/bonus carbone dans le solde affiché
+                    
+                    let color = bal >= 0 ? '#27ae60' : '#e74c3c';
+                    let sign = bal > 0 ? '+' : '';
+                    
+                    html += `
+                    <div class="tycoon-card clickable" style="cursor:pointer; padding: 10px; border-left: 4px solid ${color};" onclick="window.app.showSessionDetails('cars', '${s.id}')">
+                        <div style="display:flex; justify-content: space-between; margin-bottom: 5px;">
+                            <strong style="font-size:0.9em;">🚗 ${s.date.split(' ')[0]}</strong>
+                            <strong style="color:${color};">${sign}${bal} €</strong>
+                        </div>
+                        <div style="font-size:0.8em; color:#7f8c8d; display:flex; justify-content: space-between;">
+                            <span>📈 +${gains}€ | 📉 -${losses}€</span>
+                            <span>🌿 Carbone: ${carb > 0 ? '+' : ''}${carb}€</span>
+                        </div>
+                    </div>`;
+                });
+            }
+            histContainer.innerHTML = html;
+        }
     },
 
     async resetBankData() {
@@ -320,6 +359,7 @@ const app = {
 
         if (this.bankHistory.length > 50) this.bankHistory.pop();
         this.saveUserData(); // Sauvegarde centralisée IndexedDB
+        this.updateBankUI(); // ⚡ NOUVEAU : Actualisation instantanée en haut de l'écran !
         
         if(window.ui && window.ui.activeTab === 'company') {
             this.renderCompanyUI();
@@ -424,6 +464,7 @@ const app = {
         let items = this.carHistory.filter(h => !h.isEvent);
         let totalRealCo2 = 0;
         let quota = 0;
+        let bikeBonus = 0; // 🚲 NOUVEAU : On prépare le conteneur du bonus
         
         items.forEach(item => {
             let distVehicule = Math.max(0.1, this.liveCarDistance - (item.distAtSighting || 0));
@@ -431,7 +472,12 @@ const app = {
             let co2 = item.co2 !== undefined ? item.co2 : categoryAverage;
             totalRealCo2 += co2 * distVehicule;
             quota += categoryAverage * distVehicule; 
+            
+            // 🚲 NOUVEAU : Si c'est un vélo avec un bonus, on le cumule
+            if (item.type === "Vélos" && item.bikeBonus) bikeBonus += item.bikeBonus;
         });
+        
+        quota += bikeBonus; // 🚲 NOUVEAU : On grossit le quota autorisé avec les vélos !
         
         let pct = quota > 0 ? (totalRealCo2 / quota) * 100 : 0;
         let visualPct = pct > 100 ? 100 : pct; 
@@ -463,6 +509,7 @@ const app = {
 
         let totalRealCo2 = 0;
         let quota = 0;
+        let bikeBonus = 0; // 🚲 NOUVEAU
 
         items.forEach(item => {
             let distVehicule = Math.max(0.1, this.liveCarDistance - (item.distAtSighting || 0));
@@ -470,8 +517,13 @@ const app = {
             let co2 = item.co2 !== undefined ? item.co2 : categoryAverage;
             totalRealCo2 += co2 * distVehicule;
             quota += categoryAverage * distVehicule;
+            
+            // 🚲 NOUVEAU
+            if (item.type === "Vélos" && item.bikeBonus) bikeBonus += item.bikeBonus;
         });
 
+        quota += bikeBonus; // 🚲 NOUVEAU : Intégration du bonus dans le calcul final
+        
         let diff = quota - totalRealCo2; 
         let euros = Math.round(diff / 100); 
 
@@ -656,12 +708,13 @@ const app = {
     activeDashboardType: 'trucks',
     currentPredictionTruck: null, 
     currentPredictionCar: null,
+    predictionIntervals: { trucks: null, cars: null }, // ⏱️ NOUVEAU : Minuteurs pour l'IA
 
     idb: {
         db: null,
         async init() {
             return new Promise((resolve, reject) => {
-                const req = indexedDB.open("CompteurTraficDB", 2); // 🗄️ V2 avec UserData
+                const req = indexedDB.open("CompteurTraficDB", 2); 
                 req.onupgradeneeded = e => {
                     let db = e.target.result;
                     if (!db.objectStoreNames.contains('sessions')) {
@@ -992,7 +1045,11 @@ const app = {
         this.renderLiveStats('trucks'); this.renderLiveStats('cars');
         
         this.renderDashboard('trucks');
+        
+        // 🚗 NOUVEAU : Prédiction IA pour les 2 onglets au démarrage !
         this.updatePrediction('trucks');
+        this.updatePrediction('cars'); 
+        
         this.updateCarbonGauge();
 
         if (document.getElementById('truck-stats-view') && document.getElementById('truck-stats-view').style.display !== 'none') this.renderAdvancedStats('trucks');
@@ -1179,6 +1236,12 @@ const app = {
             
             if(isTruck) this.truckInterval = interval; else this.carInterval = interval;
             
+            // ⏱️🤖 NOUVEAU : Auto-Update IA toutes les 8 secondes pendant la conduite
+            if (this.predictionIntervals[type]) clearInterval(this.predictionIntervals[type]);
+            this.predictionIntervals[type] = setInterval(() => {
+                this.updatePrediction(type);
+            }, 8000);
+            
         } else { 
             btn.innerText = "▶️ Start"; btn.classList.remove('running'); 
             if(isTruck) {
@@ -1198,6 +1261,11 @@ const app = {
                 this.storage.set('carAccumulatedTime', this.carAccumulatedTime);
                 this.globalAnaCars.lastVehicles = []; 
                 this.storage.set('globalAnaCars', this.globalAnaCars);
+            }
+            
+            // ⏱️🤖 NOUVEAU : Arrêt de l'Auto-Update IA en cas de pause
+            if (this.predictionIntervals && this.predictionIntervals[type]) {
+                clearInterval(this.predictionIntervals[type]);
             }
         }
     },
@@ -1231,6 +1299,8 @@ const app = {
                 if (window.gami) window.gami.notifyVehicleAdded(key1, key2);
 
                 let isExact = false;
+                let gegeMultiplier = 1; // 🧠 NOUVEAU : Multiplicateur IA
+
                 if (currPred && currPred.class) {
                     ana.predictions.total++; sessionPreds.total++;
                     let actualClass = isTruck ? `${key1}_${key2}` : key1;
@@ -1241,11 +1311,30 @@ const app = {
                     ana.predictionsByClass[currPred.class].total++;
 
                     isExact = (currPred.class === actualClass);
+                    
+                    // 🎯 SYSTÈME DE CONFIANCE GÉGÉ
+                    let conf = currPred.confidence || 50; 
+
                     if (isExact) {
                         ana.predictions.success++; sessionPreds.success++;
                         ana.predictionsByClass[currPred.class].success++;
-                        if(window.ui) window.ui.showToast("🔮 Prédiction exacte !");
+                        
+                        if (conf < 40) gegeMultiplier = 5;      // Jauge Rouge
+                        else if (conf <= 70) gegeMultiplier = 3; // Jauge Orange
+                        else gegeMultiplier = 2;                 // Jauge Verte
+                        
+                        if(window.ui) window.ui.showToast(`🎯 Prédiction exacte (${conf}%) ! Gains x${gegeMultiplier} !`, 'success');
+                    } else {
+                        // 📉 MALUS INATTENTION (si IA était sûre > 70%)
+                        if (conf > 70) {
+                            this.addBankTransaction(-20, "Malus Gégé : Inattention");
+                            if(window.ui) window.ui.showToast(`📉 Inattention ! Gégé était sûr (${conf}%), Amende : -20 € !`, 'anomaly');
+                        }
                     }
+                    
+                    // Reset prédiction pour éviter la triche
+                    if (isTruck) this.currentPredictionTruck = null;
+                    else this.currentPredictionCar = null;
                 }
 
                 let specs = this.vehicleSpecs[key1] || { wMin: 1500, wMax: 1500, cMin: 120, cMax: 120 };
@@ -1254,9 +1343,19 @@ const app = {
                 let randWeight = Math.floor(Math.random() * (specs.wMax - specs.wMin + 1)) + specs.wMin;
                 let co2Ratio = specs.wMax === specs.wMin ? 0 : (randWeight - specs.wMin) / (specs.wMax - specs.wMin);
                 let randCo2 = Math.round(specs.cMin + co2Ratio * (specs.cMax - specs.cMin));
+                
+                let bikeBonus = 0; // 🚲 NOUVEAU
 
                 if (!isTruck) {
                     let baseVal = this.bankValues[key1] || 1;
+                    
+                    // 🚲 NOUVEAU : Calcul du bonus carbone pour les Vélos
+                    if (key1 === "Vélos") {
+                        bikeBonus = Math.floor(Math.random() * 1751); // Entre 0 et 1750g
+                        randCo2 = 0; // Force le CO2 du vélo à 0
+                        if(window.ui) window.ui.showToast(`🚲 Bonus Écolo : +${bikeBonus}g au quota !`, 'success');
+                    }
+
                     let currentHour = new Date().getHours();
                     let isNight = (currentHour >= 21 || currentHour < 6);
                     let isRushHour = (currentHour >= 7 && currentHour < 9) || (currentHour >= 17 && currentHour < 19);
@@ -1325,7 +1424,9 @@ const app = {
                     let threshold = isHighway ? 10 : 4; 
 
                     if (isExact) {
-                        baseVal *= 3;
+                        // 🧠 NOUVEAU : Application du multiplicateur de Gégé (x5, x3, x2)
+                        baseVal *= gegeMultiplier;
+                        
                         if (window.gami && window.gami.state.unlockedTalents && window.gami.state.unlockedTalents.oeilDeLynx) {
                             baseVal = Math.round(baseVal * 1.10);
                             if(window.ui) window.ui.showToast(`👁️ Talent Œil de Lynx : Bonus de prédiction boosté !`);
@@ -1347,7 +1448,7 @@ const app = {
                         baseVal = Math.round(baseVal * 0.2); 
                     }
 
-                    this.addBankTransaction(baseVal, `Comptage ${key1}`);
+                    this.addBankTransaction(baseVal, `Comptage ${key1}${isExact ? ' (x' + gegeMultiplier + ' IA)' : ''}`);
                     this.showMoneyParticle(e, baseVal);
                     if (baseVal > 0 && window.ui && consecutive < threshold) window.ui.playGamiSound('cash');
 
@@ -1376,7 +1477,8 @@ const app = {
                     timestamp: nowTs,
                     distAtSighting: isTruck ? this.liveTruckDistance : this.liveCarDistance,
                     weight: randWeight, 
-                    co2: randCo2        
+                    co2: randCo2,
+                    bikeBonus: bikeBonus // 🚲 NOUVEAU : Sauvegarde du bonus vélo
                 };
                 
                 if (isTruck) { histItem.brand = key1; histItem.type = key2; }
@@ -1396,9 +1498,8 @@ const app = {
                         window.ui.showToast(anomaly.msg, anomaly.type);
                         if (anomaly.type === 'anomaly') {
                             window.ui.triggerHapticFeedback('error');
+                            // 🛑 SUPPRESSION AMENDE IA 100€ : on ne garde que l'alarme visuelle et sonore
                             if (!isTruck) {
-                                this.addBankTransaction(-100, "Amende IA (Anomalie de comptage)");
-                                this.showMoneyParticle(e, -100);
                                 window.ui.playGamiSound('siren');
                             }
                         }
@@ -2841,10 +2942,11 @@ const app = {
         }
         elPodium.innerHTML = podiumHtml;
 
+        // 🧠 NOUVEAU : Sauvegarde de la classe ET du niveau de confiance pour calculer les gains x5/x3/x2 !
         if (type === 'trucks') {
-            this.currentPredictionTruck = { class: best.candidate };
+            this.currentPredictionTruck = { class: best.candidate, confidence: best.confidence };
         } else {
-            this.currentPredictionCar = { class: best.candidate };
+            this.currentPredictionCar = { class: best.candidate, confidence: best.confidence };
         }
     },
 

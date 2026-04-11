@@ -1,5 +1,5 @@
 // sw.js
-const CACHE_NAME = 'compteur-cache-v39'; // 🚀 On passe à la v39 !
+const CACHE_NAME = 'compteur-cache-v40'; // 🚀 On passe à la v40 !
 const urlsToCache = [
   './',
   './index.html',
@@ -10,7 +10,7 @@ const urlsToCache = [
   './jsgps.js',
   './jsml.js',
   './jsgami.js',
-  './jsml-worker.js', // 👨‍🍳 NOUVEAU : Le Web Worker pour l'IA en arrière-plan !
+  './jsml-worker.js', 
   './manifest.json',
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',
@@ -25,7 +25,7 @@ self.addEventListener('install', event => {
   self.skipWaiting(); 
   event.waitUntil(
     caches.open(CACHE_NAME).then(cache => {
-        console.log('📦 Mise en cache des fichiers Compteur Trafic v39...');
+        console.log('📦 Mise en cache des fichiers Compteur Trafic v40...');
         return cache.addAll(urlsToCache);
     })
   );
