@@ -215,39 +215,30 @@ body.dark-mode .prediction-box {
 #bar-velos { background-color: var(--danger-color); }
 
 .status-row { display: flex; justify-content: space-between; font-size: 0.8em; color: #7f8c8d; margin-bottom: 15px; background: var(--card-bg); padding: 8px 12px; border-radius: 8px; box-shadow: var(--shadow); border: var(--glass-border); backdrop-filter: var(--glass-blur); font-weight: bold;}
-#truck-container, #car-container { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 25px; }
 
-/* Les Cartes Véhicules (Plus grosses, plus lisibles) */
-.brand-card, .vehicle-card { 
-    background: var(--card-bg); padding: 12px; border-radius: 16px; 
-    box-shadow: var(--shadow); border: var(--glass-border);
-    display: flex; flex-direction: column; justify-content: space-between; 
-    backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
-    transition: transform 0.2s ease;
-}
-.brand-card:active, .vehicle-card:active { transform: scale(0.98); }
-.brand-name, .vehicle-name { text-align: center; font-weight: bold; margin-bottom: 10px; font-size: 1.05em; color: var(--text-color);}
-.counter-section, .vehicle-controls { display: flex; align-items: center; justify-content: space-between; background-color: transparent; padding: 0; margin-bottom: 6px;}
-.flag { font-size: 1.3em; }
-.score, .vehicle-score { font-size: 1.4em; font-weight: bold; width: 35px; text-align: center; color: var(--secondary-color); text-shadow: 0 0 5px rgba(0, 242, 255, 0.2); }
+/* ICI LES NOUVELLES MODIFS COMPACTES */
+#truck-container, #car-container { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-bottom: 10px; }
+
+/* Cartes Ultra-Compactes */
+.brand-card, .vehicle-card { background: var(--card-bg); padding: 4px; border-radius: 6px; box-shadow: 0 1px 2px var(--shadow); display: flex; flex-direction: column; justify-content: space-between; transition: 0.3s; border: var(--glass-border); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);}
+.brand-name, .vehicle-name { text-align: center; font-weight: bold; margin-bottom: 2px; font-size: 0.85em; color: var(--text-color); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
+.counter-section, .vehicle-controls { display: flex; align-items: center; justify-content: space-between; background-color: var(--bg-color); padding: 2px 4px; border-radius: 4px; margin-bottom: 2px;}
+.flag { font-size: 0.9em; }
+.score, .vehicle-score { font-size: 1em; font-weight: bold; width: 22px; text-align: center; color: var(--secondary-color); text-shadow: 0 0 5px rgba(0, 242, 255, 0.2); }
 
 /* ==========================================
-   Boutons Spécifiques (GIGANTESQUES)
+   Boutons Spécifiques (Mode Cockpit)
    ========================================== */
-button { border: none; cursor: pointer; font-family: inherit; }
-.btn-add, .btn-corr { 
-    width: 48px; height: 48px; border-radius: 14px; font-size: 1.6em; 
-    display: flex; align-items: center; justify-content: center; color: white; 
-    box-shadow: 0 4px 10px rgba(0,0,0,0.2); font-weight: bold;
-    transition: transform 0.1s, box-shadow 0.1s; border: 1px solid rgba(255,255,255,0.1);
-}
-.btn-add:active, .btn-corr:active { transform: scale(0.92); box-shadow: inset 2px 2px 6px rgba(0,0,0,0.4); }
+button { border: none; border-radius: 4px; cursor: pointer; font-weight: bold; transition: transform 0.1s; font-family: inherit;}
+button:active { transform: scale(0.95); }
+.btn-add, .btn-corr { width: 34px; height: 26px; font-size: 1.1em; display: flex; align-items: center; justify-content: center; color: white; line-height: 1; border: 1px solid rgba(255,255,255,0.1); }
+/* FIN DES MODIFS COMPACTES */
 
 .btn-add-fr { background-color: #0056B3; } /* Bleu profond */
 body.dark-mode .btn-add-fr { background-color: #0088cc; } 
 .btn-add-etr { background-color: #D35400; } /* Orange profond */
 body.dark-mode .btn-add-etr { background-color: #e67e22; }
-.btn-corr { background-color: #C0392B; font-size: 1.4em; }
+.btn-corr { background-color: #C0392B; }
 
 .actions-container { display: flex; justify-content: space-between; padding-bottom: 10px; gap: 8px; flex-wrap: wrap; }
 .share-btn, .reset-btn { padding: 14px 8px; font-size: 1em; color: white; border-radius: 12px; flex: 1; min-width: 30%; cursor: pointer; font-weight: bold; box-shadow: 0 4px 10px rgba(0,0,0,0.2);}
