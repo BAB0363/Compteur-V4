@@ -1,6 +1,7 @@
-import  { ui } from './jsui.js';
-import { gps } from './jsgps.js';
-import { ml } from './jsml.js';
+import { ui } from './jsui.js?v=44';
+import { gps } from './jsgps.js?v=44';
+import { ml } from './jsml.js?v=44';
+
 
 window.ui = ui; window.gps = gps; window.ml = ml;
 
