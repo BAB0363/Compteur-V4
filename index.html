@@ -4,10 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Compteur Trafic</title>
-    <link rel="manifest" href="manifest.json?v=43">
+    <link rel="manifest" href="manifest.json?v=44">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <link rel="stylesheet" href="style.css?v=43">
-    <link rel="stylesheet" href="gami.css?v=43">
+    <link rel="stylesheet" href="style.css?v=44">
+    <link rel="stylesheet" href="gami.css?v=44">
     
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/bodymovin/5.12.2/lottie.min.js"></script>
@@ -418,6 +418,14 @@
                 </select>
             </div>
         </div>
+        
+        <div class="km-stats-container border-blue">
+            <h4 class="text-blue">📖 Le Guide du Routier</h4>
+            <p class="header-desc mt-neg5 mb-10">L'encyclopédie des règles de Gégé.</p>
+            <button class="share-btn btn-full mb-10" style="background-color: var(--secondary-color);" onclick="window.ui.openGuideModal()">
+                📖 Consulter les Bonus & Malus
+            </button>
+        </div>
 
         <div class="km-stats-container">
             <h4>💾 Export / Import</h4>
@@ -519,17 +527,68 @@
         </div>
     </div>
 
+    <div id="guide-modal" class="modal-overlay" style="display:none;">
+        <div class="modal-content">
+            <div class="modal-header-row">
+                <h3 class="modal-title" style="color:var(--secondary-color);">📖 Guide des Bonus & Malus</h3>
+                <button onclick="document.getElementById('guide-modal').style.display='none'" class="btn-close-modal">X</button>
+            </div>
+            
+            <div class="modal-scroll-area" style="max-height: 65vh; padding: 10px 0;">
+                <h4 class="modal-section-title" style="color:var(--success-color); margin-top: 0;">🟢 Succès & Bonus</h4>
+                
+                <div class="session-detail-row"><span class="session-detail-label">🪶 Prime Poids Plume</span><span class="session-detail-value text-success">+30 €</span></div>
+                <div style="font-size: 0.8em; color: #7f8c8d; margin-bottom: 10px;">4 véhicules consécutifs de moins de 500 kg.</div>
+                
+                <div class="session-detail-row"><span class="session-detail-label">🌊 Prime de Régularité</span><span class="session-detail-value text-success">+100 €</span></div>
+                <div style="font-size: 0.8em; color: #7f8c8d; margin-bottom: 10px;">10 véhicules espacés parfaitement entre 5 et 30 secondes.</div>
+                
+                <div class="session-detail-row"><span class="session-detail-label">🌈 Combo Arc-en-ciel</span><span class="session-detail-value text-success">+200 €</span></div>
+                <div style="font-size: 0.8em; color: #7f8c8d; margin-bottom: 10px;">Enchaîner 5 catégories de véhicules différentes.</div>
+                
+                <div class="session-detail-row"><span class="session-detail-label">🚛 Convoi Exceptionnel</span><span class="session-detail-value text-success">+50 €</span></div>
+                <div style="font-size: 0.8em; color: #7f8c8d; margin-bottom: 10px;">3 camions validés en moins de 15 secondes.</div>
+                
+                <div class="session-detail-row"><span class="session-detail-label">🌅 Prime de l'Aube</span><span class="session-detail-value text-success">Gains x2</span></div>
+                <div style="font-size: 0.8em; color: #7f8c8d; margin-bottom: 10px;">Tous les gains sont doublés entre 5h et 7h du matin.</div>
+                
+                <div class="session-detail-row"><span class="session-detail-label">⛰️ Bonus d'Altitude</span><span class="session-detail-value text-success">+10%</span></div>
+                <div style="font-size: 0.8em; color: #7f8c8d; margin-bottom: 10px;">Majoration sur chaque véhicule compté au-dessus de 800m d'altitude.</div>
+                
+                <div class="session-detail-row"><span class="session-detail-label">🏢 Publicité Tycoon</span><span class="session-detail-value text-success">+5% / camion</span></div>
+                <div style="font-size: 0.8em; color: #7f8c8d; margin-bottom: 10px;">Revenus passifs augmentés selon le nombre de camions dans ta flotte.</div>
+
+                <h4 class="modal-section-title" style="color:var(--danger-color); margin-top: 20px;">🔴 Taxes & Malus</h4>
+                
+                <div class="session-detail-row"><span class="session-detail-label">🚧 T.U.R. (Usure des Routes)</span><span class="session-detail-value text-danger">-50 €</span></div>
+                <div style="font-size: 0.8em; color: #7f8c8d; margin-bottom: 10px;">Prélevée tous les 100 tonnes de charge cumulée.</div>
+                
+                <div class="session-detail-row"><span class="session-detail-label">📉 Congestion du Marché</span><span class="session-detail-value text-danger">Frais</span></div>
+                <div style="font-size: 0.8em; color: #7f8c8d; margin-bottom: 10px;">Trop de véhicules identiques à la suite saturent le marché et coûtent de l'argent.</div>
+                
+                <div class="session-detail-row"><span class="session-detail-label">💸 Péages</span><span class="session-detail-value text-danger">Variable</span></div>
+                <div style="font-size: 0.8em; color: #7f8c8d; margin-bottom: 10px;">Frais réguliers en conduisant, plus chers en heure de pointe.</div>
+                
+                <div class="session-detail-row"><span class="session-detail-label">🏦 Agios</span><span class="session-detail-value text-danger">5%</span></div>
+                <div style="font-size: 0.8em; color: #7f8c8d; margin-bottom: 10px;">Prélevés sur ton découvert si ton solde est négatif.</div>
+                
+                <div class="session-detail-row"><span class="session-detail-label">📉 Malus Gégé (Inattention)</span><span class="session-detail-value text-danger">-20 €</span></div>
+                <div style="font-size: 0.8em; color: #7f8c8d; margin-bottom: 10px;">Si l'IA était sûre d'elle (>70%) mais que tu as contredit sa prédiction.</div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
     
-    <script type="module" src="jsml.js?v=43"></script>
-    <script type="module" src="jsgami.js?v=43"></script>
-    <script type="module" src="jsapp.js?v=43"></script>
+    <script type="module" src="jsml.js?v=44"></script>
+    <script type="module" src="jsgami.js?v=44"></script>
+    <script type="module" src="jsapp.js?v=44"></script>
     
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('./sw.js?v=43')
+          navigator.serviceWorker.register('./sw.js?v=44')
             .then(registration => {
               console.log('Service Worker Compteur enregistré !', registration.scope);
             })

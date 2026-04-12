@@ -205,7 +205,6 @@ export const ui = {
 
     switchTab(tab) {
         this.activeTab = tab;
-        // AJOUT DE L'ONGLET 'company' ICI
         ['trucks', 'cars', 'dashboard', 'company', 'settings'].forEach(t => {
             let sec = document.getElementById(`section-${t}`);
             let btn = document.getElementById(`tab-${t}`);
@@ -214,7 +213,6 @@ export const ui = {
         });
         
         if(tab === 'dashboard' && window.app) window.app.renderDashboard('trucks');
-        // On actualise l'affichage de l'entreprise quand on arrive sur l'onglet
         if(tab === 'company' && window.app) window.app.renderCompanyUI(); 
     },
 
@@ -247,6 +245,13 @@ export const ui = {
         } else { 
             s.style.display = 'none'; m.style.display = 'block'; 
             btn.innerText = "🗺️ Carte & Actuel"; btn.classList.remove('active'); 
+        }
+    },
+
+    openGuideModal() {
+        let modal = document.getElementById('guide-modal');
+        if (modal) {
+            modal.style.display = 'flex';
         }
     }
 };

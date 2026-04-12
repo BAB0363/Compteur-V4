@@ -194,6 +194,11 @@ const app = {
         if (this.companyState.buildings.hub > 0) {
             incomePerMin *= 1.10;
         }
+        // 📢 PUBLICITÉ TYCOON : +5% par camion possédé dans la flotte
+        let totalTrucks = Object.values(this.companyState.fleet).reduce((a, b) => a + b, 0);
+        if (totalTrucks > 0) {
+            incomePerMin *= (1 + totalTrucks * 0.05);
+        }
         return { maxSlots, usedSlots, incomePerMin };
     },
 
@@ -1400,7 +1405,7 @@ const app = {
                     let nowTs = Date.now();
 
                     this.sessionPaveWeight = (this.sessionPaveWeight || 0) + randWeight;
-                    if (this.sessionPaveWeight >= 80000) { 
+                    if (this.sessionPaveWeight >= 100000) { // T.U.R. 100t : seuil relevé à 100 tonnes
                         this.addBankTransaction(-50, "Taxe d'Usure des Routes (T.U.R) 🚧");
                         if(window.ui) { window.ui.showToast("🚧 La route fissure ! Taxe d'Usure : -50 €", "anomaly"); window.ui.playGamiSound('crash'); }
                         this.sessionPaveWeight = 0; 
@@ -1458,20 +1463,72 @@ const app = {
 
                     if (consecutive >= threshold + 2) { 
                         baseVal = -Math.max(1, Math.round(Math.abs(baseVal) * 0.2)); 
-                        if(window.ui) { window.ui.showToast(`🚧 Frais de congestion ! Trop de ${key1} !`, "anomaly"); window.ui.playGamiSound('crash'); }
+                        // Notification une seule fois, puis arrière-plan silencieux
+                        if (!this._congestNotified || this._congestNotified[key1] !== 'frais') {
+                            if (!this._congestNotified) this._congestNotified = {};
+                            this._congestNotified[key1] = 'frais';
+                            if(window.ui) { window.ui.showToast(`🚧 Frais de congestion ! Trop de ${key1} !`, "anomaly"); window.ui.playGamiSound('crash'); }
+                        }
                     } else if (consecutive === threshold + 1) { 
                         baseVal = 0;
-                        if(window.ui) { window.ui.showToast(`⚠️ Marché saturé pour ${key1} (Gain 0€)`, "anomaly"); window.ui.playGamiSound('crash'); }
+                        if (!this._congestNotified || this._congestNotified[key1] !== 'sature') {
+                            if (!this._congestNotified) this._congestNotified = {};
+                            this._congestNotified[key1] = 'sature';
+                            if(window.ui) { window.ui.showToast(`⚠️ Marché saturé pour ${key1} (Gain 0€)`, "anomaly"); window.ui.playGamiSound('crash'); }
+                        }
                     } else if (consecutive === threshold) { 
                         baseVal = Math.round(baseVal * 0.5);
-                        if(window.ui) { window.ui.showToast(`📉 Alerte : Le marché baisse pour ${key1} !`); }
+                        if (!this._congestNotified || this._congestNotified[key1] !== 'baisse') {
+                            if (!this._congestNotified) this._congestNotified = {};
+                            this._congestNotified[key1] = 'baisse';
+                            if(window.ui) { window.ui.showToast(`📉 Alerte : Le marché baisse pour ${key1} !`); }
+                        }
+                    } else {
+                        // La série est brisée : on réinitialise la notification pour ce type
+                        if (this._congestNotified) this._congestNotified[key1] = null;
                     }
 
                     if (this.bankBalance < 0 && baseVal > 0) {
                         baseVal = Math.round(baseVal * 0.2); 
                     }
 
+                    // 🌅 PRIME DE L'AUBE : Gains x2 entre 5h et 7h du matin
+                    let currentHourForDawn = new Date().getHours();
+                    if (baseVal > 0 && currentHourForDawn >= 5 && currentHourForDawn < 7) {
+                        baseVal = baseVal * 2;
+                        if(window.ui) window.ui.showToast(`🌅 Prime de l'Aube ! Gains doublés !`, 'success');
+                    }
+
+                    // ⛰️ BONUS D'ALTITUDE : +10% au-dessus de 800m
+                    let altForBonus = window.gps && window.gps.currentPos ? (window.gps.currentPos.alt || 0) : 0;
+                    if (baseVal > 0 && altForBonus > 800) {
+                        let altBonus = Math.round(baseVal * 0.10);
+                        baseVal += altBonus;
+                        if(window.ui) window.ui.showToast(`⛰️ Bonus d'Altitude (+10%) : +${altBonus} €`);
+                    }
+
                     this.addBankTransaction(baseVal, `Comptage ${key1}${isExact ? ' (x' + gegeMultiplier + ' IA)' : ''}`);
+
+                    // 🌈 COMBO ARC-EN-CIEL : +200€ si 5 catégories différentes enchaînées
+                    if (!isTruck) {
+                        let recentCats = history.filter(h => !h.isEvent).slice(-5).map(h => h.type);
+                        if (recentCats.length === 5 && new Set(recentCats).size === 5) {
+                            this.addBankTransaction(200, "🌈 Combo Arc-en-ciel (5 catégories !)");
+                            if(window.ui) { window.ui.showToast("🌈 COMBO ARC-EN-CIEL ! 5 catégories d'affilée : +200 € !", 'rare-combo'); window.ui.playGamiSound('cash'); }
+                        }
+                    }
+
+                    // 🚛 CONVOI EXCEPTIONNEL : +50€ si 3 camions en moins de 15 secondes
+                    if (!isTruck && key1 === "Camions") {
+                        if (!this._convoiTimes) this._convoiTimes = [];
+                        this._convoiTimes.push(Date.now());
+                        this._convoiTimes = this._convoiTimes.filter(t => Date.now() - t <= 15000);
+                        if (this._convoiTimes.length >= 3) {
+                            this.addBankTransaction(50, "🚛 Convoi Exceptionnel (3 camions en 15s)");
+                            if(window.ui) { window.ui.showToast("🚛 CONVOI EXCEPTIONNEL ! 3 camions en 15s : +50 € !", 'success'); window.ui.playGamiSound('cash'); }
+                            this._convoiTimes = []; // reset pour éviter cumul
+                        }
+                    }
                     this.showMoneyParticle(e, baseVal);
                     if (baseVal > 0 && window.ui && consecutive < threshold) window.ui.playGamiSound('cash');
 
