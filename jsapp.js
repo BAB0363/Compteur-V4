@@ -71,11 +71,146 @@ const app = {
     lastCountTime: 0,
     regularityChain: 0,
 
-    sessionPaveWeight: 0,
+        sessionPaveWeight: 0,
     consecutiveLightVehicles: 0,
+
+    maintenance: {
+        async execute() {
+            const scope = document.getElementById('mnt-scope').value; 
+            const range = document.getElementById('mnt-range').value; 
+            
+            let startTs = 0;
+            let endTs = Date.now();
+
+            if (range === 'custom') {
+                const startInput = document.getElementById('delete-start-date').value;
+                const endInput = document.getElementById('delete-end-date').value;
+                if (!startInput || !endInput) {
+                    if(window.ui) window.ui.showToast("⚠️ Précise les dates pour le nettoyage ciblé !");
+                    return;
+                }
+                startTs = new Date(startInput).setHours(0, 0, 0, 0);
+                endTs = new Date(endInput).setHours(23, 59, 59, 999);
+            }
+
+            const confirmMsg = this.getWarningMessage(scope, range);
+            if (!confirm(confirmMsg)) return;
+
+            try {
+                if (scope === 'full') {
+                    await this.cleanupSessions(startTs, endTs);
+                    await this.cleanupFinance(startTs, endTs);
+                    await this.cleanupCompany(startTs, endTs);
+                } else {
+                    if (scope === 'sessions') await this.cleanupSessions(startTs, endTs);
+                    if (scope === 'finance') await this.cleanupFinance(startTs, endTs);
+                    if (scope === 'company') await this.cleanupCompany(startTs, endTs);
+                }
+                
+                await this.rebuildGlobalRegistry();
+                if(window.ui) window.ui.showToast("✨ Nettoyage terminé avec succès !");
+                setTimeout(() => location.reload(), 1500);
+            } catch (err) {
+                console.error(err);
+                if(window.ui) window.ui.showToast("❌ Erreur lors de la maintenance", "anomaly");
+            }
+        },
+
+        getWarningMessage(scope, range) {
+            const rTxt = range === 'all' ? "TOUTE la période" : "la période sélectionnée";
+            const targets = {
+                'sessions': `supprimer les SESSIONS de trajet sur ${rTxt}`,
+                'finance': `effacer l'HISTORIQUE BANCAIRE sur ${rTxt}`,
+                'company': `supprimer les BÂTIMENTS & CAMIONS achetés sur ${rTxt}`,
+                'full': `SUPPRIMER ABSOLUMENT TOUT (Sessions, Banque, Empire) sur ${rTxt}`
+            };
+            return `🚨 ATTENTION SYLVAIN !\n\nTu vas ${targets[scope]}.\nCette action est irréversible. On valide ? 🚦`;
+        },
+
+        async cleanupSessions(start, end) {
+            let tx = window.app.idb.db.transaction('sessions', 'readwrite');
+            let store = tx.objectStore('sessions');
+            let all = await window.app.idb.getAllRaw();
+            
+            all.forEach(s => {
+                const sid = parseInt(s.id);
+                if (s.user === window.app.currentUser && sid >= start && sid <= end) {
+                    store.delete(s.id);
+                }
+            });
+            return new Promise(res => tx.oncomplete = res);
+        },
+
+        async cleanupFinance(start, end) {
+            let keptHistory = [];
+            window.app.bankHistory.forEach(tx => {
+                if (!tx.timestamp || tx.timestamp < start || tx.timestamp > end) {
+                    keptHistory.push(tx);
+                } else {
+                    if (tx.amount > 0) window.app.bankStats.gains -= tx.amount;
+                    else window.app.bankStats.losses -= Math.abs(tx.amount);
+                    window.app.bankBalance -= tx.amount; 
+                }
+            });
+            window.app.bankHistory = keptHistory;
+            await window.app.saveUserData();
+        },
+
+        async cleanupCompany(start, end) {
+            if (!window.app.companyState.purchaseHistory) return;
+            
+            let keptHistory = [];
+            window.app.companyState.purchaseHistory.forEach(purchase => {
+                if (purchase.timestamp >= start && purchase.timestamp <= end) {
+                    if (window.app.companyState[purchase.category] && window.app.companyState[purchase.category][purchase.id] > 0) {
+                        window.app.companyState[purchase.category][purchase.id]--;
+                    }
+                } else {
+                    keptHistory.push(purchase);
+                }
+            });
+            window.app.companyState.purchaseHistory = keptHistory;
+            await window.app.saveUserData();
+        },
+
+        async rebuildGlobalRegistry() {
+            const types = ['trucks', 'cars'];
+            for (const type of types) {
+                const sessions = await window.app.idb.getAll(type);
+                const ana = window.app.getEmptyAnalytics();
+                const counters = {};
+                let totalDist = 0; let totalTime = 0;
+
+                if (type === 'trucks') window.app.brands.forEach(b => counters[b] = { fr: 0, etr: 0 });
+                else window.app.vehicleTypes.forEach(v => counters[v] = 0);
+
+                sessions.forEach(s => {
+                    totalDist += (s.distanceKm || 0); totalTime += (s.durationSec || 0);
+                    if (s.summary) {
+                        Object.keys(s.summary).forEach(k => {
+                            if (type === 'trucks' && counters[k]) {
+                                counters[k].fr += (s.summary[k].fr || 0); counters[k].etr += (s.summary[k].etr || 0);
+                            } else if (counters[k] !== undefined) counters[k] += (s.summary[k] || 0);
+                        });
+                    }
+                });
+
+                if (type === 'trucks') {
+                    window.app.globalTruckCounters = counters; window.app.globalTruckDistance = totalDist; window.app.globalTruckTime = totalTime; window.app.globalAnaTrucks = ana;
+                    await window.app.buildPermanentAnalyticsFromIDB('trucks', window.app.globalAnaTrucks);
+                    window.app.storage.set('globalTruckCounters', counters); window.app.storage.set('globalTruckDistance', totalDist); window.app.storage.set('globalTruckTime', totalTime); window.app.storage.set('globalAnaTrucks', window.app.globalAnaTrucks);
+                } else {
+                    window.app.globalCarCounters = counters; window.app.globalCarDistance = totalDist; window.app.globalCarTime = totalTime; window.app.globalAnaCars = ana;
+                    await window.app.buildPermanentAnalyticsFromIDB('cars', window.app.globalAnaCars);
+                    window.app.storage.set('globalCarCounters', counters); window.app.storage.set('globalCarDistance', totalDist); window.app.storage.set('globalCarTime', totalTime); window.app.storage.set('globalAnaCars', window.app.globalAnaCars);
+                }
+            }
+        }
+    },
 
     formatWeight(kg) {
         if (!kg) return "0 kg";
+
         return kg >= 1000 ? (kg / 1000).toFixed(1) + " t" : kg + " kg";
     },
 
@@ -112,8 +247,8 @@ const app = {
             userData = await this.idb.getUserData(this.currentUser);
         }
         
-        let needsMigration = false;
-        let defaultCompany = { buildings: { terrain: 0, depot: 0, hub: 0 }, fleet: { vul: 0, porteur: 0, tracteur: 0, frigo: 0, convoi: 0 }, pendingIncome: 0 };
+               let needsMigration = false;
+        let defaultCompany = { buildings: { terrain: 0, depot: 0, hub: 0 }, fleet: { vul: 0, porteur: 0, tracteur: 0, frigo: 0, convoi: 0 }, pendingIncome: 0, purchaseHistory: [] };
 
         if (userData) {
             this.bankBalance = userData.bankBalance || 0;
@@ -121,11 +256,13 @@ const app = {
             this.bankStats = userData.bankStats || { gains: 0, losses: 0 };
             
             this.companyState = JSON.parse(JSON.stringify(defaultCompany));
-            if (userData.companyState) {
+                    if (userData.companyState) {
                 if (userData.companyState.buildings) this.companyState.buildings = { ...defaultCompany.buildings, ...userData.companyState.buildings };
                 if (userData.companyState.fleet) this.companyState.fleet = { ...defaultCompany.fleet, ...userData.companyState.fleet };
                 this.companyState.pendingIncome = userData.companyState.pendingIncome || 0;
+                this.companyState.purchaseHistory = userData.companyState.purchaseHistory || [];
             }
+
             
             if (window.gami && userData.gamiState) {
                 window.gami.state = userData.gamiState;
@@ -140,13 +277,15 @@ const app = {
             this.bankHistory = JSON.parse(localStorage.getItem('bankHistory_' + this.currentUser) || "[]");
             this.bankStats = JSON.parse(localStorage.getItem('bankStats_' + this.currentUser) || '{"gains":0,"losses":0}');
             
-            let savedComp = localStorage.getItem('companyState_' + this.currentUser);
+                   let savedComp = localStorage.getItem('companyState_' + this.currentUser);
             if (savedComp) {
                 let parsed = JSON.parse(savedComp);
                 if (parsed.buildings) this.companyState.buildings = { ...defaultCompany.buildings, ...parsed.buildings };
                 if (parsed.fleet) this.companyState.fleet = { ...defaultCompany.fleet, ...parsed.fleet };
                 this.companyState.pendingIncome = parsed.pendingIncome || 0;
+                this.companyState.purchaseHistory = parsed.purchaseHistory || [];
             }
+
             
             let savedGami = localStorage.getItem('gami_state_' + this.currentUser);
             if (savedGami && window.gami) window.gami.state = JSON.parse(savedGami);
@@ -220,12 +359,17 @@ const app = {
             }
         }
 
-        if(confirm(`Investir ${item.price.toLocaleString('fr-FR')} € dans : ${item.name} ?`)) {
+             if(confirm(`Investir ${item.price.toLocaleString('fr-FR')} € dans : ${item.name} ?`)) {
             this.addBankTransaction(-item.price, `Achat Actif : ${item.name}`);
             if(window.gami) window.gami.updateProgress('tycoon_buy', 1); // 🎯 QUÊTE TYCOON
+            
+            if (!this.companyState.purchaseHistory) this.companyState.purchaseHistory = [];
+            this.companyState.purchaseHistory.push({ category: category, id: id, timestamp: Date.now(), price: item.price });
+
             this.companyState[category][id] = (this.companyState[category][id] || 0) + 1;
             this.saveUserData();
             this.renderCompanyUI();
+
             
             if(window.ui) {
                 window.ui.playGamiSound('cash');
@@ -384,12 +528,14 @@ const app = {
             if (this.isCarRunning) this.sessionFinance.losses += Math.abs(amount);
         }
 
-        let now = new Date();
+                let now = new Date();
         this.bankHistory.unshift({
+            timestamp: Date.now(),
             time: now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
             amount: amount,
             reason: reason
         });
+
 
         if (this.bankHistory.length > 50) this.bankHistory.pop();
         this.saveUserData(); 

@@ -434,11 +434,29 @@
             <button class="share-btn btn-full btn-green" onclick="document.getElementById('import-save-file').click()">📥 Importer une sauvegarde</button>
         </div>
 
-        <div class="km-stats-container border-red">
-            <h4 class="text-danger">🧨 Gestion Globale</h4>
-            <p class="header-desc mt-neg5 mb-10">Attention, actions irréversibles !</p>
+                <div class="km-stats-container border-red">
+            <h4 class="text-danger">🛠️ Centre de Maintenance</h4>
+            <p class="header-desc mt-neg5 mb-10">Gestion centralisée des données de l'application.</p>
             
-            <div class="date-filter-row mb-10">
+            <div class="mb-15">
+                <label class="input-label">Cible du nettoyage :</label>
+                <select id="mnt-scope" class="input-styled btn-full font-bold">
+                    <option value="sessions">📊 Sessions de trajets uniquement</option>
+                    <option value="finance">💸 Historique bancaire & Solde</option>
+                    <option value="company">🏢 Empire Tycoon (Flotte & Batiments)</option>
+                    <option value="full">💀 TOTAL : Réinitialiser tout le profil</option>
+                </select>
+            </div>
+
+            <div class="mb-15">
+                <label class="input-label">Période :</label>
+                <select id="mnt-range" class="input-styled btn-full" onchange="document.getElementById('mnt-dates').style.display = (this.value === 'custom' ? 'flex' : 'none')">
+                    <option value="all">Toute l'éternité</option>
+                    <option value="custom">Sélectionner des dates spécifiques</option>
+                </select>
+            </div>
+
+            <div id="mnt-dates" class="date-filter-row mb-15" style="display: none;">
                 <div class="flex-1">
                     <label class="input-label text-small">Du :</label>
                     <input type="date" id="delete-start-date" class="input-styled btn-full">
@@ -448,18 +466,10 @@
                     <input type="date" id="delete-end-date" class="input-styled btn-full">
                 </div>
             </div>
-            
-            <div class="danger-buttons-col">
-                <button class="reset-btn btn-full mb-10" style="background-color: var(--purple-text);" onclick="window.app.resetBankData()">
-                    💸 Vider la Bourse
-                </button>
-                <button class="reset-btn btn-full btn-orange mb-10" onclick="window.app.deleteSessionsByDateRange()">
-                    🗑️ Supprimer la période
-                </button>
-                <button class="reset-btn btn-full btn-darkred" onclick="window.app.resetProfileData()">
-                    🚨 Effacer TOUT le profil
-                </button>
-            </div>
+
+            <button class="reset-btn btn-full btn-darkred" onclick="window.app.maintenance.execute()">
+                🧨 Exécuter l'action de maintenance
+            </button>
         </div>
     </div>
 
