@@ -82,6 +82,9 @@ export const gps = {
                         if (linearD > 0.1 && linearD < 3.0 && accuracy <= 20 && (speedKmh > 5 || pos.coords.speed === null)) { 
                             let d = linearD;
 
+                            // 🎯 La fameuse ligne ajoutée pour la quête "Tour de France"
+                            if (window.gami) window.gami.updateProgress("distance", d);
+
                             if (window.app && window.app.isTruckRunning) { 
                                 window.app.liveTruckDistance += d; 
                                 window.app.globalTruckDistance += d;
