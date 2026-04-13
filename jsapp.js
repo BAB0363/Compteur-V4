@@ -411,18 +411,28 @@ const app = {
         badge.style.display = 'flex';
         display.innerText = Math.round(this.bankBalance).toLocaleString('fr-FR') + ' €';
         
-        if (this.bankBalance < 0) {
-            badge.classList.remove('bank-positive');
-            badge.classList.add('bank-negative');
-            if (banner) banner.style.display = 'block';
-            if (sTitle && this.activeSponsor) sTitle.style.color = '#e74c3c';
+      // ✅ NOUVEAU CODE À INSÉRER
+if (this.bankBalance < 0) {
+    badge.classList.remove('bank-positive');
+    badge.classList.add('bank-negative');
+    
+    if (banner) {
+        if (this.bankBalance <= -1000) {
+            banner.style.display = 'block';
+            banner.innerText = "⚖️ MAÎTRE ASPHALTE : Saisie de 30% sur vos gros véhicules !";
         } else {
-            badge.classList.remove('bank-negative');
-            badge.classList.add('bank-positive');
-            if (banner) banner.style.display = 'none';
-            if (sTitle && this.activeSponsor) sTitle.style.color = '#f1c40f';
+            banner.style.display = 'none';
         }
-    },
+    }
+    
+    if (sTitle && this.activeSponsor) sTitle.style.color = '#e74c3c';
+} else {
+    badge.classList.remove('bank-negative');
+    badge.classList.add('bank-positive');
+    if (banner) banner.style.display = 'none';
+    if (sTitle && this.activeSponsor) sTitle.style.color = '#f1c40f';
+}
+
 
     openBankModal() {
         let elGains = document.getElementById('bank-total-gains');
@@ -1238,14 +1248,16 @@ const app = {
                         }
                     }
 
-                    if (elapsed > 0 && elapsed % 600 === 0 && this.bankBalance < 0) {
-                        let agios = Math.abs(this.bankBalance) * 0.05;
-                        this.addBankTransaction(-agios, "Agios (5%)");
-                        if(window.ui) {
-                            window.ui.showToast(`📉 Agios (5%) : - ${Math.round(agios)} €`, "anomaly");
-                            window.ui.playGamiSound('crash');
-                        }
-                    }
+             // ✅ NOUVEAU CODE À INSÉRER
+if (elapsed > 0 && elapsed % 900 === 0 && this.bankBalance < -500) {
+    let agios = 5; // Agios fixes de 5€
+    this.addBankTransaction(-agios, "Frais bancaires (Forfait)");
+    if(window.ui) {
+        window.ui.showToast(`📉 Frais de découvert : - ${agios} €`, "anomaly");
+        window.ui.playGamiSound('crash');
+    }
+}
+
 
                     this.updateCarbonGauge();
                 }
@@ -1489,9 +1501,20 @@ const app = {
                         if (this._congestNotified) this._congestNotified[key1] = null;
                     }
 
-                    if (this.bankBalance < 0 && baseVal > 0) {
-                        baseVal = Math.round(baseVal * 0.2); 
-                    }
+               // ✅ NOUVEAU CODE À INSÉRER
+if (this.bankBalance <= -1000 && baseVal > 0) {
+    const bigVehicles = ["Camions", "Engins agricoles", "Camping-cars", "Bus/Car"];
+    if (bigVehicles.includes(key1)) {
+        baseVal = Math.round(baseVal * 0.7); // Tu gardes 70%, l'huissier prend 30%
+        
+        // On affiche l'alerte de saisie (max 1 fois toutes les 30 sec pour éviter le spam)
+        if (!this._huissierNotified || Date.now() - this._huissierNotified > 30000) {
+            if(window.ui) window.ui.showToast("⚖️ Saisie partielle (30%) sur ce gros véhicule !");
+            this._huissierNotified = Date.now();
+        }
+    }
+}
+
 
                     // 🌅 PRIME DE L'AUBE : Gains x2 entre 5h et 7h du matin
                     let currentHourForDawn = new Date().getHours();
