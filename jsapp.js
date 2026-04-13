@@ -432,7 +432,7 @@ if (this.bankBalance < 0) {
     if (banner) banner.style.display = 'none';
     if (sTitle && this.activeSponsor) sTitle.style.color = '#f1c40f';
 }
-} 
+} , 
 
     openBankModal() {
         let elGains = document.getElementById('bank-total-gains');
