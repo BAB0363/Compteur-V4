@@ -1533,21 +1533,26 @@ const app = {
                     this.showMoneyParticle(e, baseVal);
                     if (baseVal > 0 && window.ui && consecutive < threshold) window.ui.playGamiSound('cash');
 
-                    // 🎯 NOUVEAU : Envoi massif d'informations à Gégé pour les Quêtes du Passe Routier
-                    if (window.gami) {
-                        let isNight = (new Date().getHours() >= 21 || new Date().getHours() < 6);
-                        let alt = window.gps && window.gps.currentPos ? window.gps.currentPos.alt : 0;
-                        
-                        let extraData = { 
-                            weight: randWeight, 
-                            isNight: isNight, 
-                            alt: alt, 
-                            regularity: this.regularityChain,
-                            isExact: isExact,
-                            iaCash: isExact ? baseVal : 0
-                        };
-                        window.gami.notifyVehicleAdded(key1, key2, extraData);
-                    }
+                  // 🎯 NOUVEAU : Envoi massif d'informations à Gégé pour les Quêtes du Passe Routier
+if (window.gami) {
+    let isNight = (new Date().getHours() >= 21 || new Date().getHours() < 6);
+    let alt = window.gps && window.gps.currentPos ? window.gps.currentPos.alt : 0;
+    
+    let extraData = { 
+        weight: randWeight, 
+        isNight: isNight, 
+        alt: alt, 
+        regularity: this.regularityChain,
+        isExact: isExact,
+        iaCash: isExact ? baseVal : 0
+    };
+    
+    // 👇 LES LIGNES À MODIFIER SONT ICI 👇
+    let typeForGami = isTruck ? "Camions" : key1;
+    let natForGami = isTruck ? key2 : null;
+    window.gami.notifyVehicleAdded(typeForGami, natForGami, extraData);
+}
+
 
                     if (this.activeSponsor && key1 === this.activeSponsor.type) {
                         this.activeSponsor.current += 1;
@@ -3236,12 +3241,13 @@ const app = {
 
 window.app = app;
 
-const startApp = () => {
-    app.init(); 
+const startApp = async () => {
+    await app.init(); // 👈 On ajoute 'async' et 'await' ici !
     if(window.ui) window.ui.init(); 
     if(window.gps) window.gps.init(); 
     if(window.gami) window.gami.init(); 
 };
+
 
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', startApp);
