@@ -2386,18 +2386,24 @@ if (window.gami) {
             }
         }
 
-        let ctxW = document.getElementById('weeklyGlobalChart');
+               let ctxW = document.getElementById('weeklyGlobalChart');
         if(ctxW) {
             if(this.weeklyGlobalChart) this.weeklyGlobalChart.destroy();
             let hasDayData = Object.values(daysSource).some(v => v > 0);
             if(hasDayData) {
+                
+                // 🗓️ NOUVEAU : Réorganisation pour commencer par Lundi
+                let reorderedLabels = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
+                let reorderedData = reorderedLabels.map(day => daysSource[day] || 0);
+
                 this.weeklyGlobalChart = new Chart(ctxW, {
                     type: 'bar',
-                    data: { labels: Object.keys(daysSource), datasets: [{ label: 'Véhicules par jour', data: Object.values(daysSource), backgroundColor: type === 'trucks' ? '#e67e22' : '#9b59b6', borderRadius: 4 }] },
+                    data: { labels: reorderedLabels, datasets: [{ label: 'Véhicules par jour', data: reorderedData, backgroundColor: type === 'trucks' ? '#e67e22' : '#9b59b6', borderRadius: 4 }] },
                     options: { maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { color: tColor, stepSize: 1 } }, x: { ticks: { color: tColor } } } }
                 });
             }
         }
+
 
         let ctxA = document.getElementById('altitudeModalChart');
         if (ctxA) {
@@ -2826,15 +2832,21 @@ if (window.gami) {
             }
         } else { if (natContainer) natContainer.style.display = 'none'; }
 
-        let ctxW = document.getElementById('weeklyChart');
+          let ctxW = document.getElementById('weeklyChart');
         if(ctxW) {
             if(this.weeklyChart) this.weeklyChart.destroy();
+            
+            // 🗓️ NOUVEAU : Réorganisation pour commencer par Lundi
+            let reorderedLabels = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
+            let reorderedData = reorderedLabels.map(day => days[day] || 0);
+
             this.weeklyChart = new Chart(ctxW, {
                 type: 'line',
-                data: { labels: Object.keys(days), datasets: [{ label: 'Total cumulé', data: Object.values(days), borderColor: '#e67e22', backgroundColor: 'rgba(230, 126, 34, 0.2)', fill: true, tension: 0.4 }] },
+                data: { labels: reorderedLabels, datasets: [{ label: 'Total cumulé', data: reorderedData, borderColor: '#e67e22', backgroundColor: 'rgba(230, 126, 34, 0.2)', fill: true, tension: 0.4 }] },
                 options: { maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { ticks: { color: textColor } }, x: { ticks: { color: textColor } } } }
             });
         }
+
 
         let ctxA = document.getElementById('altitudeChart');
         if(ctxA) {
