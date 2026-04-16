@@ -56,16 +56,39 @@ export const market = {
         this.saveState();
     },
 
+        // Appelé à chaque clic : fait chuter le prix du véhicule compté, et monter la rareté des autres
+    recordDemand(type) {
+        if (type === "Poids Lourds") type = "Camions";
+        if (!this.state.values[type]) return;
+
+        let item = this.state.values[type];
+        item.current = Math.max(item.min, item.current * 0.98); 
+        item.trend = -1; // 🔴 Tendance à la baisse
+        
+        Object.keys(this.state.values).forEach(k => {
+            if (k !== type) {
+                let other = this.state.values[k];
+                other.current = Math.min(other.max, other.current * 1.005);
+                other.trend = 1; // 🟢 Tendance à la hausse
+            }
+        });
+        this.saveState();
+    },
+
     fluctuateMarket() {
         Object.keys(this.state.values).forEach(k => {
             let item = this.state.values[k];
-            // Variation aléatoire entre -5% et +5%
             let randomVariation = 1 + ((Math.random() - 0.5) * 0.1); 
-            item.current = Math.min(item.max, Math.max(item.min, item.current * randomVariation));
+            let newValue = Math.min(item.max, Math.max(item.min, item.current * randomVariation));
+            
+            // Détermine la tendance naturelle
+            item.trend = newValue > item.current ? 1 : (newValue < item.current ? -1 : 0);
+            item.current = newValue;
         });
         this.saveState();
         if(window.ui) window.ui.showToast("📈 Fluctuation de la Bourse de l'Asphalte !");
     }
+
 };
 
 window.market = market;

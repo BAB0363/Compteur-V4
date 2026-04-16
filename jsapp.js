@@ -23,18 +23,7 @@ const app = {
         "Vélos": { wMin: 10, wMax: 28, cMin: 0, cMax: 0 }
     },
 
-    // 💸 Dictionnaire des valeurs financières (Compteur Véhicules)
-    bankValues: {
-        "Voitures": 1,
-        "Vélos": 1,
-        "Utilitaires": 5,
-        "Motos": 5,
-        "Camions": 20, 
-        "Camping-cars": 50,
-        "Bus/Car": 50,
-        "Engins agricoles": 200
-    },
-
+  
     // ==========================================
     // 🏢 VARIABLES DE L'ENTREPRISE (TYCOON)
     // ==========================================
@@ -741,12 +730,16 @@ if (this.bankBalance < 0) {
 
         let types = ["Utilitaires", "Camions", "Camping-cars", "Bus/Car"];
         let t = types[Math.floor(Math.random() * types.length)];
-        let target = Math.floor(Math.random() * 8) + 3; 
-        let advance = target * (this.bankValues[t] || 5) * 3; 
+             let target = Math.floor(Math.random() * 8) + 3; 
+        
+        // On récupère le prix du marché actuel pour ce type
+        let currentPrice = window.market ? window.market.getValue(t) : 5.00;
+        let advance = parseFloat((target * currentPrice * 3).toFixed(2)); 
         
         if (window.gami && window.gami.state.unlockedTalents.negociateur) {
-            advance = Math.round(advance * 1.20); 
+            advance = parseFloat((advance * 1.20).toFixed(2)); 
         }
+
 
         this.pendingSponsor = { type: t, target: target, advance: advance, penalty: advance * 2 };
         
@@ -811,8 +804,7 @@ if (this.bankBalance < 0) {
     validateSponsorContract() {
         if (!this.activeSponsor || this.activeSponsor.current < this.activeSponsor.target) return;
         let bonusMultiplier = 1.05 + (Math.random() * 0.20); 
-        let finalReward = Math.round(this.activeSponsor.advance * bonusMultiplier);
-        
+            let finalReward = parseFloat((this.activeSponsor.advance * bonusMultiplier).toFixed(2));
         this.addBankTransaction(finalReward, `Bonus Fin de Contrat Sponsor (${this.activeSponsor.type})`);
         if(window.gami) window.gami.updateProgress('sponsor', 1); // 🎯 QUÊTE SPONSOR
         if(window.ui) { window.ui.showToast(`🎉 Contrat validé ! Bénéfice encaissé : +${finalReward} € !`); window.ui.playGamiSound('cash'); }
@@ -1986,9 +1978,10 @@ if (elapsed > 0 && elapsed % 900 === 0 && this.bankBalance < -500) {
         if (isRunning) this.toggleChrono(type); 
         
         // 🏢 ENCAISSEMENT DES REVENUS DE L'ENTREPRISE A L'ARRET
-        if (this.companyState.pendingIncome > 0) {
-            let earned = Math.round(this.companyState.pendingIncome);
+          if (this.companyState.pendingIncome > 0) {
+            let earned = parseFloat(this.companyState.pendingIncome.toFixed(2));
             if (earned > 0) {
+
                 this.addBankTransaction(earned, "🏢 Bénéfices de l'Entreprise (Session)");
                 if (window.ui) {
                     window.ui.playGamiSound('cash');
@@ -2175,12 +2168,24 @@ if (elapsed > 0 && elapsed % 900 === 0 && this.bankBalance < -500) {
             }
         });
 
-        this.vehicleTypes.forEach(v => {
+            this.vehicleTypes.forEach(v => {
             let score = this.vehicleCounters[v] || 0;
             let displayName = nameMap[v] || v;
+            
+            // --- RÉCUPÉRATION DU MARCHÉ EN TEMPS RÉEL ---
+            let marketKey = v === "Camions" ? "Camions" : v;
+            let currentPrice = window.market ? window.market.getValue(marketKey).toFixed(2) : "0.00";
+            let trend = window.market && window.market.state.values[marketKey] ? window.market.state.values[marketKey].trend : 0;
+            
+            let trendIcon = trend > 0 ? "↗️" : (trend < 0 ? "↘️" : "➡️");
+            let trendColor = trend > 0 ? "var(--success-color)" : (trend < 0 ? "var(--danger-color)" : "#7f8c8d");
+
             container.innerHTML += `
                 <div class="vehicle-card">
-                    <div class="vehicle-name">${icons[v] || "🚘"} ${displayName}</div>
+                    <div class="vehicle-name" style="display:flex; justify-content:space-between; align-items:center; padding: 2px 4px; border-bottom: 1px dashed var(--border-color); margin-bottom: 4px;">
+                        <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${icons[v] || "🚘"} ${displayName}</span>
+                        <span style="font-size:0.9em; color:${trendColor}; font-weight:bold; letter-spacing:0.5px;">${currentPrice}€ ${trendIcon}</span>
+                    </div>
                     <div class="vehicle-controls">
                         <button class="btn-corr" onclick="window.app.updateCounter('cars', '${v}', null, -1, event)">-</button>
                         <span class="vehicle-score">${score}</span>
@@ -2188,6 +2193,7 @@ if (elapsed > 0 && elapsed % 900 === 0 && this.bankBalance < -500) {
                     </div>
                 </div>`;
         });
+
     },
 
     renderLiveStats(type) {
