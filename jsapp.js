@@ -714,7 +714,8 @@ if (this.bankBalance < 0) {
         quota += bikeBonus; 
         
         let diff = quota - totalRealCo2; 
-        let euros = Math.round(diff / 100); 
+             let euros = parseFloat((diff / 100).toFixed(2));
+
 
         if (euros < 0 && window.gami && window.gami.state.unlockedTalents.ecoConduite) {
             euros = Math.round(euros * 0.85); 
@@ -1533,205 +1534,185 @@ if (elapsed > 0 && elapsed % 900 === 0 && this.bankBalance < -500) {
                 let randCo2 = Math.round(specs.cMin + co2Ratio * (specs.cMax - specs.cMin));
                 
                 let bikeBonus = 0; // 🚲 NOUVEAU
+        if (!isTruck) {
+            // 1. Cours Boursier (Marché Dynamique)
+            let baseVal = window.market ? window.market.getValue(key1) : 1.00;
+            let transactionName = `Comptage ${key1}`;
 
-                if (!isTruck) {
-                    let baseVal = this.bankValues[key1] || 1;
-                    
-                    // 🚲 NOUVEAU : Calcul du bonus carbone pour les Vélos
-                    if (key1 === "Vélos") {
-                        bikeBonus = Math.floor(Math.random() * 1751); // Entre 0 et 1750g
-                        randCo2 = 0; // Force le CO2 du vélo à 0
-                        if(window.ui) window.ui.showToast(`🚲 Bonus Écolo : +${bikeBonus}g au quota !`, 'success');
-                    }
+            // 🚲 Gestion spécifique Vélo
+            if (key1 === "Vélos") {
+                bikeBonus = Math.floor(Math.random() * 1751);
+                randCo2 = 0;
+                if(window.ui) window.ui.showToast(`🚲 Bonus Écolo : +${bikeBonus}g au quota !`, 'success');
+            }
 
-                    let currentHour = new Date().getHours();
-                    let isNight = (currentHour >= 21 || currentHour < 6);
-                    let isRushHour = (currentHour >= 7 && currentHour < 9) || (currentHour >= 17 && currentHour < 19);
-            
-                    if (isNight) {
-                        if (key1 === "Camions" || key1 === "Utilitaires") {
-                            baseVal = Math.round(baseVal * 0.5); 
-                        } else {
-                            baseVal = Math.round(baseVal * 5); 
-                        }
-                    } else if (isRushHour) {
-                        if (key1 === "Voitures" || key1 === "Utilitaires") {
-                            baseVal = Math.round(baseVal * 0.5); 
-                        } else if (key1 === "Motos" || key1 === "Vélos") {
-                            baseVal = Math.round(baseVal * 2); 
-                        }
-                    }
+            // Enregistrer la demande dans le marché pour faire fluctuer les prix
+            if (window.market && amount > 0) window.market.recordDemand(key1);
 
-                    let nowTs = Date.now();
+            let nowTs = Date.now();
+            let currentHour = new Date(nowTs).getHours();
+            let isNight = (currentHour >= 21 || currentHour < 6);
+            let isRushHour = (currentHour >= 7 && currentHour < 9) || (currentHour >= 17 && currentHour < 19);
 
-                    this.sessionPaveWeight = (this.sessionPaveWeight || 0) + randWeight;
-                    if (this.sessionPaveWeight >= 100000) { // T.U.R. 100t : seuil relevé à 100 tonnes
-                        this.addBankTransaction(-50, "Taxe d'Usure des Routes (T.U.R) 🚧");
-                        if(window.ui) { window.ui.showToast("🚧 La route fissure ! Taxe d'Usure : -50 €", "anomaly"); window.ui.playGamiSound('crash'); }
-                        this.sessionPaveWeight = 0; 
-                    }
+            // 2. Multiplicateurs Temporels
+            if (isNight) {
+                baseVal *= (key1 === "Camions" || key1 === "Utilitaires") ? 0.5 : 5.0;
+            } else if (isRushHour) {
+                baseVal *= (key1 === "Voitures" || key1 === "Utilitaires") ? 0.5 : 2.0;
+            }
 
-                    if (randWeight < 500) {
-                        this.consecutiveLightVehicles = (this.consecutiveLightVehicles || 0) + 1;
-                        if (this.consecutiveLightVehicles >= 4) {
-                            this.addBankTransaction(30, "Prime Poids Plume 🪶");
-                            if(window.ui) { window.ui.showToast("🪶 Prime Poids Plume ! Trafic ultra-léger : +30 €"); window.ui.playGamiSound('cash'); }
-                            this.consecutiveLightVehicles = 0;
-                        }
-                    } else { this.consecutiveLightVehicles = 0; }
-                    
-                    if (this.lastCountTime > 0) {
-                        let diffSec = (nowTs - this.lastCountTime) / 1000;
-                        if (diffSec >= 5 && diffSec <= 30) {
-                            this.regularityChain++;
-                            if (this.regularityChain >= 10) {
-                                this.addBankTransaction(100, "Prime de Régularité (Flux parfait)");
-                                if(window.ui) { window.ui.showToast("🌊 Bonus de Flux ! Régularité parfaite : +100 €"); window.ui.playGamiSound('cash'); }
-                                this.regularityChain = 0; 
-                            }
-                        } else { this.regularityChain = 0; }
-                    }
-                    this.lastCountTime = nowTs;
+            if (currentHour >= 5 && currentHour < 7) { 
+                baseVal *= 2.0;
+                if(window.ui) window.ui.showToast(`🌅 Prime de l'Aube ! Gains doublés !`, 'success');
+            }
 
-                    let consecutive = 0;
-                    let justHistory = history.filter(h => !h.isEvent);
-                    let lastTs = nowTs;
+            // 3. Bonus Environnementaux (Altitude)
+            let currentAlt = window.gps && window.gps.currentPos ? (window.gps.currentPos.alt || 0) : 0;
+            if (currentAlt > 800) {
+                baseVal *= 1.10;
+                if(window.ui) window.ui.showToast(`⛰️ Bonus d'Altitude (+10%) !`);
+            }
 
-                    for (let i = justHistory.length - 1; i >= 0; i--) {
-                        let h = justHistory[i];
-                        if (lastTs - h.timestamp > 45000) break; 
-                        
-                        if (h.type === key1) {
-                            consecutive++;
-                            lastTs = h.timestamp;
-                        } else { break; }
-                    }
+            // 4. Performance IA (Précision Gégé)
+            if (isExact) {
+                baseVal *= gegeMultiplier;
+                transactionName += ` (x${gegeMultiplier} IA)`;
+                if (window.gami && window.gami.state.unlockedTalents && window.gami.state.unlockedTalents.oeilDeLynx) {
+                    baseVal *= 1.10;
+                    if(window.ui) window.ui.showToast(`👁️ Talent Œil de Lynx appliqué !`);
+                }
+            }
 
-                    let speedKmh = window.gps ? window.gps.getSlidingSpeedKmh() : 0;
-                    let isHighway = speedKmh > 80;
-                    let threshold = isHighway ? 10 : 4; 
+            // 5. Saturation & Congestion
+            let consecutive = 0;
+            let justHistory = history.filter(h => !h.isEvent);
+            let lastTs = nowTs;
+            for (let i = justHistory.length - 1; i >= 0; i--) {
+                if (lastTs - justHistory[i].timestamp > 45000) break; 
+                if (justHistory[i].type === key1) { consecutive++; lastTs = justHistory[i].timestamp; } 
+                else break;
+            }
 
-                    if (isExact) {
-                        // 🧠 NOUVEAU : Application du multiplicateur de Gégé (x5, x3, x2)
-                        baseVal *= gegeMultiplier;
-                        
-                        if (window.gami && window.gami.state.unlockedTalents && window.gami.state.unlockedTalents.oeilDeLynx) {
-                            baseVal = Math.round(baseVal * 1.10);
-                            if(window.ui) window.ui.showToast(`👁️ Talent Œil de Lynx : Bonus de prédiction boosté !`);
-                        }
-                    }
+            let speedKmh = window.gps ? window.gps.getSlidingSpeedKmh() : 0;
+            let isHighway = speedKmh > 80;
+            let threshold = isHighway ? 10 : 4; 
 
-                    if (consecutive >= threshold + 2) { 
-                        baseVal = -Math.max(1, Math.round(Math.abs(baseVal) * 0.2)); 
-                        // Notification une seule fois, puis arrière-plan silencieux
-                        if (!this._congestNotified || this._congestNotified[key1] !== 'frais') {
-                            if (!this._congestNotified) this._congestNotified = {};
-                            this._congestNotified[key1] = 'frais';
-                            if(window.ui) { window.ui.showToast(`🚧 Frais de congestion ! Trop de ${key1} !`, "anomaly"); window.ui.playGamiSound('crash'); }
-                        }
-                    } else if (consecutive === threshold + 1) { 
-                        baseVal = 0;
-                        if (!this._congestNotified || this._congestNotified[key1] !== 'sature') {
-                            if (!this._congestNotified) this._congestNotified = {};
-                            this._congestNotified[key1] = 'sature';
-                            if(window.ui) { window.ui.showToast(`⚠️ Marché saturé pour ${key1} (Gain 0€)`, "anomaly"); window.ui.playGamiSound('crash'); }
-                        }
-                    } else if (consecutive === threshold) { 
-                        baseVal = Math.round(baseVal * 0.5);
-                        if (!this._congestNotified || this._congestNotified[key1] !== 'baisse') {
-                            if (!this._congestNotified) this._congestNotified = {};
-                            this._congestNotified[key1] = 'baisse';
-                            if(window.ui) { window.ui.showToast(`📉 Alerte : Le marché baisse pour ${key1} !`); }
-                        }
-                    } else {
-                        // La série est brisée : on réinitialise la notification pour ce type
-                        if (this._congestNotified) this._congestNotified[key1] = null;
-                    }
+            if (consecutive >= threshold + 2) { 
+                baseVal = -(baseVal * 0.2); 
+                if (!this._congestNotified || this._congestNotified[key1] !== 'frais') {
+                    if (!this._congestNotified) this._congestNotified = {};
+                    this._congestNotified[key1] = 'frais';
+                    if(window.ui) { window.ui.showToast(`🚧 Frais de congestion ! Trop de ${key1} !`, "anomaly"); window.ui.playGamiSound('crash'); }
+                }
+            } else if (consecutive === threshold + 1) { 
+                baseVal = 0;
+                if (!this._congestNotified || this._congestNotified[key1] !== 'sature') {
+                    if (!this._congestNotified) this._congestNotified = {};
+                    this._congestNotified[key1] = 'sature';
+                    if(window.ui) { window.ui.showToast(`⚠️ Marché saturé pour ${key1} (Gain 0€)`, "anomaly"); window.ui.playGamiSound('crash'); }
+                }
+            } else if (consecutive === threshold) { 
+                baseVal *= 0.5;
+                if (!this._congestNotified || this._congestNotified[key1] !== 'baisse') {
+                    if (!this._congestNotified) this._congestNotified = {};
+                    this._congestNotified[key1] = 'baisse';
+                    if(window.ui) { window.ui.showToast(`📉 Alerte : Le marché baisse pour ${key1} !`); }
+                }
+            } else {
+                if (this._congestNotified) this._congestNotified[key1] = null;
+            }
 
-               // ✅ NOUVEAU CODE À INSÉRER
-if (this.bankBalance <= -1000 && baseVal > 0) {
-    const bigVehicles = ["Camions", "Engins agricoles", "Camping-cars", "Bus/Car"];
-    if (bigVehicles.includes(key1)) {
-        baseVal = Math.round(baseVal * 0.7); // Tu gardes 70%, l'huissier prend 30%
-        
-        // On affiche l'alerte de saisie (max 1 fois toutes les 30 sec pour éviter le spam)
-        if (!this._huissierNotified || Date.now() - this._huissierNotified > 30000) {
-            if(window.ui) window.ui.showToast("⚖️ Saisie partielle (30%) sur ce gros véhicule !");
-            this._huissierNotified = Date.now();
-        }
-    }
-}
-
-
-                    // 🌅 PRIME DE L'AUBE : Gains x2 entre 5h et 7h du matin
-                    let currentHourForDawn = new Date().getHours();
-                    if (baseVal > 0 && currentHourForDawn >= 5 && currentHourForDawn < 7) {
-                        baseVal = baseVal * 2;
-                        if(window.ui) window.ui.showToast(`🌅 Prime de l'Aube ! Gains doublés !`, 'success');
-                    }
-
-                    // ⛰️ BONUS D'ALTITUDE : +10% au-dessus de 800m
-                    let altForBonus = window.gps && window.gps.currentPos ? (window.gps.currentPos.alt || 0) : 0;
-                    if (baseVal > 0 && altForBonus > 800) {
-                        let altBonus = Math.round(baseVal * 0.10);
-                        baseVal += altBonus;
-                        if(window.ui) window.ui.showToast(`⛰️ Bonus d'Altitude (+10%) : +${altBonus} €`);
-                    }
-
-                    this.addBankTransaction(baseVal, `Comptage ${key1}${isExact ? ' (x' + gegeMultiplier + ' IA)' : ''}`);
-
-                    // 🌈 COMBO ARC-EN-CIEL : +200€ si 5 catégories différentes enchaînées
-                    if (!isTruck) {
-                        let recentCats = history.filter(h => !h.isEvent).slice(-5).map(h => h.type);
-                        if (recentCats.length === 5 && new Set(recentCats).size === 5) {
-                            this.addBankTransaction(200, "🌈 Combo Arc-en-ciel (5 catégories !)");
-                            if(window.ui) { window.ui.showToast("🌈 COMBO ARC-EN-CIEL ! 5 catégories d'affilée : +200 € !", 'rare-combo'); window.ui.playGamiSound('cash'); }
-                        }
-                    }
-
-                    // 🚛 CONVOI EXCEPTIONNEL : +50€ si 3 camions en moins de 15 secondes
-                    if (!isTruck && key1 === "Camions") {
-                        if (!this._convoiTimes) this._convoiTimes = [];
-                        this._convoiTimes.push(Date.now());
-                        this._convoiTimes = this._convoiTimes.filter(t => Date.now() - t <= 15000);
-                        if (this._convoiTimes.length >= 3) {
-                            this.addBankTransaction(50, "🚛 Convoi Exceptionnel (3 camions en 15s)");
-                            if(window.ui) { window.ui.showToast("🚛 CONVOI EXCEPTIONNEL ! 3 camions en 15s : +50 € !", 'success'); window.ui.playGamiSound('cash'); }
-                            this._convoiTimes = []; // reset pour éviter cumul
-                        }
-                    }
-                    this.showMoneyParticle(e, baseVal);
-                    if (baseVal > 0 && window.ui && consecutive < threshold) window.ui.playGamiSound('cash');
-
-                  // 🎯 NOUVEAU : Envoi massif d'informations à Gégé pour les Quêtes du Passe Routier
-if (window.gami) {
-    let isNight = (new Date().getHours() >= 21 || new Date().getHours() < 6);
-    let alt = window.gps && window.gps.currentPos ? window.gps.currentPos.alt : 0;
-    
-    let extraData = { 
-        weight: randWeight, 
-        isNight: isNight, 
-        alt: alt, 
-        regularity: this.regularityChain,
-        isExact: isExact,
-        iaCash: isExact ? baseVal : 0
-    };
-    
-    // 👇 LES LIGNES À MODIFIER SONT ICI 👇
-    let typeForGami = isTruck ? "Camions" : key1;
-    let natForGami = isTruck ? key2 : null;
-    window.gami.notifyVehicleAdded(typeForGami, natForGami, extraData);
-}
-
-
-                    if (this.activeSponsor && key1 === this.activeSponsor.type) {
-                        this.activeSponsor.current += 1;
-                        this.updateSponsorUI();
-                        if (this.activeSponsor.current === this.activeSponsor.target) {
-                            if (window.ui) { window.ui.showToast(`🎯 Contrat Rempli ! Encaisser tes gains !`, "rare-combo"); window.ui.playGamiSound('siren'); }
-                        }
+            // 6. Huissier
+            if (this.bankBalance <= -1000 && baseVal > 0) {
+                const bigVehicles = ["Camions", "Engins agricoles", "Camping-cars", "Bus/Car"];
+                if (bigVehicles.includes(key1)) {
+                    baseVal *= 0.7; 
+                    if (!this._huissierNotified || Date.now() - this._huissierNotified > 30000) {
+                        if(window.ui) window.ui.showToast("⚖️ Saisie partielle (30%) par l'huissier !");
+                        this._huissierNotified = Date.now();
                     }
                 }
+            }
+
+            // ==========================================
+            // VALIDE LA TRANSACTION (Avec décimales !)
+            // ==========================================
+            baseVal = parseFloat(baseVal.toFixed(2));
+            this.addBankTransaction(baseVal, transactionName);
+
+            // 7. Primes Fixes & Événements Globaux
+            this.sessionPaveWeight = (this.sessionPaveWeight || 0) + randWeight;
+            if (this.sessionPaveWeight >= 100000) { 
+                this.addBankTransaction(-50.00, "Taxe d'Usure des Routes (T.U.R) 🚧");
+                if(window.ui) { window.ui.showToast("🚧 La route fissure ! Taxe d'Usure : -50 €", "anomaly"); window.ui.playGamiSound('crash'); }
+                this.sessionPaveWeight = 0; 
+            }
+
+            if (randWeight < 500) {
+                this.consecutiveLightVehicles = (this.consecutiveLightVehicles || 0) + 1;
+                if (this.consecutiveLightVehicles >= 4) {
+                    this.addBankTransaction(30.00, "Prime Poids Plume 🪶");
+                    if(window.ui) { window.ui.showToast("🪶 Prime Poids Plume ! +30 €"); window.ui.playGamiSound('cash'); }
+                    this.consecutiveLightVehicles = 0;
+                }
+            } else { this.consecutiveLightVehicles = 0; }
+            
+            if (this.lastCountTime > 0) {
+                let diffSec = (nowTs - this.lastCountTime) / 1000;
+                if (diffSec >= 5 && diffSec <= 30) {
+                    this.regularityChain++;
+                    if (this.regularityChain >= 10) {
+                        this.addBankTransaction(100.00, "Prime de Régularité (Flux parfait)");
+                        if(window.ui) { window.ui.showToast("🌊 Bonus de Flux ! +100 €"); window.ui.playGamiSound('cash'); }
+                        this.regularityChain = 0; 
+                    }
+                } else { this.regularityChain = 0; }
+            }
+            this.lastCountTime = nowTs;
+
+            let recentCats = history.filter(h => !h.isEvent).slice(-5).map(h => h.type);
+            if (recentCats.length === 5 && new Set(recentCats).size === 5) {
+                this.addBankTransaction(200.00, "🌈 Combo Arc-en-ciel (5 catégories !)");
+                if(window.ui) { window.ui.showToast("🌈 COMBO ARC-EN-CIEL ! +200 € !", 'rare-combo'); window.ui.playGamiSound('cash'); }
+            }
+
+            if (key1 === "Camions") {
+                if (!this._convoiTimes) this._convoiTimes = [];
+                this._convoiTimes.push(Date.now());
+                this._convoiTimes = this._convoiTimes.filter(t => Date.now() - t <= 15000);
+                if (this._convoiTimes.length >= 3) {
+                    this.addBankTransaction(50.00, "🚛 Convoi Exceptionnel");
+                    if(window.ui) { window.ui.showToast("🚛 CONVOI EXCEPTIONNEL ! +50 € !", 'success'); window.ui.playGamiSound('cash'); }
+                    this._convoiTimes = []; 
+                }
+            }
+
+            this.showMoneyParticle(e, baseVal);
+            if (baseVal > 0 && window.ui && consecutive < threshold) window.ui.playGamiSound('cash');
+
+            // Envoi Gami
+            if (window.gami) {
+                let alt = window.gps && window.gps.currentPos ? window.gps.currentPos.alt : 0;
+                let extraData = { 
+                    weight: randWeight, 
+                    isNight: isNight, 
+                    alt: alt, 
+                    regularity: this.regularityChain,
+                    isExact: isExact,
+                    iaCash: isExact ? baseVal : 0
+                };
+                window.gami.notifyVehicleAdded(key1, null, extraData);
+            }
+
+            if (this.activeSponsor && key1 === this.activeSponsor.type) {
+                this.activeSponsor.current += 1;
+                this.updateSponsorUI();
+                if (this.activeSponsor.current === this.activeSponsor.target) {
+                    if (window.ui) { window.ui.showToast(`🎯 Contrat Rempli ! Encaisser tes gains !`, "rare-combo"); window.ui.playGamiSound('siren'); }
+                }
+            }
+        }
+
 
                 if (isTruck) { counters[key1][key2] += amount; globalCounters[key1][key2] += amount; }
                 else { counters[key1] += amount; globalCounters[key1] += amount; }
