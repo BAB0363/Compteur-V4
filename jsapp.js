@@ -1,9 +1,10 @@
 import { ui } from './jsui.js?v=44';
 import { gps } from './jsgps.js?v=44';
 import { ml } from './jsml.js?v=44';
+import { market } from './jsmarket.js?v=45';
 
+window.ui = ui; window.gps = gps; window.ml = ml; window.market = market;
 
-window.ui = ui; window.gps = gps; window.ml = ml;
 
 const app = {
     currentUser: localStorage.getItem('currentUser') || 'Sylvain',
@@ -555,8 +556,8 @@ const app = {
         if (!badge || !display) return;
 
         badge.style.display = 'flex';
-        display.innerText = Math.round(this.bankBalance).toLocaleString('fr-FR') + ' €';
-        
+        display.innerText = this.bankBalance.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+
       // ✅ NOUVEAU CODE À INSÉRER
 if (this.bankBalance < 0) {
     badge.classList.remove('bank-positive');
@@ -3423,11 +3424,13 @@ if (window.gami) {
 window.app = app;
 
 const startApp = async () => {
-    await app.init(); // 👈 On ajoute 'async' et 'await' ici !
+    await app.init(); 
     if(window.ui) window.ui.init(); 
     if(window.gps) window.gps.init(); 
     if(window.gami) window.gami.init(); 
+    if(window.market) window.market.init();
 };
+
 
 
 if (document.readyState === 'loading') {
