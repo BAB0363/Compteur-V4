@@ -23,17 +23,18 @@ const app = {
         "Vélos": { wMin: 10, wMax: 28, cMin: 0, cMax: 0 }
     },
 
-  
-    // ==========================================
+      // ==========================================
     // 🏢 VARIABLES DE L'ENTREPRISE (TYCOON)
     // ==========================================
     companyCatalog: {
         buildings: {
+            parking: { id: 'parking', name: 'Place de trottoir', price: 4000, slots: 1, icon: '🅿️' },
             terrain: { id: 'terrain', name: 'Terrain vague', price: 15000, slots: 3, icon: '🚧' },
             depot: { id: 'depot', name: 'Dépôt Sécurisé', price: 120000, slots: 10, icon: '🏭' },
             hub: { id: 'hub', name: 'Hub Logistique', price: 800000, slots: 999, icon: '🏢' } // 999 = illimité
         },
         fleet: {
+            scooter: { id: 'scooter', name: 'Scooter rincé', price: 4000, income: 0.12, icon: '🛵' },
             vul: { id: 'vul', name: 'VUL d\'occasion', price: 15000, income: 0.50, icon: '🚐' },
             porteur: { id: 'porteur', name: 'Petit Porteur 19t', price: 45000, income: 1.50, icon: '🚚' },
             tracteur: { id: 'tracteur', name: 'Tracteur Routier', price: 110000, income: 4.00, icon: '🚛' },
@@ -42,10 +43,11 @@ const app = {
         }
     },
     companyState: {
-        buildings: { terrain: 0, depot: 0, hub: 0 },
-        fleet: { vul: 0, porteur: 0, tracteur: 0, frigo: 0, convoi: 0 },
+        buildings: { parking: 0, terrain: 0, depot: 0, hub: 0 },
+        fleet: { scooter: 0, vul: 0, porteur: 0, tracteur: 0, frigo: 0, convoi: 0 },
         pendingIncome: 0
     },
+
 
     // ==========================================
     // 🏦 VARIABLES DE LA BOURSE DE L'ASPHALTE
@@ -310,27 +312,41 @@ const app = {
         }
     },
 
-    getCompanyStats() {
-        if (!this.companyState) this.companyState = { buildings: { terrain: 0, depot: 0, hub: 0 }, fleet: { vul: 0, porteur: 0, tracteur: 0, frigo: 0, convoi: 0 }, pendingIncome: 0 };
-        if (!this.companyState.buildings) this.companyState.buildings = { terrain: 0, depot: 0, hub: 0 };
-        if (!this.companyState.fleet) this.companyState.fleet = { vul: 0, porteur: 0, tracteur: 0, frigo: 0, convoi: 0 };
+        getCompanyStats() {
+        if (!this.companyState) this.companyState = { buildings: {}, fleet: {}, pendingIncome: 0 };
+        if (!this.companyState.buildings) this.companyState.buildings = {};
+        if (!this.companyState.fleet) this.companyState.fleet = {};
 
-        let maxSlots = (this.companyState.buildings.terrain * 3) + (this.companyState.buildings.depot * 10) + (this.companyState.buildings.hub * 999);
-        let usedSlots = Object.values(this.companyState.fleet).reduce((a, b) => a + b, 0);
+        // 🧠 Calcul dynamique des places (plus besoin d'ajouter les noms à la main !)
+        let maxSlots = 0;
+        Object.keys(this.companyState.buildings).forEach(k => {
+            if (this.companyCatalog.buildings[k]) {
+                maxSlots += (this.companyState.buildings[k] || 0) * this.companyCatalog.buildings[k].slots;
+            }
+        });
+        
+        let usedSlots = 0;
+        Object.values(this.companyState.fleet).forEach(val => usedSlots += (val || 0));
+        
         let incomePerMin = 0;
         Object.keys(this.companyState.fleet).forEach(k => {
-            incomePerMin += this.companyState.fleet[k] * this.companyCatalog.fleet[k].income;
+            if (this.companyCatalog.fleet[k]) {
+                incomePerMin += (this.companyState.fleet[k] || 0) * this.companyCatalog.fleet[k].income;
+            }
         });
+
         if (this.companyState.buildings.hub > 0) {
             incomePerMin *= 1.10;
         }
-        // 📢 PUBLICITÉ TYCOON : +5% par camion possédé dans la flotte
-        let totalTrucks = Object.values(this.companyState.fleet).reduce((a, b) => a + b, 0);
-        if (totalTrucks > 0) {
-            incomePerMin *= (1 + totalTrucks * 0.05);
+        
+        // 📢 PUBLICITÉ TYCOON : +5% par véhicule possédé dans la flotte
+        if (usedSlots > 0) {
+            incomePerMin *= (1 + usedSlots * 0.05);
         }
+        
         return { maxSlots, usedSlots, incomePerMin };
     },
+
 
     buyCompanyItem(category, id) {
         let item = this.companyCatalog[category][id];
