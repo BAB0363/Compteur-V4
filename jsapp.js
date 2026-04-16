@@ -149,7 +149,7 @@ const app = {
         },
 
         async cleanupCompany(start, end) {
-            if (!window.app.companyState.purchaseHistory) return;
+            if (!window.app.compan7jyState.purchaseHistory) return;
             
             let keptHistory = [];
             window.app.companyState.purchaseHistory.forEach(purchase => {
@@ -830,7 +830,12 @@ if (this.bankBalance < 0) {
         this.resetSponsorUI();
     },
 
-    checkSponsorOnStop() {
+        checkSponsorOnStop() {
+        // Astuce : on simule que le trajet tourne encore 1 seconde pour
+        // que la pénalité ou le gain aille bien dans le ticket de caisse
+        let wasRunning = this.isCarRunning;
+        this.isCarRunning = true;
+
         if (this.activeSponsor) {
             if (this.activeSponsor.current < this.activeSponsor.target) {
                 this.addBankTransaction(-this.activeSponsor.penalty, `Rupture Contrat Sponsor (${this.activeSponsor.type})`);
@@ -844,7 +849,11 @@ if (this.bankBalance < 0) {
             this.pendingSponsor = null;
             this.resetSponsorUI();
         }
+
+        // On remet l'état normal
+        this.isCarRunning = wasRunning;
     },
+
 
     resetSponsorUI() {
         let elTitle = document.getElementById('sponsor-title');
@@ -1993,11 +2002,13 @@ if (elapsed > 0 && elapsed % 900 === 0 && this.bankBalance < -500) {
 
         if (isRunning) this.toggleChrono(type); 
         
-        // 🏢 ENCAISSEMENT DES REVENUS DE L'ENTREPRISE A L'ARRET
-          if (this.companyState.pendingIncome > 0) {
+               // 🏢 ENCAISSEMENT DES REVENUS DE L'ENTREPRISE A L'ARRET
+        if (this.companyState.pendingIncome > 0) {
             let earned = parseFloat(this.companyState.pendingIncome.toFixed(2));
             if (earned > 0) {
-
+                // On l'ajoute manuellement au ticket car le chrono est déjà coupé
+                if (!isTruck) this.sessionFinance.gains += earned;
+                
                 this.addBankTransaction(earned, "🏢 Bénéfices de l'Entreprise (Session)");
                 if (window.ui) {
                     window.ui.playGamiSound('cash');
@@ -2007,6 +2018,7 @@ if (elapsed > 0 && elapsed % 900 === 0 && this.bankBalance < -500) {
             this.companyState.pendingIncome = 0;
             await this.saveUserData();
         }
+
 
         if (seconds === 0 && history.length === 0) { 
             this.resetSessionData(type); 
