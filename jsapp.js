@@ -3360,16 +3360,17 @@ if (elapsed > 0 && elapsed % 900 === 0 && this.bankBalance < -500) {
             elJournal.onclick = () => { if(window.ui) window.ui.toggleGegeBrain(); };
         }
 
-        // IMPORTANT : On efface la prédiction en cours pour ne pas mettre d'amende injuste au joueur
+                // IMPORTANT : On efface la prédiction en cours pour ne pas mettre d'amende injuste au joueur
         if (type === 'trucks') {
             this.currentPredictionTruck = null;
         } else {
             this.currentPredictionCar = null;
         }
     }
-
+}; // <-- C'EST LUI LE SAUVEUR ! Il ferme l'objet app.
 
 window.app = app;
+
 
 const startApp = async () => {
     await app.init(); 
