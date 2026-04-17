@@ -47,6 +47,21 @@ export const ml = {
         if (elTrucks) { elTrucks.innerText = this.modelTrucks ? "Prêt ✅" : "Apprentissage requis ❌"; elTrucks.style.color = this.modelTrucks ? "#27ae60" : "#e74c3c"; }
         if (elCars) { elCars.innerText = this.modelCars ? "Prêt ✅" : "Apprentissage requis ❌"; elCars.style.color = this.modelCars ? "#27ae60" : "#e74c3c"; }
     },
+    async forceTraining() {
+        if (this.isTraining || !this.worker) {
+            if(window.ui) window.ui.showToast("⏳ Un entraînement est déjà en cours ou le cerveau n'est pas prêt.");
+            return;
+        }
+        
+        let uiProgress = document.getElementById('ai-training-progress');
+        if (uiProgress) uiProgress.style.display = 'block';
+
+        if(window.ui) window.ui.showToast("🧠 Début de l'apprentissage de tes zones GPS...");
+
+        this.trainModel('trucks');
+        setTimeout(() => this.trainModel('cars'), 500); 
+    },
+
 
     extractFeatures(h, recentHistory, labelsList, type) {
         const d = new Date(h.timestamp);

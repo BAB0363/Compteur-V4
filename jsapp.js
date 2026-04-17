@@ -3331,119 +3331,43 @@ if (elapsed > 0 && elapsed % 900 === 0 && this.bankBalance < -500) {
 
    }, 
 
-    async updatePrediction(type) {
+        async updatePrediction(type) {
         let elMain = document.getElementById(type === 'trucks' ? 'pred-main-trucks' : 'pred-main-cars');
+        let elGauge = document.getElementById(type === 'trucks' ? 'pred-gauge-trucks' : 'pred-gauge-cars');
+        let elPodium = document.getElementById(type === 'trucks' ? 'pred-podium-trucks' : 'pred-podium-cars');
+        let elJournal = document.getElementById(type === 'trucks' ? 'pred-journal-trucks' : 'pred-journal-cars');
+
         if(elMain) elMain.innerHTML = "Analyse en cours... 🤖";
 
+        // 1. Gégé 2.0 essaie de faire une prédiction avec ses neurones et le GPS
         if (window.ml) {
             let aiResult = await window.ml.predictNext(type);
             if (aiResult && aiResult.top3) {
+                // L'IA a trouvé quelque chose ! On affiche les résultats.
                 this.renderPredictionUI(type, aiResult.top3, 'IA 🧠');
                 return;
             }
         }
 
-        let ana = type === 'trucks' ? this.globalAnaTrucks : this.globalAnaCars;
-        let history = type === 'trucks' ? this.truckHistory : this.carHistory;
-        let globalCounters = type === 'trucks' ? this.globalTruckCounters : this.globalCarCounters;
-        let candidates = type === 'trucks' ? window.ml.getTruckClasses() : this.vehicleTypes;
-
-        let d = new Date();
-        let currentHourKey = `${d.getHours()}h`;
-        let currentDayKey = Object.keys(ana.days)[d.getDay()];
-        let currentMonthKey = Object.keys(ana.months)[d.getMonth()];
-        let currentAlt = window.gps && window.gps.currentPos && window.gps.currentPos.alt ? window.gps.currentPos.alt : 0;
-        let altKey = currentAlt < 200 ? "< 200m" : currentAlt < 500 ? "200-500m" : currentAlt < 1000 ? "500-1000m" : "> 1000m";
-
-        let currentSpeedKmh = window.gps ? window.gps.getSlidingSpeedKmh() : 0;
-        let isHighway = (this.currentMode === 'voiture' && currentSpeedKmh > 100) || (this.currentMode === 'camion' && currentSpeedKmh > 80); 
-        let currentRoad = this.getRoadType(currentSpeedKmh, this.currentMode);
+        // 2. Si l'IA échoue ou manque de données : Mode Puriste (Désactivation du système Classique)
+        if (elMain) elMain.innerHTML = `<strong>Zone Inconnue</strong> <span style="color:#7f8c8d; font-size:0.8em;">(En attente de données 📡)</span>`;
+        if (elGauge) { elGauge.style.width = '0%'; elGauge.style.backgroundColor = '#7f8c8d'; }
+        if (elPodium) elPodium.innerHTML = `<span>-</span><br><span>-</span>`;
         
-        let sec = type === 'trucks' ? this.truckSeconds : this.carSeconds;
-        let isDenseTraffic = sec > 0 && (history.length / (sec / 3600)) > 500; 
+        if (elJournal) {
+            elJournal.innerHTML = `🔍 <strong>Gégé 2.0 :</strong> Besoin d'entraînement ici ! | 📍 Grille active | 🧠 Clic = Code`;
+            elJournal.style.cursor = 'pointer';
+            elJournal.onclick = () => { if(window.ui) window.ui.toggleGegeBrain(); };
+        }
 
-        let recentItems = history.filter(h => !h.isEvent).slice(-2);
-        let lastV1 = recentItems.length > 1 ? (type === 'trucks' ? `${recentItems[0].brand}_${recentItems[0].type}` : recentItems[0].type) : null; 
-        let lastV2 = recentItems.length > 0 ? (type === 'trucks' ? `${recentItems[recentItems.length-1].brand}_${recentItems[recentItems.length-1].type}` : recentItems[recentItems.length-1].type) : null; 
-
-        let scores = {};
-        let totalGlobalCount = 0;
-        
-        candidates.forEach(c => {
-            let count = 0;
-            if (type === 'trucks') {
-                let parts = c.split('_');
-                count = globalCounters[parts[0]] ? (globalCounters[parts[0]][parts[1]] || 0) : 0;
-            } else {
-                count = globalCounters[c] || 0;
-            }
-            scores[c] = count; 
-            totalGlobalCount += count;
-        });
-
-        if(totalGlobalCount > 0) {
-            candidates.forEach(c => { scores[c] = (scores[c] / totalGlobalCount) * 100; });
+        // IMPORTANT : On efface la prédiction en cours pour ne pas mettre d'amende injuste au joueur
+        if (type === 'trucks') {
+            this.currentPredictionTruck = null;
         } else {
-            candidates.forEach(c => { scores[c] = 10; });
+            this.currentPredictionCar = null;
         }
-
-        candidates.forEach(c => {
-            let baseVehKey = type === 'trucks' ? c.split('_')[0] : c;
-
-            if (lastV1 && lastV2 && ana.seqs3) {
-                let triplet = `${lastV1} ➡️ ${lastV2} ➡️ ${baseVehKey}`;
-                if (ana.seqs3[triplet]) scores[c] += 25; 
-            }
-            if (lastV2 && ana.seqs) {
-                let pair = `${lastV2} ➡️ ${baseVehKey}`;
-                if (ana.seqs[pair]) scores[c] += 10; 
-            }
-
-            if (ana.byVeh && ana.byVeh[baseVehKey]) {
-                let pHeure = (ana.hours[currentHourKey] > 0) ? ((ana.byVeh[baseVehKey].hours[currentHourKey] || 0) / ana.hours[currentHourKey]) * 100 : 0;
-                let pJour = (ana.days[currentDayKey] > 0) ? ((ana.byVeh[baseVehKey].days[currentDayKey] || 0) / ana.days[currentDayKey]) * 100 : 0;
-                let pAlt = (ana.alts[altKey] > 0) ? ((ana.byVeh[baseVehKey].alts[altKey] || 0) / ana.alts[altKey]) * 100 : 0;
-                let pMois = (ana.months[currentMonthKey] > 0) ? ((ana.byVeh[baseVehKey].months[currentMonthKey] || 0) / ana.months[currentMonthKey]) * 100 : 0;
-                let pRoute = (ana.roads[currentRoad] > 0) ? ((ana.byVeh[baseVehKey].roads[currentRoad] || 0) / ana.roads[currentRoad]) * 100 : 0;
-
-                scores[c] += (pHeure * 0.1) + (pJour * 0.1) + (pAlt * 0.1) + (pMois * 0.15) + (pRoute * 0.25);
-            }
-            
-            if (type === 'trucks' && c.includes('_etr')) {
-                if (isHighway) scores[c] += 15;
-                let currentHour = d.getHours();
-                if (currentHour < 5 || currentHour > 22) scores[c] += 15;
-                if (d.getDay() === 0 || d.getDay() === 6) scores[c] += 15;
-            }
-        });
-
-        if (type === 'cars') {
-            if (isHighway) {
-                scores['Camions'] += 40; 
-                scores['Vélos'] = 0; 
-                scores['Engins agricoles'] = 0;
-            }
-            if (isDenseTraffic) { scores['Voitures'] += 30; }
-        }
-
-        let results = [];
-        candidates.forEach(c => {
-            let finalScore = scores[c] + (Math.random() * (scores[c] * 0.1));
-            results.push({ candidate: c, rawScore: finalScore });
-        });
-
-        results.sort((a, b) => b.rawScore - a.rawScore);
-        
-        let totalScoreSum = results.reduce((sum, r) => sum + Math.max(0, r.rawScore), 0);
-        
-        let top3 = results.slice(0, 3).map(r => {
-            let conf = totalScoreSum > 0 ? Math.min(99, Math.round((Math.max(0, r.rawScore) / totalScoreSum) * 100)) : 33;
-            return { candidate: r.candidate, confidence: conf };
-        });
-
-        this.renderPredictionUI(type, top3, 'Classique 📊');
     }
-};
+
 
 window.app = app;
 
