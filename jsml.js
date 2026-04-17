@@ -27,6 +27,17 @@ export const ml = {
         return classes;
     },
 
+    isHolidayOrSunday(timestamp) {
+        const date = new Date(timestamp);
+        if (date.getDay() === 0) return 1; 
+        const day = date.getDate();
+        const month = date.getMonth() + 1;
+        const holidays = ["1/1", "1/5", "8/5", "14/7", "15/8", "1/11", "11/11", "25/12"];
+        if (holidays.includes(`${day}/${month}`)) return 1;
+        return 0;
+    },
+
+
     async init() {
         if (typeof tf === 'undefined') {
             console.warn("TensorFlow.js n'est pas chargé.");
@@ -221,8 +232,8 @@ export const ml = {
         }
         let rythmeNorm = Math.min(rythmeH / 1200.0, 1.0); 
 
-        return [hour, dayOfWeek, speed, alt, road, prev1, prev2, prev3, rythmeNorm, tendance];
-    },
+                return [hour, dayOfWeek, speed, alt, road, prev1, prev2, prev3, rythmeNorm, tendance, this.isHolidayOrSunday(h.timestamp)];
+}, 
 
     async trainModel(type) {
         if (this.isTraining || !this.worker) return false;
@@ -276,8 +287,8 @@ export const ml = {
         let labelsList = type === 'trucks' ? this.getTruckClasses() : this.carTypes;
 
         let currentSpeedKmh = window.gps ? window.gps.getSlidingSpeedKmh() : 0;
-        let currentRoad = window.app.getRoadType(currentSpeedKmh, window.app.currentMode);
-        
+               let currentRoad = (window.gps && await window.gps.fetchRealRoadType()) || window.app.getRoadType(currentSpeedKmh, window.app.currentMode);
+
         let liveHistory = type === 'trucks' ? window.app.truckHistory : window.app.carHistory;
         let recentHist = liveHistory.filter(h => !h.isEvent);
         

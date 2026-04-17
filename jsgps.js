@@ -14,6 +14,21 @@ export const gps = {
         this.startTracking();
     },
 
+    async fetchRealRoadType() {
+        if (!this.currentPos.lat || !this.currentPos.lon) return null;
+        try {
+            let res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${this.currentPos.lat}&lon=${this.currentPos.lon}`);
+            let data = await res.json();
+            if (data && data.address) {
+                if (data.address.highway === 'motorway' || data.address.highway === 'trunk') return "Autoroute (>100 km/h)";
+                if (data.address.city || data.address.town || data.address.village) return "Ville (0-50 km/h)";
+                return "Route (50-100 km/h)";
+            }
+        } catch(e) {}
+        return null;
+    },
+
+
     // Vitesse lissée avec Médiane + Verrou Autoroute
     getSlidingSpeedKmh() {
         let now = Date.now();
