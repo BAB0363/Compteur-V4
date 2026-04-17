@@ -3313,15 +3313,20 @@ if (elapsed > 0 && elapsed % 900 === 0 && this.bankBalance < -500) {
             this.currentPredictionCar = { class: best.candidate, confidence: best.confidence };
         }
 
-               if (elJournal) {
+                  if (elJournal) {
             let hist = type === 'trucks' ? this.truckHistory.filter(h=>!h.isEvent) : this.carHistory.filter(h=>!h.isEvent);
             let seqText = "📊 Analyse de la zone...";
             if (hist.length >= 1) {
                 let l1 = type === 'trucks' ? hist[hist.length-1].brand.split(' ')[0] : (hist[hist.length-1].type === 'Camions' ? 'PL' : hist[hist.length-1].type.substring(0,4));
                 seqText = `🔁 Suite logique : [${l1} ➡️ ?]`;
             }
-            elJournal.innerHTML = `🔍 <strong>Gégé 2.0 :</strong> ${seqText} | 📍 Grille GPS active | 🧠 Clique sur le bouton pour voir mon code !`;
+            elJournal.innerHTML = `🔍 <strong>Gégé 2.0 :</strong> ${seqText} | 📍 Grille active | 🧠 Clique ICI pour mon code`;
+            
+            // On rend la case visuellement cliquable et on lui donne l'action
+            elJournal.style.cursor = 'pointer';
+            elJournal.onclick = () => { if(window.ui) window.ui.toggleGegeBrain(); };
         }
+
 
 
    }, 

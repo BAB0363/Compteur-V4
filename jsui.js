@@ -5,22 +5,20 @@ export const ui = {
     audioCtx: null,
     lottieInstance: null,
 
-    // 🧠 Moniteur de Gégé
+        // 🧠 Moniteur de Gégé
+    toggleGegeBrain() {
+        let panel = document.getElementById('gege-brain-panel');
+        if (panel) panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+    },
+
     updateGegeBrain(features, top3) {
         let panel = document.getElementById('gege-brain-panel');
         if (!panel) {
-            // Création de la fenêtre
+            // Création de la fenêtre uniquement (sans le bouton)
             panel = document.createElement('div');
             panel.id = 'gege-brain-panel';
             panel.style.cssText = 'position:fixed; top:70px; right:10px; background:rgba(11, 14, 20, 0.85); border:1px solid #00F2FF; color:#00FF66; padding:12px; border-radius:12px; z-index:9999; font-family:monospace; font-size:11px; max-width:200px; box-shadow: 0 4px 15px rgba(0,0,0,0.7); backdrop-filter: blur(5px); display:none; pointer-events:none;';
             document.body.appendChild(panel);
-            
-            // Création du bouton pour l'afficher/masquer
-            let btn = document.createElement('button');
-            btn.innerHTML = '🧠';
-            btn.style.cssText = 'position:fixed; bottom:80px; left:15px; z-index:9998; font-size:24px; border:2px solid #00F2FF; cursor:pointer; background:rgba(22, 27, 34, 0.9); border-radius:50%; width:50px; height:50px; display:flex; justify-content:center; align-items:center; box-shadow: 0 0 10px rgba(0, 242, 255, 0.4);';
-            btn.onclick = () => panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
-            document.body.appendChild(btn);
         }
         
         let html = `<b style="color:white;">🧠 Code de Gégé</b><hr style="border-color:rgba(0,242,255,0.3); margin:5px 0;">`;
@@ -29,7 +27,7 @@ export const ui = {
         html += `🛣️ Code Route : ${features[5].toFixed(2)}<br>`;
         html += `📈 Flux trafic : ${features[9].toFixed(2)}<br>`;
         html += `<hr style="border-color:rgba(0,242,255,0.3); margin:5px 0;">`;
-        html += `<b style="color:white;">🔮 Mes probabilités :</b><br>`;
+        html += `<b style="color:white;">🔮 Probabilités :</b><br>`;
         top3.forEach(p => {
             let cleanName = p.candidate.replace('_fr', ' 🇫🇷').replace('_etr', ' 🌍');
             html += `- ${cleanName} : ${p.confidence}%<br>`;
@@ -37,6 +35,7 @@ export const ui = {
         
         panel.innerHTML = html;
     },
+
 
 
     playBeep(isAdding) {
