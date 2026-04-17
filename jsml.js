@@ -124,6 +124,13 @@ export const ml = {
 
         let res = [];
         for (let i = 0; i < scores.length; i++) res.push({ candidate: labelsList[i], confidence: Math.round(scores[i] * 100) });
+        // 🧠 Envoi des pensées de Gégé vers le moniteur
+        let top3 = res.sort((a, b) => b.confidence - a.confidence).slice(0, 3);
+        if (window.ui && window.ui.updateGegeBrain) {
+            let currentFeatures = this.extractFeatures(mock, recent, labelsList, type);
+            window.ui.updateGegeBrain(currentFeatures, top3);
+        }
+
         return { top3: res.sort((a, b) => b.confidence - a.confidence).slice(0, 3) };
     }
 };

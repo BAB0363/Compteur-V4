@@ -3313,30 +3313,16 @@ if (elapsed > 0 && elapsed % 900 === 0 && this.bankBalance < -500) {
             this.currentPredictionCar = { class: best.candidate, confidence: best.confidence };
         }
 
-        if (elJournal) {
+               if (elJournal) {
             let hist = type === 'trucks' ? this.truckHistory.filter(h=>!h.isEvent) : this.carHistory.filter(h=>!h.isEvent);
-            let speed = window.gps ? window.gps.getSlidingSpeedKmh() : 0;
-            let alt = window.gps && window.gps.currentPos && window.gps.currentPos.alt ? window.gps.currentPos.alt : 0;
-            
-            let seqText = "📊 Init.";
-            if (hist.length >= 2) {
+            let seqText = "📊 Analyse de la zone...";
+            if (hist.length >= 1) {
                 let l1 = type === 'trucks' ? hist[hist.length-1].brand.split(' ')[0] : (hist[hist.length-1].type === 'Camions' ? 'PL' : hist[hist.length-1].type.substring(0,4));
-                let l2 = type === 'trucks' ? hist[hist.length-2].brand.split(' ')[0] : (hist[hist.length-2].type === 'Camions' ? 'PL' : hist[hist.length-2].type.substring(0,4));
-                seqText = `🔁 [${l2}➡️${l1}]`;
-            } else if (hist.length === 1) {
-                let l1 = type === 'trucks' ? hist[0].brand.split(' ')[0] : (hist[0].type === 'Camions' ? 'PL' : hist[0].type.substring(0,4));
-                seqText = `🔁 [${l1}]`;
+                seqText = `🔁 Suite logique : [${l1} ➡️ ?]`;
             }
-
-            let envText = speed > 80 ? `🛣️ >80km/h` : (speed > 40 ? `🚗 >40km/h` : `🏙️ <40km/h`);
-            if (alt > 400) envText += ` (⛰️ ${Math.round(alt)}m)`;
-
-            let tenMinsAgo = Date.now() - 600000;
-            let count10m = hist.filter(item => item.timestamp >= tenMinsAgo).length;
-            let trendText = count10m > 15 ? `🔥 Pic` : (count10m > 5 ? `🌊 Régulier` : `⏳ Calme`);
-
-            elJournal.innerHTML = `🔍 <strong>Facteurs IA :</strong> ${seqText} | ${envText} | ${trendText}`;
+            elJournal.innerHTML = `🔍 <strong>Gégé 2.0 :</strong> ${seqText} | 📍 Grille GPS active | 🧠 Clique sur le bouton pour voir mon code !`;
         }
+
 
    }, 
 
