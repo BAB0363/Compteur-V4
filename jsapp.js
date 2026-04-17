@@ -1530,13 +1530,31 @@ if (elapsed > 0 && elapsed % 900 === 0 && this.bankBalance < -500) {
                         else gegeMultiplier = 2;                 // Jauge Verte
                         
                         if(window.ui) window.ui.showToast(`🎯 Prédiction exacte (${conf}%) ! Gains x${gegeMultiplier} !`, 'success');
-                    } else {
-                        // 📉 MALUS INATTENTION (si IA était sûre > 70%)
-                        if (conf > 70) {
-                            this.addBankTransaction(-20, "Malus Gégé : Inattention");
-                            if(window.ui) window.ui.showToast(`📉 Inattention ! Gégé était sûr (${conf}%), Amende : -20 € !`, 'anomaly');
-                        }
-                    }
+                  } else {
+    if (conf > 70) {
+        // 1. Évaluation de la fiabilité globale de Gégé sur la catégorie prédite (Mémoire à long terme)
+        let globalClassStats = ana.predictionsByClass[currPred.class];
+        let globalReliability = (globalClassStats && globalClassStats.total >= 5) ? (globalClassStats.success / globalClassStats.total) : 0;
+        
+        // 2. Évaluation de la fiabilité de la session en cours (Réflexes en temps réel)
+        let sessionSuccessRate = sessionPreds.total > 0 ? (sessionPreds.success / sessionPreds.total) : 0.5;
+
+        // 3. Condition : Gégé a-t-il le droit de sanctionner ? (Exige 85% de réussite globale sur CE véhicule ET 60% sur la session)
+        let isAiReliable = (globalReliability >= 0.85) && (sessionSuccessRate >= 0.60);
+
+        if (isAiReliable) {
+            // Gégé est un expert avéré sur ce véhicule, on garde une petite amende symbolique de 5 €
+            this.addBankTransaction(-5, "Malus Gégé : Inattention (IA Fiable)");
+            if(window.ui) window.ui.showToast(`📉 Inattention ! Gégé maîtrise ce véhicule (${conf}%), Amende : -5 € !`, 'anomaly');
+        } else {
+            // Gégé a été trop confiant alors qu'il ne maîtrise pas. Sylvain est récompensé pour l'avoir corrigé !
+            let learningBonus = 15;
+            this.addBankTransaction(learningBonus, "Bonus d'Apprentissage 🎓");
+            if(window.ui) window.ui.showToast(`🎓 Bien vu ! Tu as corrigé Gégé (${conf}%), Bonus : +${learningBonus} € !`, 'success');
+        }
+    }
+}
+
                     
                     // Reset prédiction pour éviter la triche
                     if (isTruck) this.currentPredictionTruck = null;
