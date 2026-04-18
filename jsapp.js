@@ -1524,12 +1524,23 @@ if (!isTruck && window.tycoon) {
         if (currentCount + amount >= 0) {
             if (window.ui) window.ui.playBeep(amount > 0);
 
-            // --- NOUVEAU BLOC CARBONE ENTREPRISE ---
+                // --- NOUVEAU BLOC CARBONE ENTREPRISE ---
             if (amount > 0 && window.tycoon) {
-                let co2Entrep = (key1 === "Vélos") ? -Math.floor(Math.random() * 1750) : randCo2;
-                window.tycoon.addCarbon(co2Entrep);
+                let categoryAverage = specs ? (specs.cMin + specs.cMax) / 2 : 120;
+                let emitted = randCo2;
+                let quota = categoryAverage;
+
+                if (key1 === "Vélos") {
+                    emitted = 0;
+                    // On pré-calcule le bonus vélo ici pour qu'il soit identique partout
+                    bikeBonus = Math.floor(Math.random() * 1751); 
+                    quota = bikeBonus; 
+                }
+
+                window.tycoon.addCarbon(emitted, quota);
             }
             // ---------------------------------------
+
 
             if (amount > 0) {
                 if (currPred && currPred.class) {
@@ -1577,7 +1588,7 @@ if (!isTruck && window.tycoon) {
 
                 if (!isTruck) {
                     if (key1 === "Vélos") {
-                        bikeBonus = Math.floor(Math.random() * 1751);
+           
                         randCo2 = 0;
                         if(window.ui) window.ui.showToast(`🚲 Bonus Écolo : +${bikeBonus}g au quota !`, 'success');
                     }

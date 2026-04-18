@@ -4,6 +4,7 @@ export const tycoon = {
         warehouseLevel: 0,
         storedFreight: 0,
         companyCarbon: 0,
+        companyQuota: 0, // NOUVEAU : Le quota dynamique autorisé
         carbonModifier: 1.0,
         lastResetWeek: 0,
         buildings: {}, 
@@ -26,7 +27,7 @@ export const tycoon = {
     catalog: {
         buildings: {
             relais: { id: 'relais', name: 'Relais Scooter', price: 4000, slots: 2, icon: '🛵', maxLimit: 5, targetVeh: 'scooter' },
-            hangar: { id: 'hangar', name: 'Hangar Urbain', price: 12000, slots: 3, icon: '🚐', maxLimit: 4, targetVeh: 'vul' },
+            hangar: { id: 'hangar', name: 'Hangar Urbain', price: 28000, slots: 3, icon: '🚐', maxLimit: 4, targetVeh: 'vul' }, // Prix augmenté ! 📈
             quai: { id: 'quai', name: 'Quai Régional', price: 35000, slots: 5, icon: '🚚', maxLimit: 3, targetVeh: 'porteur' },
             plateforme: { id: 'plateforme', name: 'Plateforme Logistique', price: 100000, slots: 10, icon: '🚛', maxLimit: 2, targetVeh: 'tracteur' },
             terminal: { id: 'terminal', name: 'Terminal Frigo', price: 250000, slots: 5, icon: '❄️', maxLimit: 2, targetVeh: 'frigo' },
@@ -81,25 +82,31 @@ export const tycoon = {
             return;
         }
         if (currentWeek !== this.state.lastResetWeek) {
-            let limit = 50000; // Tolérance de 50 kg de CO2 par semaine
-            if (this.state.companyCarbon > limit) {
-                this.state.carbonModifier = 0.7; // Malus de 30% sur les ventes
+            // Le jugement se fait sur le ratio (Émis vs Quota autorisé) ⚖️
+            let ratio = this.state.companyQuota > 0 ? (this.state.companyCarbon / this.state.companyQuota) : 1;
+            
+            if (ratio > 1.0) {
+                this.state.carbonModifier = 0.7; // Malus : Dépassement du quota
                 if(window.ui) window.ui.showToast("🚨 Bilan Hebdo : Malus Carbone (-30% sur les ventes) !");
-            } else if (this.state.companyCarbon < 0) {
-                this.state.carbonModifier = 1.2; // Bonus de 20% sur les ventes
+            } else if (ratio <= 0.8 && this.state.companyCarbon > 0) {
+                this.state.carbonModifier = 1.2; // Bonus : Bilan très propre (20% de marge)
                 if(window.ui) window.ui.showToast("🌿 Bilan Hebdo : Bonus Écolo (+20% sur les ventes) !");
             } else {
-                this.state.carbonModifier = 1.0;
+                this.state.carbonModifier = 1.0; // Neutre
                 if(window.ui) window.ui.showToast("⚖️ Bilan Hebdo : Neutre.");
             }
-            this.state.companyCarbon = 0; // Remise à zéro pour la nouvelle semaine
+            
+            // Remise à zéro pour la nouvelle semaine
+            this.state.companyCarbon = 0; 
+            this.state.companyQuota = 0;
             this.state.lastResetWeek = currentWeek;
             this.saveState();
         }
     },
 
-    addCarbon(grams) {
-        this.state.companyCarbon += grams;
+    addCarbon(emitted, quota) {
+        this.state.companyCarbon += emitted;
+        this.state.companyQuota += quota;
         this.saveState();
     },
 
@@ -108,11 +115,13 @@ export const tycoon = {
         const cap = this.getWarehouseCapacity();
         if (cap === 0) return 0;
         const fillRate = this.state.storedFreight / cap;
-        if (fillRate < 0.20) return basePrice * 1.5;
-        if (fillRate > 0.80) return basePrice * 0.5;
+        
+        let price = basePrice;
+        if (fillRate < 0.20) price = basePrice * 1.5;
+        if (fillRate > 0.80) price = basePrice * 0.5;
         
         let modifier = this.state.carbonModifier || 1.0;
-        return basePrice * modifier;
+        return price * modifier;
     },
 
     getDeliveryPower() {
@@ -344,18 +353,21 @@ export const tycoon = {
         if(document.getElementById('warehouse-cap')) document.getElementById('warehouse-cap').innerText = "Capacité max : " + cap + " t";
         if(document.getElementById('warehouse-bar')) document.getElementById('warehouse-bar').style.width = Math.min(100, fillPct) + "%";
 
-        // --- MISE À JOUR VISUELLE DU CARBONE ENTREPRISE ---
+        // --- MISE À JOUR VISUELLE DU CARBONE ENTREPRISE (SYSTÈME QUOTA) 🌿 ---
         let carbTotal = this.state.companyCarbon || 0;
-        let carbLimit = 50000; // Seuil de 50kg (en grammes)
-        let carbFill = Math.min(100, Math.max(0, (carbTotal / carbLimit) * 100));
+        let carbQuota = this.state.companyQuota || 0;
+        
+        let carbFill = carbQuota > 0 ? (carbTotal / carbQuota) * 100 : 0;
+        let displayFill = Math.min(100, carbFill); 
         
         if(document.getElementById('company-carb-total')) {
-            document.getElementById('company-carb-total').innerText = (carbTotal / 1000).toFixed(1) + " kg CO2";
+            document.getElementById('company-carb-total').innerText = (carbTotal / 1000).toFixed(1) + " / " + (carbQuota / 1000).toFixed(1) + " kg";
         }
         if(document.getElementById('company-carb-bar')) {
             let bar = document.getElementById('company-carb-bar');
-            bar.style.width = carbFill + "%";
-            bar.style.backgroundColor = carbFill > 80 ? "#e74c3c" : (carbFill > 50 ? "#f39c12" : "#27ae60");
+            bar.style.width = displayFill + "%";
+            // Rouge si dépassement (>100%), Orange si proche (>80%), sinon Vert
+            bar.style.backgroundColor = carbFill > 100 ? "#e74c3c" : (carbFill > 80 ? "#f39c12" : "#27ae60");
         }
         if(document.getElementById('company-carb-status-text')) {
             let mod = this.state.carbonModifier || 1.0;
@@ -367,7 +379,6 @@ export const tycoon = {
             document.getElementById('company-carb-status-text').style.color = statusCol;
         }
 
-        // Correction du bug de duplication
         let btnUp = document.getElementById('btn-upgrade-warehouse');
         if(btnUp) {
             let next = this.warehouseConfig.levels[this.state.warehouseLevel + 1];
@@ -458,8 +469,8 @@ export const tycoon = {
 
             Object.keys(this.catalog.fleet).forEach(k => {
                 let item = this.catalog.fleet[k];
-                let buildingId = item.buildingId;
-                let maxSlots = (this.state.buildings[buildingId] || 0) * this.catalog.buildings[buildingId].slots;
+                let bId = item.buildingId;
+                let maxSlots = (this.state.buildings[bId] || 0) * this.catalog.buildings[bId].slots;
                 let currentUsed = this.state.fleet.filter(v => v.type === k).length;
                 
                 let isFull = currentUsed >= maxSlots;
