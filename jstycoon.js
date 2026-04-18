@@ -53,15 +53,15 @@ export const tycoon = {
             try { this.state = { ...this.state, ...JSON.parse(saved) }; }
             catch(e) { console.error("Erreur de lecture Tycoon"); }
         }
-    this.checkWeeklyCarbon();
-},
+        this.checkWeeklyCarbon();
+    },
 
     saveState() {
         let user = window.app && window.app.currentUser ? window.app.currentUser : 'Sylvain';
         localStorage.setItem(`tycoon_state_${user}`, JSON.stringify(this.state));
     },
 
-        getWarehouseCapacity() {
+    getWarehouseCapacity() {
         let levelInfo = this.warehouseConfig.levels[this.state.warehouseLevel];
         return levelInfo ? levelInfo.cap : 0;
     },
@@ -104,18 +104,16 @@ export const tycoon = {
     },
 
     getDynamicPrice() {
-
         const basePrice = 0.05;
         const cap = this.getWarehouseCapacity();
         if (cap === 0) return 0;
         const fillRate = this.state.storedFreight / cap;
-              if (fillRate < 0.20) return basePrice * 1.5;
+        if (fillRate < 0.20) return basePrice * 1.5;
         if (fillRate > 0.80) return basePrice * 0.5;
         
-        let modifier = this.state.carbonModifier || 1.0; // <--- AJOUTE
-        return basePrice * modifier;                     // <--- MODIFIE LE RETURN
+        let modifier = this.state.carbonModifier || 1.0;
+        return basePrice * modifier;
     },
-
 
     getDeliveryPower() {
         let totalTonsPerKm = 0;
@@ -344,9 +342,9 @@ export const tycoon = {
         if(document.getElementById('warehouse-name')) document.getElementById('warehouse-name').innerText = levelInfo ? levelInfo.name : "Aucun";
         if(document.getElementById('warehouse-tons')) document.getElementById('warehouse-tons').innerText = this.state.storedFreight.toFixed(1) + " t";
         if(document.getElementById('warehouse-cap')) document.getElementById('warehouse-cap').innerText = "Capacité max : " + cap + " t";
-             if(document.getElementById('warehouse-bar')) document.getElementById('warehouse-bar').style.width = Math.min(100, fillPct) + "%";
+        if(document.getElementById('warehouse-bar')) document.getElementById('warehouse-bar').style.width = Math.min(100, fillPct) + "%";
 
-        // --- NOUVEAU : MISE À JOUR VISUELLE DU CARBONE ENTREPRISE ---
+        // --- MISE À JOUR VISUELLE DU CARBONE ENTREPRISE ---
         let carbTotal = this.state.companyCarbon || 0;
         let carbLimit = 50000; // Seuil de 50kg (en grammes)
         let carbFill = Math.min(100, Math.max(0, (carbTotal / carbLimit) * 100));
@@ -357,7 +355,6 @@ export const tycoon = {
         if(document.getElementById('company-carb-bar')) {
             let bar = document.getElementById('company-carb-bar');
             bar.style.width = carbFill + "%";
-            // La barre change de couleur selon la pollution
             bar.style.backgroundColor = carbFill > 80 ? "#e74c3c" : (carbFill > 50 ? "#f39c12" : "#27ae60");
         }
         if(document.getElementById('company-carb-status-text')) {
@@ -369,10 +366,8 @@ export const tycoon = {
             document.getElementById('company-carb-status-text').innerText = statusTxt;
             document.getElementById('company-carb-status-text').style.color = statusCol;
         }
-        // ------------------------------------------------------------
 
-        let btnUp = document.getElementById('btn-upgrade-warehouse');
-
+        // Correction du bug de duplication
         let btnUp = document.getElementById('btn-upgrade-warehouse');
         if(btnUp) {
             let next = this.warehouseConfig.levels[this.state.warehouseLevel + 1];
