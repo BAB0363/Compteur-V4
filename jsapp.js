@@ -1766,18 +1766,19 @@ if (elapsed > 0 && elapsed % 900 === 0 && this.bankBalance < -500) {
                 if(window.ml) window.ml.trainModel(mode);
             }
 
-            if (window.ml) {
-                let recentHist = history.filter(h => !h.isEvent);
-                let anomaly = window.ml.checkAnomaly(mode, key1, speedKmh, recentHist);
-                if (anomaly && window.ui) {
-                    window.ui.showToast(anomaly.msg, anomaly.type);
-                    if (anomaly.type === 'anomaly') {
-                        window.ui.triggerHapticFeedback('error');
-                        if (!isTruck) window.ui.playGamiSound('siren');
-                    }
-                    else window.ui.triggerHapticFeedback('success');
-                }
-            }
+            if (window.ml && typeof window.ml.checkAnomaly === 'function') {
+    let recentHist = history.filter(h => !h.isEvent);
+    let anomaly = window.ml.checkAnomaly(mode, key1, speedKmh, recentHist);
+    if (anomaly && window.ui) {
+        window.ui.showToast(anomaly.msg, anomaly.type);
+        if (anomaly.type === 'anomaly') {
+            window.ui.triggerHapticFeedback('error');
+            if (!isTruck) window.ui.playGamiSound('siren');
+        }
+        else window.ui.triggerHapticFeedback('success');
+    }
+}
+
 
             let d = new Date(nowTs);
             let hourKey = `${d.getHours()}h`;
