@@ -2203,11 +2203,43 @@ if (window.tycoon) window.tycoon.cashOut();
             let score = this.vehicleCounters[v] || 0;
             let displayName = nameMap[v] || v;
             
-            // --- RÉCUPÉRATION DU MARCHÉ EN TEMPS RÉEL ---
+                   // --- RÉCUPÉRATION DU MARCHÉ EN TEMPS RÉEL ---
             let marketKey = v === "Camions" ? "Camions" : v;
-            let currentPrice = window.market ? window.market.getValue(marketKey).toFixed(2) : "0.00";
+            let baseVal = window.market ? window.market.getValue(marketKey) : 1.00;
             let trend = window.market && window.market.state.values[marketKey] ? window.market.state.values[marketKey].trend : 0;
-            
+
+            // 🌙 ☀️ APPLICATION DES MODIFICATEURS GLOBAUX (POUR L'AFFICHAGE)
+            let currentHour = new Date().getHours();
+            let isNight = (currentHour >= 21 || currentHour < 6);
+            let isRushHour = (currentHour >= 7 && currentHour < 9) || (currentHour >= 17 && currentHour < 19);
+
+            // Modificateurs horaires
+            if (isNight) {
+                baseVal *= (marketKey === "Camions" || marketKey === "Utilitaires") ? 0.5 : 5.0;
+            } else if (isRushHour) {
+                baseVal *= (marketKey === "Voitures" || marketKey === "Utilitaires") ? 0.5 : 2.0;
+            }
+
+            // Prime de l'aube
+            if (currentHour >= 5 && currentHour < 7) {
+                baseVal *= 2.0; 
+            }
+
+            // Bonus d'Altitude
+            let currentAlt = window.gps && window.gps.currentPos ? (window.gps.currentPos.alt || 0) : 0;
+            if (currentAlt > 800) {
+                baseVal *= 1.10; 
+            }
+
+            // Malus Huissier (Si découvert > 1000€)
+            if (this.bankBalance <= -1000 && baseVal > 0) {
+                const bigVehicles = ["Camions", "Engins agricoles", "Camping-cars", "Bus/Car"];
+                if (bigVehicles.includes(marketKey)) {
+                    baseVal *= 0.7; 
+                }
+            }
+
+            let currentPrice = baseVal.toFixed(2);
             let trendIcon = trend > 0 ? "↗️" : (trend < 0 ? "↘️" : "➡️");
             let trendColor = trend > 0 ? "var(--success-color)" : (trend < 0 ? "var(--danger-color)" : "#7f8c8d");
 
