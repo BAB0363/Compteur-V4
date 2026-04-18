@@ -3,7 +3,11 @@ export const tycoon = {
     state: {
         warehouseLevel: 0,
         storedFreight: 0,
+        companyCarbon: 0,
+        carbonModifier: 1.0,
+        lastResetWeek: 0,
         buildings: {}, 
+
         fleet: [], 
         pendingIncome: 0,
         purchaseHistory: []
@@ -49,27 +53,69 @@ export const tycoon = {
             try { this.state = { ...this.state, ...JSON.parse(saved) }; }
             catch(e) { console.error("Erreur de lecture Tycoon"); }
         }
-    },
+    this.checkWeeklyCarbon();
+},
 
     saveState() {
         let user = window.app && window.app.currentUser ? window.app.currentUser : 'Sylvain';
         localStorage.setItem(`tycoon_state_${user}`, JSON.stringify(this.state));
     },
 
-    getWarehouseCapacity() {
+        getWarehouseCapacity() {
         let levelInfo = this.warehouseConfig.levels[this.state.warehouseLevel];
         return levelInfo ? levelInfo.cap : 0;
     },
 
+    getWeekNumber() {
+        let d = new Date();
+        d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+        d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay()||7));
+        let yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
+        return Math.ceil((((d - yearStart) / 86400000) + 1)/7);
+    },
+
+    checkWeeklyCarbon() {
+        let currentWeek = this.getWeekNumber();
+        if (!this.state.lastResetWeek) {
+            this.state.lastResetWeek = currentWeek;
+            return;
+        }
+        if (currentWeek !== this.state.lastResetWeek) {
+            let limit = 50000; // Tolérance de 50 kg de CO2 par semaine
+            if (this.state.companyCarbon > limit) {
+                this.state.carbonModifier = 0.7; // Malus de 30% sur les ventes
+                if(window.ui) window.ui.showToast("🚨 Bilan Hebdo : Malus Carbone (-30% sur les ventes) !");
+            } else if (this.state.companyCarbon < 0) {
+                this.state.carbonModifier = 1.2; // Bonus de 20% sur les ventes
+                if(window.ui) window.ui.showToast("🌿 Bilan Hebdo : Bonus Écolo (+20% sur les ventes) !");
+            } else {
+                this.state.carbonModifier = 1.0;
+                if(window.ui) window.ui.showToast("⚖️ Bilan Hebdo : Neutre.");
+            }
+            this.state.companyCarbon = 0; // Remise à zéro pour la nouvelle semaine
+            this.state.lastResetWeek = currentWeek;
+            this.saveState();
+        }
+    },
+
+    addCarbon(grams) {
+        this.state.companyCarbon += grams;
+        this.saveState();
+    },
+
     getDynamicPrice() {
+
         const basePrice = 0.05;
         const cap = this.getWarehouseCapacity();
         if (cap === 0) return 0;
         const fillRate = this.state.storedFreight / cap;
-        if (fillRate < 0.20) return basePrice * 1.5;
+              if (fillRate < 0.20) return basePrice * 1.5;
         if (fillRate > 0.80) return basePrice * 0.5;
-        return basePrice;
+        
+        let modifier = this.state.carbonModifier || 1.0; // <--- AJOUTE
+        return basePrice * modifier;                     // <--- MODIFIE LE RETURN
     },
+
 
     getDeliveryPower() {
         let totalTonsPerKm = 0;
@@ -298,7 +344,34 @@ export const tycoon = {
         if(document.getElementById('warehouse-name')) document.getElementById('warehouse-name').innerText = levelInfo ? levelInfo.name : "Aucun";
         if(document.getElementById('warehouse-tons')) document.getElementById('warehouse-tons').innerText = this.state.storedFreight.toFixed(1) + " t";
         if(document.getElementById('warehouse-cap')) document.getElementById('warehouse-cap').innerText = "Capacité max : " + cap + " t";
-        if(document.getElementById('warehouse-bar')) document.getElementById('warehouse-bar').style.width = Math.min(100, fillPct) + "%";
+             if(document.getElementById('warehouse-bar')) document.getElementById('warehouse-bar').style.width = Math.min(100, fillPct) + "%";
+
+        // --- NOUVEAU : MISE À JOUR VISUELLE DU CARBONE ENTREPRISE ---
+        let carbTotal = this.state.companyCarbon || 0;
+        let carbLimit = 50000; // Seuil de 50kg (en grammes)
+        let carbFill = Math.min(100, Math.max(0, (carbTotal / carbLimit) * 100));
+        
+        if(document.getElementById('company-carb-total')) {
+            document.getElementById('company-carb-total').innerText = (carbTotal / 1000).toFixed(1) + " kg CO2";
+        }
+        if(document.getElementById('company-carb-bar')) {
+            let bar = document.getElementById('company-carb-bar');
+            bar.style.width = carbFill + "%";
+            // La barre change de couleur selon la pollution
+            bar.style.backgroundColor = carbFill > 80 ? "#e74c3c" : (carbFill > 50 ? "#f39c12" : "#27ae60");
+        }
+        if(document.getElementById('company-carb-status-text')) {
+            let mod = this.state.carbonModifier || 1.0;
+            let statusTxt = "Statut : Neutre ⚖️";
+            let statusCol = "#f39c12";
+            if (mod > 1.0) { statusTxt = "Statut : Éco-Bonus 🌿"; statusCol = "#27ae60"; }
+            if (mod < 1.0) { statusTxt = "Statut : Malus Carbone 🚨"; statusCol = "#e74c3c"; }
+            document.getElementById('company-carb-status-text').innerText = statusTxt;
+            document.getElementById('company-carb-status-text').style.color = statusCol;
+        }
+        // ------------------------------------------------------------
+
+        let btnUp = document.getElementById('btn-upgrade-warehouse');
 
         let btnUp = document.getElementById('btn-upgrade-warehouse');
         if(btnUp) {

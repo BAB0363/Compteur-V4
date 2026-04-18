@@ -1479,7 +1479,16 @@ if (elapsed > 0 && elapsed % 900 === 0 && this.bankBalance < -500) {
         }
     },
 
-    updateCounter(mode, key1, key2, amount, e) {
+        updateCounter(mode, key1, key2, amount, e) {
+        // --- NOUVEAU BLOC CARBONE ENTREPRISE ---
+        if (amount > 0 && window.tycoon && this.vehicleSpecs && this.vehicleSpecs[key1]) {
+            let specs = this.vehicleSpecs[key1];
+            // Les vélos donnent un bonus négatif, les autres polluent
+            let co2 = (key1 === "Vélos") ? -Math.floor(Math.random() * 1750) : Math.floor(Math.random() * (specs.cMax - specs.cMin + 1)) + specs.cMin;
+            window.tycoon.addCarbon(co2);
+        }
+        // ---------------------------------------
+
         let isTruck = mode === 'trucks';
         if (isTruck && !this.isTruckRunning) { alert("Lance le chrono Camions d'abord ! ⏱️"); return; }
         if (!isTruck && !this.isCarRunning) { alert("Lance le chrono Véhicules d'abord ! ⏱️"); return; }

@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html lang="fr">
-<head>
-    <meta charset="UTF-8">
+<    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Compteur Trafic</title>
     <link rel="manifest" href="manifest.json?v=44">
@@ -342,7 +341,18 @@
             <button id="btn-upgrade-warehouse" class="share-btn btn-full" onclick="window.tycoon.upgradeWarehouse()">Améliorer Entrepôt</button>
         </div>
 
-        <div class="km-stats-container">
+<div class="km-stats-container" style="border-top: 3px solid #27ae60; margin-top: 15px;">
+    <h4 style="color:#27ae60;">🌍 Bilan Carbone (Semaine)</h4>
+    <div id="company-carb-status-text" style="text-align: center; font-size: 0.9em; color: #f39c12; margin-bottom: 5px;">Statut : Neutre ⚖️</div>
+    <div style="text-align: center; font-size: 1.8em; font-weight: bold; color: white;" id="company-carb-total">0.0 kg CO2</div>
+    <div class="pred-gauge-bg" style="margin: 10px 0;">
+        <div id="company-carb-bar" class="pred-gauge-fill" style="width: 0%; background: #27ae60;"></div>
+    </div>
+    <div style="text-align: center; font-size: 0.8em; color: #7f8c8d;">Tolérance : 50 kg avant Malus.</div>
+</div>
+
+  
+    <div class="km-stats-container">
             <h4>🏭 Infrastructures (<span id="company-slots-used">0</span> / <span id="company-slots-max">0</span> places)</h4>
             <div id="company-buildings-list" class="km-stats-grid"></div>
         </div>
