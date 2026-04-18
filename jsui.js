@@ -276,8 +276,8 @@ export const ui = {
         });
         
         if(tab === 'dashboard' && window.app) window.app.renderDashboard('trucks');
-        if(tab === 'company' && window.app) window.app.renderCompanyUI(); 
-    },
+      if(tab === 'company' && window.tycoon) window.tycoon.renderUI(); 
+ }, 
 
     toggleTruckStats() {
         let s = document.getElementById('truck-stats-view');

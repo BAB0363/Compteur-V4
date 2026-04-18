@@ -1,9 +1,10 @@
-import { ui } from './jsui.js?v=44';
-import { gps } from './jsgps.js?v=44';
-import { ml } from './jsml.js?v=44';
-import { market } from './jsmarket.js?v=45';
+import { ui } from './jsui.js?v=46';
+import { gps } from './jsgps.js?v=46';
+import { ml } from './jsml.js?v=46';
+import { market } from './jsmarket.js?v=46';
+import { tycoon } from './jstycoon.js?v=46';
 
-window.ui = ui; window.gps = gps; window.ml = ml; window.market = market;
+window.ui = ui; window.gps = gps; window.ml = ml; window.market = market; window.tycoon = tycoon;
 
 
 const app = {
@@ -1427,16 +1428,8 @@ if (elapsed > 0 && elapsed % 900 === 0 && this.bankBalance < -500) {
                     this.updateCarbonGauge();
                 }
 
-                let cStats = this.getCompanyStats();
-                if (cStats.incomePerMin > 0) {
-                    this.companyState.pendingIncome += (cStats.incomePerMin / 60); 
-                    let displayPending = document.getElementById('company-pending-income');
-                    if (displayPending) displayPending.innerText = this.companyState.pendingIncome.toFixed(2) + ' €';
-                }
+              if (window.tycoon) window.tycoon.tickSecond(elapsed);
 
-                if (elapsed > 0 && elapsed % 300 === 0) {
-                    this.triggerCompanyRandomEvents();
-                }
 
                 this.updateChronoDisp(type); 
                 this.renderLiveStats(type);
@@ -2020,22 +2013,9 @@ if (elapsed > 0 && elapsed % 900 === 0 && this.bankBalance < -500) {
 
         if (isRunning) this.toggleChrono(type); 
         
-               // 🏢 ENCAISSEMENT DES REVENUS DE L'ENTREPRISE A L'ARRET
-        if (this.companyState.pendingIncome > 0) {
-            let earned = parseFloat(this.companyState.pendingIncome.toFixed(2));
-            if (earned > 0) {
-                // On l'ajoute manuellement au ticket car le chrono est déjà coupé
-                if (!isTruck) this.sessionFinance.gains += earned;
-                
-                this.addBankTransaction(earned, "🏢 Bénéfices de l'Entreprise (Session)");
-                if (window.ui) {
-                    window.ui.playGamiSound('cash');
-                    window.ui.showToast(`🏢 L'entreprise a généré +${earned} € pendant la session !`);
-                }
-            }
-            this.companyState.pendingIncome = 0;
-            await this.saveUserData();
-        }
+            // 🏢 ENCAISSEMENT DES REVENUS DE L'ENTREPRISE A L'ARRET
+if (window.tycoon) window.tycoon.cashOut();
+
 
 
         if (seconds === 0 && history.length === 0) { 
@@ -3378,7 +3358,9 @@ const startApp = async () => {
     if(window.gps) window.gps.init(); 
     if(window.gami) window.gami.init(); 
     if(window.market) window.market.init();
+    if(window.tycoon) window.tycoon.init();
 };
+
 
 
 
