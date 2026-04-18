@@ -1479,16 +1479,7 @@ if (elapsed > 0 && elapsed % 900 === 0 && this.bankBalance < -500) {
         }
     },
 
-        updateCounter(mode, key1, key2, amount, e) {
-        // --- NOUVEAU BLOC CARBONE ENTREPRISE ---
-        if (amount > 0 && window.tycoon && this.vehicleSpecs && this.vehicleSpecs[key1]) {
-            let specs = this.vehicleSpecs[key1];
-            // Les vélos donnent un bonus négatif, les autres polluent
-            let co2 = (key1 === "Vélos") ? -Math.floor(Math.random() * 1750) : Math.floor(Math.random() * (specs.cMax - specs.cMin + 1)) + specs.cMin;
-            window.tycoon.addCarbon(co2);
-        }
-        // ---------------------------------------
-
+            updateCounter(mode, key1, key2, amount, e) {
         let isTruck = mode === 'trucks';
         if (isTruck && !this.isTruckRunning) { alert("Lance le chrono Camions d'abord ! ⏱️"); return; }
         if (!isTruck && !this.isCarRunning) { alert("Lance le chrono Véhicules d'abord ! ⏱️"); return; }
@@ -1510,392 +1501,370 @@ if (elapsed > 0 && elapsed % 900 === 0 && this.bankBalance < -500) {
 
         let currentCount = isTruck ? counters[key1][key2] : counters[key1];
 
+        // --- DÉCLARATION DES VARIABLES GLOBALES AU CLIC (Anti-Crash) ---
+        let isExact = false;
+        let gegeMultiplier = 1;
+        let baseVal = window.market ? window.market.getValue(key1) : 1.00;
+        let transactionName = `Comptage ${key1}`;
+        let nowTs = Date.now();
+        let currentHour = new Date(nowTs).getHours();
+        let isNight = (currentHour >= 21 || currentHour < 6);
+        let bikeBonus = 0;
+
+        let specs = this.vehicleSpecs[key1] || { wMin: 1500, wMax: 1500, cMin: 120, cMax: 120 };
+        if (isTruck) specs = this.vehicleSpecs["Camions"];
+
+        let randWeight = Math.floor(Math.random() * (specs.wMax - specs.wMin + 1)) + specs.wMin;
+        let co2Ratio = specs.wMax === specs.wMin ? 0 : (randWeight - specs.wMin) / (specs.wMax - specs.wMin);
+        let randCo2 = Math.round(specs.cMin + co2Ratio * (specs.cMax - specs.cMin));
+        // ---------------------------------------------------------------
+
         if (currentCount + amount >= 0) {
             if (window.ui) window.ui.playBeep(amount > 0);
-            
+
+            // --- NOUVEAU BLOC CARBONE ENTREPRISE ---
+            if (amount > 0 && window.tycoon) {
+                let co2Entrep = (key1 === "Vélos") ? -Math.floor(Math.random() * 1750) : randCo2;
+                window.tycoon.addCarbon(co2Entrep);
+            }
+            // ---------------------------------------
+
             if (amount > 0) {
-                // L'ancien notifyVehicleAdded a été retiré, on enverra tout à la fin !
-
-                let isExact = false;
-                let gegeMultiplier = 1; // 🧠 NOUVEAU : Multiplicateur IA
-
                 if (currPred && currPred.class) {
                     ana.predictions.total++; sessionPreds.total++;
                     let actualClass = isTruck ? `${key1}_${key2}` : key1;
-                    
+
                     if (!ana.predictionsByClass) ana.predictionsByClass = {};
                     if (!ana.predictionsByClass[currPred.class]) ana.predictionsByClass[currPred.class] = { total: 0, success: 0 };
-                    
-                    ana.predictionsByClass[currPred.class].total++;
 
+                    ana.predictionsByClass[currPred.class].total++;
                     isExact = (currPred.class === actualClass);
-                    
-                    // 🎯 SYSTÈME DE CONFIANCE GÉGÉ
-                    let conf = currPred.confidence || 50; 
+
+                    let conf = currPred.confidence || 50;
 
                     if (isExact) {
                         ana.predictions.success++; sessionPreds.success++;
                         ana.predictionsByClass[currPred.class].success++;
-                        
-                        if (conf < 40) gegeMultiplier = 5;      // Jauge Rouge
-                        else if (conf <= 70) gegeMultiplier = 3; // Jauge Orange
-                        else gegeMultiplier = 2;                 // Jauge Verte
-                        
+
+                        if (conf < 40) gegeMultiplier = 5;
+                        else if (conf <= 70) gegeMultiplier = 3;
+                        else gegeMultiplier = 2;
+
                         if(window.ui) window.ui.showToast(`🎯 Prédiction exacte (${conf}%) ! Gains x${gegeMultiplier} !`, 'success');
-                  } else {
-    if (conf > 70) {
-        // 1. Évaluation de la fiabilité globale de Gégé sur la catégorie prédite (Mémoire à long terme)
-        let globalClassStats = ana.predictionsByClass[currPred.class];
-        let globalReliability = (globalClassStats && globalClassStats.total >= 5) ? (globalClassStats.success / globalClassStats.total) : 0;
-        
-        // 2. Évaluation de la fiabilité de la session en cours (Réflexes en temps réel)
-        let sessionSuccessRate = sessionPreds.total > 0 ? (sessionPreds.success / sessionPreds.total) : 0.5;
+                    } else {
+                        if (conf > 70) {
+                            let globalClassStats = ana.predictionsByClass[currPred.class];
+                            let globalReliability = (globalClassStats && globalClassStats.total >= 5) ? (globalClassStats.success / globalClassStats.total) : 0;
+                            let sessionSuccessRate = sessionPreds.total > 0 ? (sessionPreds.success / sessionPreds.total) : 0.5;
+                            let isAiReliable = (globalReliability >= 0.85) && (sessionSuccessRate >= 0.60);
 
-        // 3. Condition : Gégé a-t-il le droit de sanctionner ? (Exige 85% de réussite globale sur CE véhicule ET 60% sur la session)
-        let isAiReliable = (globalReliability >= 0.85) && (sessionSuccessRate >= 0.60);
+                            if (isAiReliable) {
+                                this.addBankTransaction(-5, "Malus Gégé : Inattention (IA Fiable)");
+                                if(window.ui) window.ui.showToast(`📉 Inattention ! Gégé maîtrise ce véhicule (${conf}%), Amende : -5 € !`, 'anomaly');
+                            } else {
+                                let learningBonus = 15;
+                                this.addBankTransaction(learningBonus, "Bonus d'Apprentissage 🎓");
+                                if(window.ui) window.ui.showToast(`🎓 Bien vu ! Tu as corrigé Gégé (${conf}%), Bonus : +${learningBonus} € !`, 'success');
+                            }
+                        }
+                    }
 
-        if (isAiReliable) {
-            // Gégé est un expert avéré sur ce véhicule, on garde une petite amende symbolique de 5 €
-            this.addBankTransaction(-5, "Malus Gégé : Inattention (IA Fiable)");
-            if(window.ui) window.ui.showToast(`📉 Inattention ! Gégé maîtrise ce véhicule (${conf}%), Amende : -5 € !`, 'anomaly');
-        } else {
-            // Gégé a été trop confiant alors qu'il ne maîtrise pas. Sylvain est récompensé pour l'avoir corrigé !
-            let learningBonus = 15;
-            this.addBankTransaction(learningBonus, "Bonus d'Apprentissage 🎓");
-            if(window.ui) window.ui.showToast(`🎓 Bien vu ! Tu as corrigé Gégé (${conf}%), Bonus : +${learningBonus} € !`, 'success');
-        }
-    }
-}
-
-                    
-                    // Reset prédiction pour éviter la triche
                     if (isTruck) this.currentPredictionTruck = null;
                     else this.currentPredictionCar = null;
                 }
 
-                let specs = this.vehicleSpecs[key1] || { wMin: 1500, wMax: 1500, cMin: 120, cMax: 120 };
-                if (isTruck) specs = this.vehicleSpecs["Camions"]; 
-                
-                let randWeight = Math.floor(Math.random() * (specs.wMax - specs.wMin + 1)) + specs.wMin;
-                let co2Ratio = specs.wMax === specs.wMin ? 0 : (randWeight - specs.wMin) / (specs.wMax - specs.wMin);
-                let randCo2 = Math.round(specs.cMin + co2Ratio * (specs.cMax - specs.cMin));
-                
-                let bikeBonus = 0; // 🚲 NOUVEAU
-        if (!isTruck) {
-            // 1. Cours Boursier (Marché Dynamique)
-            let baseVal = window.market ? window.market.getValue(key1) : 1.00;
-            let transactionName = `Comptage ${key1}`;
-
-            // 🚲 Gestion spécifique Vélo
-            if (key1 === "Vélos") {
-                bikeBonus = Math.floor(Math.random() * 1751);
-                randCo2 = 0;
-                if(window.ui) window.ui.showToast(`🚲 Bonus Écolo : +${bikeBonus}g au quota !`, 'success');
-            }
-
-            // Enregistrer la demande dans le marché pour faire fluctuer les prix
-            if (window.market && amount > 0) window.market.recordDemand(key1);
-
-            let nowTs = Date.now();
-            let currentHour = new Date(nowTs).getHours();
-            let isNight = (currentHour >= 21 || currentHour < 6);
-            let isRushHour = (currentHour >= 7 && currentHour < 9) || (currentHour >= 17 && currentHour < 19);
-
-            // 2. Multiplicateurs Temporels
-            if (isNight) {
-                baseVal *= (key1 === "Camions" || key1 === "Utilitaires") ? 0.5 : 5.0;
-            } else if (isRushHour) {
-                baseVal *= (key1 === "Voitures" || key1 === "Utilitaires") ? 0.5 : 2.0;
-            }
-
-            if (currentHour >= 5 && currentHour < 7) { 
-                baseVal *= 2.0;
-                if(window.ui) window.ui.showToast(`🌅 Prime de l'Aube ! Gains doublés !`, 'success');
-            }
-
-            // 3. Bonus Environnementaux (Altitude)
-            let currentAlt = window.gps && window.gps.currentPos ? (window.gps.currentPos.alt || 0) : 0;
-            if (currentAlt > 800) {
-                baseVal *= 1.10;
-                if(window.ui) window.ui.showToast(`⛰️ Bonus d'Altitude (+10%) !`);
-            }
-
-                        // 4. Performance IA (Précision Gégé)
-            if (isExact) {
-                baseVal *= gegeMultiplier;
-                transactionName += ` (x${gegeMultiplier} IA)`;
-            }
-
-
-            // 5. Saturation & Congestion
-            let consecutive = 0;
-            let justHistory = history.filter(h => !h.isEvent);
-            let lastTs = nowTs;
-            for (let i = justHistory.length - 1; i >= 0; i--) {
-                if (lastTs - justHistory[i].timestamp > 45000) break; 
-                if (justHistory[i].type === key1) { consecutive++; lastTs = justHistory[i].timestamp; } 
-                else break;
-            }
-
-            let speedKmh = window.gps ? window.gps.getSlidingSpeedKmh() : 0;
-            let isHighway = speedKmh > 80;
-            let threshold = isHighway ? 10 : 4; 
-
-            if (consecutive >= threshold + 2) { 
-                baseVal = -(baseVal * 0.2); 
-                if (!this._congestNotified || this._congestNotified[key1] !== 'frais') {
-                    if (!this._congestNotified) this._congestNotified = {};
-                    this._congestNotified[key1] = 'frais';
-                    if(window.ui) { window.ui.showToast(`🚧 Frais de congestion ! Trop de ${key1} !`, "anomaly"); window.ui.playGamiSound('crash'); }
-                }
-            } else if (consecutive === threshold + 1) { 
-                baseVal = 0;
-                if (!this._congestNotified || this._congestNotified[key1] !== 'sature') {
-                    if (!this._congestNotified) this._congestNotified = {};
-                    this._congestNotified[key1] = 'sature';
-                    if(window.ui) { window.ui.showToast(`⚠️ Marché saturé pour ${key1} (Gain 0€)`, "anomaly"); window.ui.playGamiSound('crash'); }
-                }
-            } else if (consecutive === threshold) { 
-                baseVal *= 0.5;
-                if (!this._congestNotified || this._congestNotified[key1] !== 'baisse') {
-                    if (!this._congestNotified) this._congestNotified = {};
-                    this._congestNotified[key1] = 'baisse';
-                    if(window.ui) { window.ui.showToast(`📉 Alerte : Le marché baisse pour ${key1} !`); }
-                }
-            } else {
-                if (this._congestNotified) this._congestNotified[key1] = null;
-            }
-
-            // 6. Huissier
-            if (this.bankBalance <= -1000 && baseVal > 0) {
-                const bigVehicles = ["Camions", "Engins agricoles", "Camping-cars", "Bus/Car"];
-                if (bigVehicles.includes(key1)) {
-                    baseVal *= 0.7; 
-                    if (!this._huissierNotified || Date.now() - this._huissierNotified > 30000) {
-                        if(window.ui) window.ui.showToast("⚖️ Saisie partielle (30%) par l'huissier !");
-                        this._huissierNotified = Date.now();
+                if (!isTruck) {
+                    if (key1 === "Vélos") {
+                        bikeBonus = Math.floor(Math.random() * 1751);
+                        randCo2 = 0;
+                        if(window.ui) window.ui.showToast(`🚲 Bonus Écolo : +${bikeBonus}g au quota !`, 'success');
                     }
-                }
-            }
 
-            // ==========================================
-            // VALIDE LA TRANSACTION (Avec décimales !)
-            // ==========================================
-            baseVal = parseFloat(baseVal.toFixed(2));
-            this.addBankTransaction(baseVal, transactionName);
+                    if (window.market && amount > 0) window.market.recordDemand(key1);
 
-            // 7. Primes Fixes & Événements Globaux
-            this.sessionPaveWeight = (this.sessionPaveWeight || 0) + randWeight;
-            if (this.sessionPaveWeight >= 100000) { 
-                this.addBankTransaction(-50.00, "Taxe d'Usure des Routes (T.U.R) 🚧");
-                if(window.ui) { window.ui.showToast("🚧 La route fissure ! Taxe d'Usure : -50 €", "anomaly"); window.ui.playGamiSound('crash'); }
-                this.sessionPaveWeight = 0; 
-            }
+                    let isRushHour = (currentHour >= 7 && currentHour < 9) || (currentHour >= 17 && currentHour < 19);
 
-            if (randWeight < 500) {
-                this.consecutiveLightVehicles = (this.consecutiveLightVehicles || 0) + 1;
-                if (this.consecutiveLightVehicles >= 4) {
-                    this.addBankTransaction(30.00, "Prime Poids Plume 🪶");
-                    if(window.ui) { window.ui.showToast("🪶 Prime Poids Plume ! +30 €"); window.ui.playGamiSound('cash'); }
-                    this.consecutiveLightVehicles = 0;
-                }
-            } else { this.consecutiveLightVehicles = 0; }
-            
-            if (this.lastCountTime > 0) {
-                let diffSec = (nowTs - this.lastCountTime) / 1000;
-                if (diffSec >= 5 && diffSec <= 30) {
-                    this.regularityChain++;
-                    if (this.regularityChain >= 10) {
-                        this.addBankTransaction(100.00, "Prime de Régularité (Flux parfait)");
-                        if(window.ui) { window.ui.showToast("🌊 Bonus de Flux ! +100 €"); window.ui.playGamiSound('cash'); }
-                        this.regularityChain = 0; 
+                    if (isNight) {
+                        baseVal *= (key1 === "Camions" || key1 === "Utilitaires") ? 0.5 : 5.0;
+                    } else if (isRushHour) {
+                        baseVal *= (key1 === "Voitures" || key1 === "Utilitaires") ? 0.5 : 2.0;
                     }
-                } else { this.regularityChain = 0; }
-            }
-            this.lastCountTime = nowTs;
 
-            let recentCats = history.filter(h => !h.isEvent).slice(-5).map(h => h.type);
-            if (recentCats.length === 5 && new Set(recentCats).size === 5) {
-                this.addBankTransaction(200.00, "🌈 Combo Arc-en-ciel (5 catégories !)");
-                if(window.ui) { window.ui.showToast("🌈 COMBO ARC-EN-CIEL ! +200 € !", 'rare-combo'); window.ui.playGamiSound('cash'); }
-            }
-            if (key1 === "Camions") {
-                if (amount > 0 && window.tycoon) {
-                    let randomTons = Math.floor(Math.random() * (25 - 5 + 1)) + 5;
-                    window.tycoon.state.storedFreight += randomTons;
-                    let maxCap = window.tycoon.getWarehouseCapacity();
-                    if (window.tycoon.state.storedFreight > maxCap) window.tycoon.state.storedFreight = maxCap;
-                    window.tycoon.saveState();
-                }
-                if (!this._convoiTimes) this._convoiTimes = [];
-                this._convoiTimes.push(Date.now());
-                this._convoiTimes = this._convoiTimes.filter(t => Date.now() - t <= 15000);
-                if (this._convoiTimes.length >= 3) {
-                    this.addBankTransaction(50.00, "🚛 Convoi Exceptionnel");
-                    if(window.ui) { window.ui.showToast("🚛 CONVOI EXCEPTIONNEL ! +50 € !", 'success'); window.ui.playGamiSound('cash'); }
-                    this._convoiTimes = []; 
-                }
-            }
+                    if (currentHour >= 5 && currentHour < 7) {
+                        baseVal *= 2.0;
+                        if(window.ui) window.ui.showToast(`🌅 Prime de l'Aube ! Gains doublés !`, 'success');
+                    }
 
-            this.showMoneyParticle(e, baseVal);
-            if (baseVal > 0 && window.ui && consecutive < threshold) window.ui.playGamiSound('cash');
+                    let currentAlt = window.gps && window.gps.currentPos ? (window.gps.currentPos.alt || 0) : 0;
+                    if (currentAlt > 800) {
+                        baseVal *= 1.10;
+                        if(window.ui) window.ui.showToast(`⛰️ Bonus d'Altitude (+10%) !`);
+                    }
 
-            // Envoi Gami
-            if (window.gami) {
-                let alt = window.gps && window.gps.currentPos ? window.gps.currentPos.alt : 0;
-                let extraData = { 
-                    weight: randWeight, 
-                    isNight: isNight, 
-                    alt: alt, 
-                    regularity: this.regularityChain,
-                    isExact: isExact,
-                    iaCash: isExact ? baseVal : 0
-                };
-                window.gami.notifyVehicleAdded(key1, null, extraData);
-            }
+                    if (isExact) {
+                        baseVal *= gegeMultiplier;
+                        transactionName += ` (x${gegeMultiplier} IA)`;
+                    }
 
-            if (this.activeSponsor && key1 === this.activeSponsor.type) {
-                this.activeSponsor.current += 1;
-                this.updateSponsorUI();
-                if (this.activeSponsor.current === this.activeSponsor.target) {
-                    if (window.ui) { window.ui.showToast(`🎯 Contrat Rempli ! Encaisser tes gains !`, "rare-combo"); window.ui.playGamiSound('siren'); }
-                }
-            }
-        }
+                    let consecutive = 0;
+                    let justHistory = history.filter(h => !h.isEvent);
+                    let lastTs = nowTs;
+                    for (let i = justHistory.length - 1; i >= 0; i--) {
+                        if (lastTs - justHistory[i].timestamp > 45000) break;
+                        if (justHistory[i].type === key1) { consecutive++; lastTs = justHistory[i].timestamp; }
+                        else break;
+                    }
 
+                    let speedKmh = window.gps ? window.gps.getSlidingSpeedKmh() : 0;
+                    let isHighway = speedKmh > 80;
+                    let threshold = isHighway ? 10 : 4;
 
-                if (isTruck) { counters[key1][key2] += amount; globalCounters[key1][key2] += amount; }
-                else { counters[key1] += amount; globalCounters[key1] += amount; }
+                    if (consecutive >= threshold + 2) {
+                        baseVal = -(baseVal * 0.2);
+                        if (!this._congestNotified || this._congestNotified[key1] !== 'frais') {
+                            if (!this._congestNotified) this._congestNotified = {};
+                            this._congestNotified[key1] = 'frais';
+                            if(window.ui) { window.ui.showToast(`🚧 Frais de congestion ! Trop de ${key1} !`, "anomaly"); window.ui.playGamiSound('crash'); }
+                        }
+                    } else if (consecutive === threshold + 1) {
+                        baseVal = 0;
+                        if (!this._congestNotified || this._congestNotified[key1] !== 'sature') {
+                            if (!this._congestNotified) this._congestNotified = {};
+                            this._congestNotified[key1] = 'sature';
+                            if(window.ui) { window.ui.showToast(`⚠️ Marché saturé pour ${key1} (Gain 0€)`, "anomaly"); window.ui.playGamiSound('crash'); }
+                        }
+                    } else if (consecutive === threshold) {
+                        baseVal *= 0.5;
+                        if (!this._congestNotified || this._congestNotified[key1] !== 'baisse') {
+                            if (!this._congestNotified) this._congestNotified = {};
+                            this._congestNotified[key1] = 'baisse';
+                            if(window.ui) { window.ui.showToast(`📉 Alerte : Le marché baisse pour ${key1} !`); }
+                        }
+                    } else {
+                        if (this._congestNotified) this._congestNotified[key1] = null;
+                    }
 
-                let nowTs = Date.now();
-                let speedKmh = window.gps ? window.gps.getSlidingSpeedKmh() : 0;
-                let roadType = this.getRoadType(speedKmh, this.currentMode);
-                
-                let histItem = { 
-                    lat: window.gps && window.gps.currentPos ? window.gps.currentPos.lat : null, 
-                    lon: window.gps && window.gps.currentPos ? window.gps.currentPos.lon : null, 
-                    alt: window.gps && window.gps.currentPos ? window.gps.currentPos.alt : null, 
-                    speed: speedKmh, road: roadType, 
-                    chronoTime: this.formatTime(isTruck ? this.truckSeconds : this.carSeconds), 
-                    timestamp: nowTs,
-                    distAtSighting: isTruck ? this.liveTruckDistance : this.liveCarDistance,
-                    weight: randWeight, 
-                    co2: randCo2,
-                    bikeBonus: bikeBonus // 🚲 NOUVEAU : Sauvegarde du bonus vélo
-                };
-                
-                if (isTruck) { histItem.brand = key1; histItem.type = key2; }
-                else { histItem.type = key1; }
-                history.push(histItem);
-
-                let justVehiclesCount = history.filter(h => !h.isEvent).length;
-                if (justVehiclesCount > 0 && justVehiclesCount % 50 === 0) {
-                    if(window.ui) window.ui.showToast(`🧠 Palier de ${justVehiclesCount} ! Gégé apprend en direct...`);
-                    if(window.ml) window.ml.trainModel(mode);
-                }
-
-                if (window.ml) {
-                    let recentHist = history.filter(h => !h.isEvent);
-                    let anomaly = window.ml.checkAnomaly(mode, key1, speedKmh, recentHist);
-                    if (anomaly && window.ui) {
-                        window.ui.showToast(anomaly.msg, anomaly.type);
-                        if (anomaly.type === 'anomaly') {
-                            window.ui.triggerHapticFeedback('error');
-                            // 🛑 SUPPRESSION AMENDE IA 100€ : on ne garde que l'alarme visuelle et sonore
-                            if (!isTruck) {
-                                window.ui.playGamiSound('siren');
+                    if (this.bankBalance <= -1000 && baseVal > 0) {
+                        const bigVehicles = ["Camions", "Engins agricoles", "Camping-cars", "Bus/Car"];
+                        if (bigVehicles.includes(key1)) {
+                            baseVal *= 0.7;
+                            if (!this._huissierNotified || Date.now() - this._huissierNotified > 30000) {
+                                if(window.ui) window.ui.showToast("⚖️ Saisie partielle (30%) par l'huissier !");
+                                this._huissierNotified = Date.now();
                             }
                         }
-                        else window.ui.triggerHapticFeedback('success');
                     }
-                }
 
-                let d = new Date(nowTs);
-                let hourKey = `${d.getHours()}h`;
-                let dayKey = Object.keys(ana.days)[d.getDay()];
-                let monthKey = Object.keys(ana.months)[d.getMonth()];
-                let altVal = histItem.alt || 0;
-                let altKey = altVal < 200 ? "< 200m" : altVal < 500 ? "200-500m" : altVal < 1000 ? "500-1000m" : "> 1000m";
+                    baseVal = parseFloat(baseVal.toFixed(2));
+                    this.addBankTransaction(baseVal, transactionName);
 
-                ana.hours[hourKey]++; ana.days[dayKey]++; ana.months[monthKey]++; ana.alts[altKey]++; 
-                ana.roads[roadType] = (ana.roads[roadType] || 0) + 1;
-
-                if (!ana.byVeh[key1]) ana.byVeh[key1] = { hours: {}, days: {}, alts: {}, months: {}, roads: {} };
-                if (!ana.byVeh[key1].months) ana.byVeh[key1].months = {};
-                if (!ana.byVeh[key1].roads) ana.byVeh[key1].roads = {};
-
-                ana.byVeh[key1].hours[hourKey] = (ana.byVeh[key1].hours[hourKey] || 0) + 1;
-                ana.byVeh[key1].days[dayKey] = (ana.byVeh[key1].days[dayKey] || 0) + 1;
-                ana.byVeh[key1].months[monthKey] = (ana.byVeh[key1].months[monthKey] || 0) + 1;
-                ana.byVeh[key1].alts[altKey] = (ana.byVeh[key1].alts[altKey] || 0) + 1;
-                ana.byVeh[key1].roads[roadType] = (ana.byVeh[key1].roads[roadType] || 0) + 1;
-
-                if (!ana.lastVehicles) ana.lastVehicles = [];
-                if (!ana.seqs3) ana.seqs3 = {};
-
-                if (ana.lastVehicles.length >= 1) {
-                    let vDernier = ana.lastVehicles[ana.lastVehicles.length - 1];
-                    let pair = `${vDernier} ➡️ ${key1}`;
-                    ana.seqs[pair] = (ana.seqs[pair] || 0) + 1;
-                }
-                if (ana.lastVehicles.length >= 2) {
-                    let vAvantDernier = ana.lastVehicles[0];
-                    let vDernier = ana.lastVehicles[1];
-                    let triplet = `${vAvantDernier} ➡️ ${vDernier} ➡️ ${key1}`;
-                    ana.seqs3[triplet] = (ana.seqs3[triplet] || 0) + 1;
-                }
-
-                ana.lastVehicles.push(key1);
-                if (ana.lastVehicles.length > 2) ana.lastVehicles.shift();
-
-                this.storage.set(isTruck ? 'globalAnaTrucks' : 'globalAnaCars', ana);
-                this.storage.set(isTruck ? 'truckCounters' : 'vehicleCounters', counters);
-                this.storage.set(isTruck ? 'globalTruckCounters' : 'globalCarCounters', globalCounters);
-                this.storage.set(isTruck ? 'truckHistory' : 'carHistory', history);
-
-                if(window.ui && e) { 
-                    let hapticType = isTruck ? 'truck' : 'car';
-                    if (!isTruck) {
-                        if(key1 === 'Motos' || key1 === 'Vélos') hapticType = 'moto';
-                        if(key1 === 'Engins agricoles' || key1 === 'Camions' || key1 === 'Bus/Car') hapticType = 'tractor';
+                    this.sessionPaveWeight = (this.sessionPaveWeight || 0) + randWeight;
+                    if (this.sessionPaveWeight >= 100000) {
+                        this.addBankTransaction(-50.00, "Taxe d'Usure des Routes (T.U.R) 🚧");
+                        if(window.ui) { window.ui.showToast("🚧 La route fissure ! Taxe d'Usure : -50 €", "anomaly"); window.ui.playGamiSound('crash'); }
+                        this.sessionPaveWeight = 0;
                     }
-                    window.ui.triggerHapticFeedback(hapticType); 
-                    window.ui.showClickParticle(e, `+1`, isTruck ? '#27ae60' : '#e74c3c'); 
-                }
 
-                if (isTruck) {
-                    this.truckTotal += amount;
-                    this.globalTruckTotal += amount;
-                    this.renderTrucks();
-                } else {
-                    this.carTotal += amount;
-                    this.globalCarTotal += amount;
-                    this.renderCars();
-                }
-                
-                this.renderKmStats(); 
-                this.renderLiveStats(mode);
-                this.updatePrediction(mode);
-                if (!isTruck) this.updateCarbonGauge();
+                    if (randWeight < 500) {
+                        this.consecutiveLightVehicles = (this.consecutiveLightVehicles || 0) + 1;
+                        if (this.consecutiveLightVehicles >= 4) {
+                            this.addBankTransaction(30.00, "Prime Poids Plume 🪶");
+                            if(window.ui) { window.ui.showToast("🪶 Prime Poids Plume ! +30 €"); window.ui.playGamiSound('cash'); }
+                            this.consecutiveLightVehicles = 0;
+                        }
+                    } else { this.consecutiveLightVehicles = 0; }
 
-            } else if (amount < 0) {
-                let lastIndex = history.map(h => !h.isEvent && (isTruck ? (h.brand === key1 && h.type === key2) : (h.type === key1))).lastIndexOf(true);
-                
-                if (lastIndex !== -1) {
-                    if (!isTruck) {
-                        let penalty = Math.max(5, Math.abs(this.bankBalance * 0.1)); 
-                        this.addBankTransaction(-penalty, "Frais d'annulation");
-                        if(window.ui) {
-                            window.ui.showToast("📉 Frais d'annulation appliqués !", "anomaly");
-                            window.ui.playGamiSound('crash');
+                    if (this.lastCountTime > 0) {
+                        let diffSec = (nowTs - this.lastCountTime) / 1000;
+                        if (diffSec >= 5 && diffSec <= 30) {
+                            this.regularityChain++;
+                            if (this.regularityChain >= 10) {
+                                this.addBankTransaction(100.00, "Prime de Régularité (Flux parfait)");
+                                if(window.ui) { window.ui.showToast("🌊 Bonus de Flux ! +100 €"); window.ui.playGamiSound('cash'); }
+                                this.regularityChain = 0;
+                            }
+                        } else { this.regularityChain = 0; }
+                    }
+                    this.lastCountTime = nowTs;
+
+                    let recentCats = history.filter(h => !h.isEvent).slice(-5).map(h => h.type);
+                    if (recentCats.length === 5 && new Set(recentCats).size === 5) {
+                        this.addBankTransaction(200.00, "🌈 Combo Arc-en-ciel (5 catégories !)");
+                        if(window.ui) { window.ui.showToast("🌈 COMBO ARC-EN-CIEL ! +200 € !", 'rare-combo'); window.ui.playGamiSound('cash'); }
+                    }
+
+                    this.showMoneyParticle(e, baseVal);
+                    if (baseVal > 0 && window.ui && consecutive < threshold) window.ui.playGamiSound('cash');
+
+                    if (this.activeSponsor && key1 === this.activeSponsor.type) {
+                        this.activeSponsor.current += 1;
+                        this.updateSponsorUI();
+                        if (this.activeSponsor.current === this.activeSponsor.target) {
+                            if (window.ui) { window.ui.showToast(`🎯 Contrat Rempli ! Encaisser tes gains !`, "rare-combo"); window.ui.playGamiSound('siren'); }
                         }
                     }
-                    this.deleteHistoryItem(mode, lastIndex); 
-                    return;
+                } // fin if (!isTruck)
+
+                if (key1 === "Camions") {
+                    if (amount > 0 && window.tycoon) {
+                        let randomTons = Math.floor(Math.random() * (25 - 5 + 1)) + 5;
+                        window.tycoon.state.storedFreight += randomTons;
+                        let maxCap = window.tycoon.getWarehouseCapacity();
+                        if (window.tycoon.state.storedFreight > maxCap) window.tycoon.state.storedFreight = maxCap;
+                        window.tycoon.saveState();
+                    }
+                    if (!this._convoiTimes) this._convoiTimes = [];
+                    this._convoiTimes.push(nowTs);
+                    this._convoiTimes = this._convoiTimes.filter(t => nowTs - t <= 15000);
+                    if (this._convoiTimes.length >= 3) {
+                        this.addBankTransaction(50.00, "🚛 Convoi Exceptionnel");
+                        if(window.ui) { window.ui.showToast("🚛 CONVOI EXCEPTIONNEL ! +50 € !", 'success'); window.ui.playGamiSound('cash'); }
+                        this._convoiTimes = [];
+                    }
                 }
+
+                if (window.gami) {
+                    let alt = window.gps && window.gps.currentPos ? window.gps.currentPos.alt : 0;
+                    let extraData = {
+                        weight: randWeight,
+                        isNight: isNight,
+                        alt: alt,
+                        regularity: this.regularityChain,
+                        isExact: isExact,
+                        iaCash: isExact ? baseVal : 0
+                    };
+                    window.gami.notifyVehicleAdded(key1, null, extraData);
+                }
+            } // fin if (amount > 0)
+
+            if (isTruck) { counters[key1][key2] += amount; globalCounters[key1][key2] += amount; }
+            else { counters[key1] += amount; globalCounters[key1] += amount; }
+
+            let speedKmh = window.gps ? window.gps.getSlidingSpeedKmh() : 0;
+            let roadType = this.getRoadType(speedKmh, this.currentMode);
+
+            let histItem = {
+                lat: window.gps && window.gps.currentPos ? window.gps.currentPos.lat : null,
+                lon: window.gps && window.gps.currentPos ? window.gps.currentPos.lon : null,
+                alt: window.gps && window.gps.currentPos ? window.gps.currentPos.alt : null,
+                speed: speedKmh, road: roadType,
+                chronoTime: this.formatTime(isTruck ? this.truckSeconds : this.carSeconds),
+                timestamp: nowTs,
+                distAtSighting: isTruck ? this.liveTruckDistance : this.liveCarDistance,
+                weight: randWeight,
+                co2: randCo2,
+                bikeBonus: bikeBonus
+            };
+
+            if (isTruck) { histItem.brand = key1; histItem.type = key2; }
+            else { histItem.type = key1; }
+            history.push(histItem);
+
+            let justVehiclesCount = history.filter(h => !h.isEvent).length;
+            if (justVehiclesCount > 0 && justVehiclesCount % 50 === 0) {
+                if(window.ui) window.ui.showToast(`🧠 Palier de ${justVehiclesCount} ! Gégé apprend en direct...`);
+                if(window.ml) window.ml.trainModel(mode);
+            }
+
+            if (window.ml) {
+                let recentHist = history.filter(h => !h.isEvent);
+                let anomaly = window.ml.checkAnomaly(mode, key1, speedKmh, recentHist);
+                if (anomaly && window.ui) {
+                    window.ui.showToast(anomaly.msg, anomaly.type);
+                    if (anomaly.type === 'anomaly') {
+                        window.ui.triggerHapticFeedback('error');
+                        if (!isTruck) window.ui.playGamiSound('siren');
+                    }
+                    else window.ui.triggerHapticFeedback('success');
+                }
+            }
+
+            let d = new Date(nowTs);
+            let hourKey = `${d.getHours()}h`;
+            let dayKey = Object.keys(ana.days)[d.getDay()];
+            let monthKey = Object.keys(ana.months)[d.getMonth()];
+            let altVal = histItem.alt || 0;
+            let altKey = altVal < 200 ? "< 200m" : altVal < 500 ? "200-500m" : altVal < 1000 ? "500-1000m" : "> 1000m";
+
+            ana.hours[hourKey]++; ana.days[dayKey]++; ana.months[monthKey]++; ana.alts[altKey]++;
+            ana.roads[roadType] = (ana.roads[roadType] || 0) + 1;
+
+            if (!ana.byVeh[key1]) ana.byVeh[key1] = { hours: {}, days: {}, alts: {}, months: {}, roads: {} };
+            if (!ana.byVeh[key1].months) ana.byVeh[key1].months = {};
+            if (!ana.byVeh[key1].roads) ana.byVeh[key1].roads = {};
+
+            ana.byVeh[key1].hours[hourKey] = (ana.byVeh[key1].hours[hourKey] || 0) + 1;
+            ana.byVeh[key1].days[dayKey] = (ana.byVeh[key1].days[dayKey] || 0) + 1;
+            ana.byVeh[key1].months[monthKey] = (ana.byVeh[key1].months[monthKey] || 0) + 1;
+            ana.byVeh[key1].alts[altKey] = (ana.byVeh[key1].alts[altKey] || 0) + 1;
+            ana.byVeh[key1].roads[roadType] = (ana.byVeh[key1].roads[roadType] || 0) + 1;
+
+            if (!ana.lastVehicles) ana.lastVehicles = [];
+            if (!ana.seqs3) ana.seqs3 = {};
+
+            if (ana.lastVehicles.length >= 1) {
+                let vDernier = ana.lastVehicles[ana.lastVehicles.length - 1];
+                let pair = `${vDernier} ➡️ ${key1}`;
+                ana.seqs[pair] = (ana.seqs[pair] || 0) + 1;
+            }
+            if (ana.lastVehicles.length >= 2) {
+                let vAvantDernier = ana.lastVehicles[0];
+                let vDernier = ana.lastVehicles[1];
+                let triplet = `${vAvantDernier} ➡️ ${vDernier} ➡️ ${key1}`;
+                ana.seqs3[triplet] = (ana.seqs3[triplet] || 0) + 1;
+            }
+
+            ana.lastVehicles.push(key1);
+            if (ana.lastVehicles.length > 2) ana.lastVehicles.shift();
+
+            this.storage.set(isTruck ? 'globalAnaTrucks' : 'globalAnaCars', ana);
+            this.storage.set(isTruck ? 'truckCounters' : 'vehicleCounters', counters);
+            this.storage.set(isTruck ? 'globalTruckCounters' : 'globalCarCounters', globalCounters);
+            this.storage.set(isTruck ? 'truckHistory' : 'carHistory', history);
+
+            if(window.ui && e) {
+                let hapticType = isTruck ? 'truck' : 'car';
+                if (!isTruck) {
+                    if(key1 === 'Motos' || key1 === 'Vélos') hapticType = 'moto';
+                    if(key1 === 'Engins agricoles' || key1 === 'Camions' || key1 === 'Bus/Car') hapticType = 'tractor';
+                }
+                window.ui.triggerHapticFeedback(hapticType);
+                window.ui.showClickParticle(e, `+1`, isTruck ? '#27ae60' : '#e74c3c');
+            }
+
+            if (isTruck) {
+                this.truckTotal += amount;
+                this.globalTruckTotal += amount;
+                this.renderTrucks();
+            } else {
+                this.carTotal += amount;
+                this.globalCarTotal += amount;
+                this.renderCars();
+            }
+
+            this.renderKmStats();
+            this.renderLiveStats(mode);
+            this.updatePrediction(mode);
+            if (!isTruck) this.updateCarbonGauge();
+
+        } else if (amount < 0) {
+            let lastIndex = history.map(h => !h.isEvent && (isTruck ? (h.brand === key1 && h.type === key2) : (h.type === key1))).lastIndexOf(true);
+
+            if (lastIndex !== -1) {
+                if (!isTruck) {
+                    let penalty = Math.max(5, Math.abs(this.bankBalance * 0.1));
+                    this.addBankTransaction(-penalty, "Frais d'annulation");
+                    if(window.ui) {
+                        window.ui.showToast("📉 Frais d'annulation appliqués !", "anomaly");
+                        window.ui.playGamiSound('crash');
+                    }
+                }
+                this.deleteHistoryItem(mode, lastIndex);
+                return;
             }
         }
     },
+
 
     deleteHistoryItem(mode, index) {
         let isTruck = mode === 'trucks';
