@@ -47,6 +47,7 @@ export const ml = {
         if (elTrucks) { elTrucks.innerText = this.modelTrucks ? "Prêt ✅" : "Apprentissage requis ❌"; elTrucks.style.color = this.modelTrucks ? "#27ae60" : "#e74c3c"; }
         if (elCars) { elCars.innerText = this.modelCars ? "Prêt ✅" : "Apprentissage requis ❌"; elCars.style.color = this.modelCars ? "#27ae60" : "#e74c3c"; }
     },
+
     async forceTraining() {
         if (this.isTraining || !this.worker) {
             if(window.ui) window.ui.showToast("⏳ Un entraînement est déjà en cours ou le cerveau n'est pas prêt.");
@@ -62,6 +63,68 @@ export const ml = {
         setTimeout(() => this.trainModel('cars'), 500); 
     },
 
+    // ==========================================
+    // 🧠 NOUVELLES FONCTIONS DE GÉGÉ
+    // ==========================================
+
+    checkAnomaly(mode, vehType, speedKmh, recentHist) {
+        // Règle 1 : Un tracteur à pleine vitesse
+        if (vehType === 'Engins agricoles' && speedKmh > 90) {
+            return { msg: `🚜 Un tracteur à ${Math.round(speedKmh)} km/h ? Tu as vu Flash McQueen !`, type: "anomaly" };
+        }
+        
+        // Règle 2 : Un vélo sur l'autoroute
+        if (vehType === 'Vélos' && speedKmh > 100) {
+            return { msg: "🚲 Un vélo sur l'autoroute ? Attention les yeux !", type: "anomaly" };
+        }
+
+        // Règle 3 : Trop de véhicules identiques d'affilée (Spam)
+        let consecutive = 0;
+        for (let i = recentHist.length - 1; i >= 0; i--) {
+            let t = mode === 'trucks' ? recentHist[i].brand : recentHist[i].type;
+            if (t === vehType) consecutive++; 
+            else break;
+        }
+        if (consecutive >= 12) {
+            return { msg: `🤔 ${consecutive} ${vehType} d'affilée... Gégé a des doutes !`, type: "anomaly" };
+        }
+
+        return null; // Tout est normal, pas d'anomalie
+    },
+
+    generateInsights(type, anaData) {
+        if (!anaData || !anaData.hours) return "Gégé a besoin de plus de données pour réfléchir... 😴";
+        
+        // Trouver l'heure où tu as compté le plus de véhicules
+        let maxHour = Object.keys(anaData.hours).reduce((a, b) => anaData.hours[a] > anaData.hours[b] ? a : b);
+        
+        if (anaData.hours[maxHour] === 0) return "Roule un peu, je n'ai rien à analyser ! 🛣️";
+        
+        return `💡 <strong>Astuce de Gégé :</strong> Ton pic de trafic historique semble être autour de <strong>${maxHour}</strong>. Essaie de rouler à d'autres heures si tu veux éviter les embouteillages !`;
+    },
+
+    generateReportCard(type, anaData) {
+        if (!anaData || !anaData.predictions) return "Pas encore de note, passe ton permis d'abord ! 🎓";
+        
+        let total = anaData.predictions.total || 0;
+        let success = anaData.predictions.success || 0;
+        
+        if (total < 10) return "<p style='text-align:center; color:#7f8c8d;'>Continue de compter, je n'ai pas assez de données pour te noter ! 📚</p>";
+
+        let pct = Math.round((success / total) * 100);
+        let grade = pct >= 85 ? "A+ 🥇" : pct >= 65 ? "B 🥈" : pct >= 40 ? "C 🥉" : "D 🤡";
+        let color = pct >= 65 ? "var(--success-color)" : "var(--danger-color)";
+        
+        return `
+            <div style="text-align: center;">
+                <div style="font-size: 3.5em; font-weight: bold; color: ${color}; text-shadow: 0 4px 10px rgba(0,0,0,0.2);">${grade}</div>
+                <div style="margin-top: 10px; font-size: 1.1em;">Précision globale de l'IA : <strong style="color:${color};">${pct}%</strong></div>
+                <div style="font-size: 0.85em; color: #7f8c8d; margin-top: 8px;">Basé sur ${total} prédictions testées.</div>
+            </div>
+        `;
+    },
+
+    // ==========================================
 
     extractFeatures(h, recentHistory, labelsList, type) {
         const d = new Date(h.timestamp);
