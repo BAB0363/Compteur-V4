@@ -1,68 +1,42 @@
-// jstycoon.js - Gestion avancée de l'Empire (Flotte, Usure, Carburant)
+// jstycoon.js - Gestion avancée de l'Empire (Flotte, Usure, Carburant, Logistique)
 export const tycoon = {
     state: {
-        warehouseLevel: 0, // Niveau de l'entrepôt (0 à 4)
-        storedFreight: 0,  // Tonnes en stock
+        warehouseLevel: 0,
+        storedFreight: 0,
         buildings: {}, 
         fleet: [], 
         pendingIncome: 0,
         purchaseHistory: []
     },
 
-    // Configuration de l'Entrepôt
     warehouseConfig: {
         levels: [
             { name: "Aucun", cap: 0, price: 0 },
             { name: "Hangar de Proximité", cap: 150, price: 20000 },
             { name: "Entrepôt Régional", cap: 750, price: 80000 },
-            { name: "Hub Multimodal", cap: 2500, price: 250000 },
+            { name: "Plateforme Multimodale", cap: 2500, price: 250000 },
             { name: "Hub International", cap: 10000, price: 750000 }
         ]
     },
 
-    getWarehouseCapacity() {
-        return this.warehouseConfig.levels[this.state.warehouseLevel].cap;
-    },
-
-    // Proposition C : Prix dynamique selon le remplissage
-    getDynamicPrice() {
-        const basePrice = 0.05;
-        const cap = this.getWarehouseCapacity();
-        if (cap === 0) return 0;
-        const fillRate = this.state.storedFreight / cap;
-
-        if (fillRate < 0.20) return basePrice * 1.5; // Rare : +50% (0.075€)
-        if (fillRate > 0.80) return basePrice * 0.5; // Surcharge : -50% (0.025€)
-        return basePrice; // Normal (0.05€)
-    },
-
-    getDeliveryPower() {
-        let totalTonsPerKm = 0;
-        this.state.fleet.forEach(veh => {
-            const caps = { 'scooter': 0.05, 'vul': 0.8, 'porteur': 8, 'tracteur': 24, 'frigo': 24, 'convoi': 60 };
-            if (veh.health > 20 && veh.fuel > 0) {
-                totalTonsPerKm += caps[veh.type] || 0;
-            }
-        });
-        return totalTonsPerKm;
-    },
-
-    upgradeWarehouse() {
-        const nextLevel = this.state.warehouseLevel + 1;
-        if (nextLevel >= this.warehouseConfig.levels.length) return;
-        const cost = this.warehouseConfig.levels[nextLevel].price;
-
-        if (window.app.bankBalance >= cost) {
-            window.app.addBankTransaction(-cost, `Extension Entrepôt : ${this.warehouseConfig.levels[nextLevel].name}`);
-            this.state.warehouseLevel = nextLevel;
-            this.saveState();
-            this.renderUI();
-            if(window.ui) window.ui.showToast("🏗️ Entrepôt agrandi !");
-        } else {
-            if(window.ui) window.ui.showToast("❌ Fonds insuffisants !");
+    catalog: {
+        buildings: {
+            relais: { id: 'relais', name: 'Relais Scooter', price: 4000, slots: 2, icon: '🛵', maxLimit: 5, targetVeh: 'scooter' },
+            hangar: { id: 'hangar', name: 'Hangar Urbain', price: 12000, slots: 3, icon: '🚐', maxLimit: 4, targetVeh: 'vul' },
+            quai: { id: 'quai', name: 'Quai Régional', price: 35000, slots: 5, icon: '🚚', maxLimit: 3, targetVeh: 'porteur' },
+            plateforme: { id: 'plateforme', name: 'Plateforme Logistique', price: 100000, slots: 10, icon: '🚛', maxLimit: 2, targetVeh: 'tracteur' },
+            terminal: { id: 'terminal', name: 'Terminal Frigo', price: 250000, slots: 5, icon: '❄️', maxLimit: 2, targetVeh: 'frigo' },
+            zone: { id: 'zone', name: 'Zone de Convoi', price: 500000, slots: 3, icon: '⚠️', maxLimit: 2, targetVeh: 'convoi' }
+        },
+        fleet: {
+            scooter: { id: 'scooter', name: 'Scooter de livraison', price: 2500, income: 0.15, icon: '🛵', buildingId: 'relais' },
+            vul: { id: 'vul', name: 'Fourgon utilitaire', price: 18000, income: 0.60, icon: '🚐', buildingId: 'hangar' },
+            porteur: { id: 'porteur', name: 'Porteur 19 tonnes', price: 55000, income: 1.80, icon: '🚚', buildingId: 'quai' },
+            tracteur: { id: 'tracteur', name: 'Tracteur Routier', price: 130000, income: 4.50, icon: '🚛', buildingId: 'plateforme' },
+            frigo: { id: 'frigo', name: 'Ensemble Frigorifique', price: 190000, income: 7.00, icon: '❄️', buildingId: 'terminal' },
+            convoi: { id: 'convoi', name: 'Convoi Exceptionnel', price: 400000, income: 15.00, icon: '⚠️', buildingId: 'zone' }
         }
     },
-
 
     init() {
         this.loadState();
@@ -82,6 +56,47 @@ export const tycoon = {
         localStorage.setItem(`tycoon_state_${user}`, JSON.stringify(this.state));
     },
 
+    getWarehouseCapacity() {
+        let levelInfo = this.warehouseConfig.levels[this.state.warehouseLevel];
+        return levelInfo ? levelInfo.cap : 0;
+    },
+
+    getDynamicPrice() {
+        const basePrice = 0.05;
+        const cap = this.getWarehouseCapacity();
+        if (cap === 0) return 0;
+        const fillRate = this.state.storedFreight / cap;
+        if (fillRate < 0.20) return basePrice * 1.5;
+        if (fillRate > 0.80) return basePrice * 0.5;
+        return basePrice;
+    },
+
+    getDeliveryPower() {
+        let totalTonsPerKm = 0;
+        this.state.fleet.forEach(veh => {
+            const caps = { 'scooter': 0.05, 'vul': 0.8, 'porteur': 8, 'tracteur': 24, 'frigo': 24, 'convoi': 60 };
+            if (veh.health > 20 && veh.fuel > 0) {
+                totalTonsPerKm += caps[veh.type] || 0;
+            }
+        });
+        return totalTonsPerKm;
+    },
+
+    upgradeWarehouse() {
+        const nextLevel = this.state.warehouseLevel + 1;
+        if (nextLevel >= this.warehouseConfig.levels.length) return;
+        const cost = this.warehouseConfig.levels[nextLevel].price;
+        if (window.app.bankBalance >= cost) {
+            window.app.addBankTransaction(-cost, `Extension Entrepôt : ${this.warehouseConfig.levels[nextLevel].name}`);
+            this.state.warehouseLevel = nextLevel;
+            this.saveState();
+            this.renderUI();
+            if(window.ui) window.ui.showToast("🏗️ Entrepôt agrandi !");
+        } else {
+            if(window.ui) window.ui.showToast("❌ Fonds insuffisants !");
+        }
+    },
+
     getStats() {
         let maxSlots = 0;
         Object.keys(this.state.buildings).forEach(k => {
@@ -95,20 +110,17 @@ export const tycoon = {
 
         this.state.fleet.forEach(veh => {
             let def = this.catalog.fleet[veh.type];
-            // Le véhicule ne rapporte que s'il a de l'essence et n'est pas en panne !
             if (def && veh.fuel > 0 && veh.health > 0) {
                 incomePerMin += def.income;
             }
         });
 
-        // 🏢 Bonus d'Empire : Posséder au moins une Zone de Convoi booste tout le CA de 10%
         if ((this.state.buildings.zone || 0) > 0) incomePerMin *= 1.10;
-        if (usedSlots > 0) incomePerMin *= (1 + usedSlots * 0.05); // Bonus Tycoon
+        if (usedSlots > 0) incomePerMin *= (1 + usedSlots * 0.05);
 
         return { maxSlots, usedSlots, incomePerMin };
     },
 
-    // 📈 Calcul dynamique du prix (Inflation de 20% par achat)
     getBuildingPrice(id) {
         let item = this.catalog.buildings[id];
         let count = this.state.buildings[id] || 0;
@@ -145,7 +157,6 @@ export const tycoon = {
         let item = this.catalog.fleet[id];
         let buildingId = item.buildingId;
         
-        // Calcul des places spécifiques pour ce type
         let buildingCount = this.state.buildings[buildingId] || 0;
         let maxSlotsForType = buildingCount * this.catalog.buildings[buildingId].slots;
         let usedSlotsForType = this.state.fleet.filter(v => v.type === id).length;
@@ -163,20 +174,17 @@ export const tycoon = {
 
         if(confirm(`Acheter ${item.name} pour ${item.price.toLocaleString('fr-FR')} € ?`)) {
             window.app.addBankTransaction(-item.price, `Achat Flotte : ${item.name}`);
-            
-            // Création d'un véhicule unique
             let newVeh = {
                 uid: 'veh_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
                 type: id,
                 health: 100,
                 fuel: 100
             };
-            
             this.state.fleet.push(newVeh);
             this.state.purchaseHistory.push({ type: 'fleet', id: id, time: Date.now(), price: item.price });
             this.saveState();
             this.renderUI();
-            if(window.ui) { window.ui.playGamiSound('cash'); window.ui.showToast(`🚚 Véhicule ajouté au ${this.catalog.buildings[buildingId].name} !`); }
+            if(window.ui) { window.ui.playGamiSound('cash'); window.ui.showToast(`🚚 Véhicule ajouté !`); }
         }
     },
 
@@ -186,11 +194,9 @@ export const tycoon = {
         
         let veh = this.state.fleet[index];
         let item = this.catalog.fleet[veh.type];
-        
-        // Formule de décote : On perd 40% direct à l'achat, puis c'est proportionnel à la santé
         let sellPrice = (item.price * 0.60) * (veh.health / 100);
         
-        if(confirm(`Revendre ce ${item.name} pour ${sellPrice.toLocaleString('fr-FR', {maximumFractionDigits:2})} € ?\n(Décote appliquée selon l'état)`)) {
+        if(confirm(`Revendre ce ${item.name} pour ${sellPrice.toLocaleString('fr-FR', {maximumFractionDigits:2})} € ?`)) {
             window.app.addBankTransaction(sellPrice, `Revente : ${item.name}`);
             this.state.fleet.splice(index, 1);
             this.saveState();
@@ -205,7 +211,7 @@ export const tycoon = {
         
         let item = this.catalog.fleet[veh.type];
         let missingPct = 100 - veh.fuel;
-        let cost = (item.price * 0.02) * (missingPct / 100); // Le plein coûte 2% du prix neuf
+        let cost = (item.price * 0.02) * (missingPct / 100);
         
         if (window.app.bankBalance < cost) {
             if(window.ui) window.ui.showToast("❌ Pas assez d'argent pour l'essence !");
@@ -224,14 +230,14 @@ export const tycoon = {
         
         let item = this.catalog.fleet[veh.type];
         let missingPct = 100 - veh.health;
-        let cost = (item.price * 0.08) * (missingPct / 100); // Une réparation complète coûte 8% du prix neuf
+        let cost = (item.price * 0.08) * (missingPct / 100);
         
         if (window.app.bankBalance < cost) {
             if(window.ui) window.ui.showToast("❌ Pas assez d'argent pour les pièces !");
             return;
         }
         
-        window.app.addBankTransaction(-cost, `Garage (Réparations) : ${item.name}`);
+        window.app.addBankTransaction(-cost, `Garage : ${item.name}`);
         veh.health = 100;
         this.saveState();
         this.renderUI();
@@ -239,23 +245,19 @@ export const tycoon = {
 
     tickSecond(secondsElapsed) {
         let stats = this.getStats();
-        // Ajout des revenus chaque seconde (lissé)
         if (stats.incomePerMin > 0) {
             this.state.pendingIncome += (stats.incomePerMin / 60);
             let displayPending = document.getElementById('company-pending-income');
             if (displayPending) displayPending.innerText = this.state.pendingIncome.toFixed(2) + ' €';
         }
 
-        // Usure toutes les 60 secondes (1 minute)
         if (secondsElapsed > 0 && secondsElapsed % 60 === 0) {
             let needsRender = false;
             this.state.fleet.forEach(veh => {
-                // S'il reste du carburant, on en consomme (2% par minute)
                 if (veh.fuel > 0) {
                     veh.fuel = Math.max(0, veh.fuel - 2);
                     needsRender = true;
                 }
-                // Si on roule, on s'use (1% par minute)
                 if (veh.fuel > 0 && veh.health > 0) {
                     veh.health = Math.max(0, veh.health - 1);
                     needsRender = true;
@@ -286,14 +288,14 @@ export const tycoon = {
         }
     },
 
-        renderUI() {
+    renderUI() {
         let stats = this.getStats();
         
         let cap = this.getWarehouseCapacity();
         let levelInfo = this.warehouseConfig.levels[this.state.warehouseLevel];
         let fillPct = cap > 0 ? (this.state.storedFreight / cap) * 100 : 0;
 
-        if(document.getElementById('warehouse-name')) document.getElementById('warehouse-name').innerText = levelInfo.name;
+        if(document.getElementById('warehouse-name')) document.getElementById('warehouse-name').innerText = levelInfo ? levelInfo.name : "Aucun";
         if(document.getElementById('warehouse-tons')) document.getElementById('warehouse-tons').innerText = this.state.storedFreight.toFixed(1) + " t";
         if(document.getElementById('warehouse-cap')) document.getElementById('warehouse-cap').innerText = "Capacité max : " + cap + " t";
         if(document.getElementById('warehouse-bar')) document.getElementById('warehouse-bar').style.width = Math.min(100, fillPct) + "%";
@@ -306,7 +308,6 @@ export const tycoon = {
         }
         
         let elSlotsUsed = document.getElementById('company-slots-used');
-
         let elSlotsMax = document.getElementById('company-slots-max');
         let elRate = document.getElementById('company-rate-display');
         let elPending = document.getElementById('company-pending-income');
@@ -346,9 +347,9 @@ export const tycoon = {
         if(fleetList) {
             fleetList.innerHTML = '';
             
-            // 1. D'abord, on affiche les véhicules possédés (Notre Garage dynamique !)
             this.state.fleet.forEach(veh => {
                 let item = this.catalog.fleet[veh.type];
+                if (!item) return;
                 let isBroken = veh.health <= 0 || veh.fuel <= 0;
                 let sellPrice = (item.price * 0.60) * (veh.health / 100);
                 let refuelCost = (item.price * 0.02) * ((100 - veh.fuel) / 100);
@@ -387,7 +388,6 @@ export const tycoon = {
                 `;
             });
 
-            // 2. Ensuite, on affiche le catalogue pour acheter de nouveaux camions
             Object.keys(this.catalog.fleet).forEach(k => {
                 let item = this.catalog.fleet[k];
                 let buildingId = item.buildingId;
