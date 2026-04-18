@@ -226,17 +226,20 @@ export const gami = {
     updateProgress(type, amount = 1, isAbsolute = false) {
         let changed = false;
 
-        const checkAndUpdate = (q) => {
+                const checkAndUpdate = (q) => {
             if (!q || q.done) return false;
             if (q.type === type) {
                 // Si isAbsolute = true (ex: pour la régularité, on remplace si c'est plus grand)
                 if (isAbsolute) {
                     if (amount > q.progress) q.progress = Math.round(amount);
                 } else {
-                    q.progress += Math.round(amount);
+                    // 💡 CORRECTION ICI : On retire le Math.round() et on conserve 2 décimales pour un affichage propre !
+                    q.progress += amount;
+                    q.progress = parseFloat(q.progress.toFixed(2));
                 }
 
                 if (q.progress >= q.target) {
+
                     q.progress = q.target;
                     q.done = true;
                     this.addXp(q.xpReward);
