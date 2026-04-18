@@ -1,26 +1,28 @@
 // jstycoon.js - Gestion avancée de l'Empire (Flotte, Usure, Carburant)
 export const tycoon = {
     state: {
-        buildings: { parking: 0, terrain: 0, depot: 0, hub: 0 },
-        fleet: [], // Désormais un tableau d'objets uniques !
+        buildings: {}, 
+        fleet: [], 
         pendingIncome: 0,
         purchaseHistory: []
     },
 
     catalog: {
         buildings: {
-            parking: { id: 'parking', name: 'Place de trottoir', price: 4000, slots: 1, icon: '🅿️' },
-            terrain: { id: 'terrain', name: 'Terrain vague', price: 15000, slots: 3, icon: '🚧' },
-            depot: { id: 'depot', name: 'Dépôt Sécurisé', price: 120000, slots: 10, icon: '🏭' },
-            hub: { id: 'hub', name: 'Hub Logistique', price: 800000, slots: 999, icon: '🏢' }
+            relais: { id: 'relais', name: 'Relais Scooter', price: 4000, slots: 2, icon: '🛵', maxLimit: 5, targetVeh: 'scooter' },
+            hangar: { id: 'hangar', name: 'Hangar Urbain', price: 12000, slots: 3, icon: '🚐', maxLimit: 4, targetVeh: 'vul' },
+            quai: { id: 'quai', name: 'Quai Régional', price: 35000, slots: 5, icon: '🚚', maxLimit: 3, targetVeh: 'porteur' },
+            plateforme: { id: 'plateforme', name: 'Plateforme Logistique', price: 100000, slots: 10, icon: '🚛', maxLimit: 2, targetVeh: 'tracteur' },
+            terminal: { id: 'terminal', name: 'Terminal Frigo', price: 250000, slots: 5, icon: '❄️', maxLimit: 2, targetVeh: 'frigo' },
+            zone: { id: 'zone', name: 'Zone de Convoi', price: 500000, slots: 3, icon: '⚠️', maxLimit: 2, targetVeh: 'convoi' }
         },
         fleet: {
-            scooter: { id: 'scooter', name: 'Scooter rincé', price: 4000, income: 0.12, icon: '🛵' },
-            vul: { id: 'vul', name: 'VUL d\'occasion', price: 15000, income: 0.50, icon: '🚐' },
-            porteur: { id: 'porteur', name: 'Petit Porteur 19t', price: 45000, income: 1.50, icon: '🚚' },
-            tracteur: { id: 'tracteur', name: 'Tracteur Routier', price: 110000, income: 4.00, icon: '🚛' },
-            frigo: { id: 'frigo', name: 'Ens. Frigorifique', price: 170000, income: 6.00, icon: '❄️' },
-            convoi: { id: 'convoi', name: 'Convoi Exceptionnel', price: 350000, income: 12.00, icon: '⚠️' }
+            scooter: { id: 'scooter', name: 'Scooter de livraison', price: 2500, income: 0.15, icon: '🛵', buildingId: 'relais' },
+            vul: { id: 'vul', name: 'Fourgon utilitaire', price: 18000, income: 0.60, icon: '🚐', buildingId: 'hangar' },
+            porteur: { id: 'porteur', name: 'Porteur 19 tonnes', price: 55000, income: 1.80, icon: '🚚', buildingId: 'quai' },
+            tracteur: { id: 'tracteur', name: 'Tracteur Routier', price: 130000, income: 4.50, icon: '🚛', buildingId: 'plateforme' },
+            frigo: { id: 'frigo', name: 'Ensemble Frigorifique', price: 190000, income: 7.00, icon: '❄️', buildingId: 'terminal' },
+            convoi: { id: 'convoi', name: 'Convoi Exceptionnel', price: 400000, income: 15.00, icon: '⚠️', buildingId: 'zone' }
         }
     },
 
@@ -46,7 +48,7 @@ export const tycoon = {
         let maxSlots = 0;
         Object.keys(this.state.buildings).forEach(k => {
             if (this.catalog.buildings[k]) {
-                maxSlots += this.state.buildings[k] * this.catalog.buildings[k].slots;
+                maxSlots += (this.state.buildings[k] || 0) * this.catalog.buildings[k].slots;
             }
         });
         
@@ -61,22 +63,40 @@ export const tycoon = {
             }
         });
 
-        if (this.state.buildings.hub > 0) incomePerMin *= 1.10;
+        // 🏢 Bonus d'Empire : Posséder au moins une Zone de Convoi booste tout le CA de 10%
+        if ((this.state.buildings.zone || 0) > 0) incomePerMin *= 1.10;
         if (usedSlots > 0) incomePerMin *= (1 + usedSlots * 0.05); // Bonus Tycoon
 
         return { maxSlots, usedSlots, incomePerMin };
     },
 
+    // 📈 Calcul dynamique du prix (Inflation de 20% par achat)
+    getBuildingPrice(id) {
+        let item = this.catalog.buildings[id];
+        let count = this.state.buildings[id] || 0;
+        return Math.floor(item.price * Math.pow(1.20, count)); 
+    },
+
     buyBuilding(id) {
         let item = this.catalog.buildings[id];
-        if (window.app.bankBalance < item.price) {
+        let count = this.state.buildings[id] || 0;
+        
+        if (count >= item.maxLimit) {
+            if(window.ui) window.ui.showToast("🛑 Limite atteinte pour ce type de bâtiment !");
+            return;
+        }
+
+        let currentPrice = this.getBuildingPrice(id);
+
+        if (window.app.bankBalance < currentPrice) {
             if(window.ui) window.ui.showToast("❌ Fonds insuffisants !");
             return;
         }
-        if(confirm(`Investir ${item.price.toLocaleString('fr-FR')} € dans : ${item.name} ?`)) {
-            window.app.addBankTransaction(-item.price, `Achat Immo : ${item.name}`);
-            this.state.buildings[id] = (this.state.buildings[id] || 0) + 1;
-            this.state.purchaseHistory.push({ type: 'building', id: id, time: Date.now(), price: item.price });
+
+        if(confirm(`Investir ${currentPrice.toLocaleString('fr-FR')} € dans : ${item.name} ?`)) {
+            window.app.addBankTransaction(-currentPrice, `Achat Immo : ${item.name}`);
+            this.state.buildings[id] = count + 1;
+            this.state.purchaseHistory.push({ type: 'building', id: id, time: Date.now(), price: currentPrice });
             this.saveState();
             this.renderUI();
             if(window.ui) { window.ui.playGamiSound('cash'); window.ui.showToast(`🏢 Achat réussi !`); }
@@ -85,14 +105,21 @@ export const tycoon = {
 
     buyVehicle(id) {
         let item = this.catalog.fleet[id];
-        let stats = this.getStats();
+        let buildingId = item.buildingId;
+        
+        // Calcul des places spécifiques pour ce type
+        let buildingCount = this.state.buildings[buildingId] || 0;
+        let maxSlotsForType = buildingCount * this.catalog.buildings[buildingId].slots;
+        let usedSlotsForType = this.state.fleet.filter(v => v.type === id).length;
         
         if (window.app.bankBalance < item.price) {
             if(window.ui) window.ui.showToast("❌ Fonds insuffisants !");
             return;
         }
-        if (stats.usedSlots >= stats.maxSlots) {
-            if(window.ui) window.ui.showToast("🅿️ Plus de place de parking !");
+
+        if (usedSlotsForType >= maxSlotsForType) {
+            let bName = this.catalog.buildings[buildingId].name;
+            if(window.ui) window.ui.showToast(`🅿️ Pas de place ! Achète plus de "${bName}".`);
             return;
         }
 
@@ -111,7 +138,7 @@ export const tycoon = {
             this.state.purchaseHistory.push({ type: 'fleet', id: id, time: Date.now(), price: item.price });
             this.saveState();
             this.renderUI();
-            if(window.ui) { window.ui.playGamiSound('cash'); window.ui.showToast(`🚚 Nouveau véhicule ajouté !`); }
+            if(window.ui) { window.ui.playGamiSound('cash'); window.ui.showToast(`🚚 Véhicule ajouté au ${this.catalog.buildings[buildingId].name} !`); }
         }
     },
 
@@ -230,7 +257,7 @@ export const tycoon = {
         let elPending = document.getElementById('company-pending-income');
 
         if(elSlotsUsed) elSlotsUsed.innerText = stats.usedSlots;
-        if(elSlotsMax) elSlotsMax.innerText = stats.maxSlots === 0 ? "0" : (stats.maxSlots >= 999 ? "∞" : stats.maxSlots);
+        if(elSlotsMax) elSlotsMax.innerText = stats.maxSlots === 0 ? "0" : stats.maxSlots;
         if(elRate) elRate.innerText = `Rythme actuel : + ${stats.incomePerMin.toFixed(2)} € / min`;
         if(elPending) elPending.innerText = this.state.pendingIncome.toFixed(2) + ' €';
 
@@ -240,15 +267,21 @@ export const tycoon = {
             Object.keys(this.catalog.buildings).forEach(k => {
                 let item = this.catalog.buildings[k];
                 let count = this.state.buildings[k] || 0;
-                let canBuy = window.app.bankBalance >= item.price;
+                let currentPrice = this.getBuildingPrice(k);
+                let isMaxed = count >= item.maxLimit;
+                
+                let canBuy = window.app.bankBalance >= currentPrice && !isMaxed;
+                let btnTxt = isMaxed ? "Max Atteint" : "Acheter";
                 
                 buildList.innerHTML += `
-                    <div class="tycoon-card ${count > 0 ? 'owned' : ''}">
-                        ${count > 0 ? `<div class="tycoon-owned-badge">${count}x</div>` : ''}
+                    <div class="tycoon-card ${count > 0 ? 'owned' : ''}" style="${isMaxed ? 'opacity: 0.8;' : ''}">
+                        ${count > 0 ? `<div class="tycoon-owned-badge">${count} / ${item.maxLimit}</div>` : ''}
                         <div class="tycoon-title">${item.icon} ${item.name}</div>
-                        <div class="tycoon-revenue">Places : +${item.slots >= 999 ? 'Illimitées' : item.slots}</div>
-                        <div class="tycoon-price">${item.price.toLocaleString('fr-FR')} €</div>
-                        <button class="btn-buy" ${!canBuy ? 'disabled' : ''} onclick="window.tycoon.buyBuilding('${k}')">Acheter</button>
+                        <div class="tycoon-revenue">Places : +${item.slots}</div>
+                        <div class="tycoon-price" style="${isMaxed ? 'text-decoration: line-through; color: #7f8c8d;' : ''}">
+                            ${currentPrice.toLocaleString('fr-FR')} €
+                        </div>
+                        <button class="btn-buy" ${!canBuy ? 'disabled' : ''} onclick="window.tycoon.buyBuilding('${k}')">${btnTxt}</button>
                     </div>
                 `;
             });
@@ -302,13 +335,19 @@ export const tycoon = {
             // 2. Ensuite, on affiche le catalogue pour acheter de nouveaux camions
             Object.keys(this.catalog.fleet).forEach(k => {
                 let item = this.catalog.fleet[k];
-                let canBuy = window.app.bankBalance >= item.price && stats.usedSlots < stats.maxSlots;
-                let btnTxt = stats.usedSlots >= stats.maxSlots && stats.maxSlots > 0 ? "Parking plein" : "Acheter neuf";
+                let buildingId = item.buildingId;
+                let maxSlots = (this.state.buildings[buildingId] || 0) * this.catalog.buildings[buildingId].slots;
+                let currentUsed = this.state.fleet.filter(v => v.type === k).length;
+                
+                let isFull = currentUsed >= maxSlots;
+                let canBuy = window.app.bankBalance >= item.price && !isFull;
+                let btnTxt = isFull ? (maxSlots > 0 ? "Parking plein" : "Bâtiment requis") : "Acheter neuf";
 
                 fleetList.innerHTML += `
                     <div class="tycoon-card" style="opacity: 0.85;">
                         <div class="tycoon-title">${item.icon} ${item.name}</div>
                         <div class="tycoon-revenue">Potentiel : +${item.income.toFixed(2)} €/min</div>
+                        <div class="tycoon-revenue" style="color:var(--primary-color); font-weight:bold; font-size:0.85em;">Places : ${currentUsed} / ${maxSlots}</div>
                         <div class="tycoon-price">${item.price.toLocaleString('fr-FR')} €</div>
                         <button class="btn-buy" ${!canBuy ? 'disabled' : ''} onclick="window.tycoon.buyVehicle('${k}')">${btnTxt}</button>
                     </div>
