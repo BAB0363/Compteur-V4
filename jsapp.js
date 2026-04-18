@@ -626,11 +626,7 @@ if (this.bankBalance < 0) {
             this.companyState = { buildings: { terrain: 0, depot: 0, hub: 0 }, fleet: { vul: 0, porteur: 0, tracteur: 0, frigo: 0, convoi: 0 }, pendingIncome: 0 };
             await this.saveUserData(); 
 
-            if (window.gami) {
-                window.gami.state.level = 1;
-                window.gami.state.xp = 0;
-                window.gami.saveState();
-            }
+            
         }
     },
 
@@ -723,10 +719,6 @@ if (this.bankBalance < 0) {
              let euros = parseFloat((diff / 100).toFixed(2));
 
 
-        if (euros < 0 && window.gami && window.gami.state.unlockedTalents.ecoConduite) {
-            euros = Math.round(euros * 0.85); 
-            if(window.ui) window.ui.showToast(`🌳 Talent Éco-Conduite : Taxe carbone réduite !`);
-        }
 
         if (euros > 0) {
             this.addBankTransaction(euros, "Revente Crédits Carbone 🌿");
@@ -753,9 +745,7 @@ if (this.bankBalance < 0) {
         let currentPrice = window.market ? window.market.getValue(t) : 5.00;
         let advance = parseFloat((target * currentPrice * 3).toFixed(2)); 
         
-        if (window.gami && window.gami.state.unlockedTalents.negociateur) {
-            advance = parseFloat((advance * 1.20).toFixed(2)); 
-        }
+      
 
 
         this.pendingSponsor = { type: t, target: target, advance: advance, penalty: advance * 2 };
@@ -1601,15 +1591,12 @@ if (elapsed > 0 && elapsed % 900 === 0 && this.bankBalance < -500) {
                 if(window.ui) window.ui.showToast(`⛰️ Bonus d'Altitude (+10%) !`);
             }
 
-            // 4. Performance IA (Précision Gégé)
+                        // 4. Performance IA (Précision Gégé)
             if (isExact) {
                 baseVal *= gegeMultiplier;
                 transactionName += ` (x${gegeMultiplier} IA)`;
-                if (window.gami && window.gami.state.unlockedTalents && window.gami.state.unlockedTalents.oeilDeLynx) {
-                    baseVal *= 1.10;
-                    if(window.ui) window.ui.showToast(`👁️ Talent Œil de Lynx appliqué !`);
-                }
             }
+
 
             // 5. Saturation & Congestion
             let consecutive = 0;

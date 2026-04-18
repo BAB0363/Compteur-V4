@@ -1,24 +1,14 @@
-// jsgami.js - Le Cerveau du Passe Routier
+// jsgami.js - Gestionnaire de Missions (Gamification Financière)
 export const gami = {
     state: {
         seasonId: "", 
         seasonName: "",
-        level: 1,
-        xp: 0,
         dailyQuests: [],
         weeklyQuests: [],
         seasonQuests: [],
         lastDailyUpdate: 0,
-        lastWeeklyUpdate: 0,
-        unlockedTalents: {
-            oeilDeLynx: false,  // Niv 5
-            negociateur: false, // Niv 10
-            ecoConduite: false  // Niv 15
-        }
+        lastWeeklyUpdate: 0
     },
-    
-    xpPerLevel: 1000,
-    maxLevel: 50,
 
     seasonNames: {
         1: "❄️ Saison 1 : L'Hiver des Poids Lourds",
@@ -27,7 +17,6 @@ export const gami = {
         4: "🍂 Saison 4 : Les Rois de l'Automne"
     },
 
-    // 🎲 Fonction utilitaire de Gégé pour le hasard
     getRandomInt(min, max) {
         return Math.floor(Math.random() * (max - min + 1) + min);
     },
@@ -38,12 +27,8 @@ export const gami = {
         if (!Array.isArray(this.state.dailyQuests)) this.state.dailyQuests = [];
         if (!Array.isArray(this.state.weeklyQuests)) this.state.weeklyQuests = [];
         if (!Array.isArray(this.state.seasonQuests)) this.state.seasonQuests = [];
-        if (!this.state.unlockedTalents) {
-            this.state.unlockedTalents = { oeilDeLynx: false, negociateur: false, ecoConduite: false };
-        }
 
         this.checkSeasonAndQuests();
-        this.checkTalents(); 
         this.updateUI();
     },
 
@@ -54,7 +39,7 @@ export const gami = {
             try {
                 let parsed = JSON.parse(saved);
                 this.state = { ...this.state, ...parsed };
-            } catch(e) { console.error("Sauvegarde corrompue, remise à zéro du Passe."); }
+            } catch(e) { console.error("Sauvegarde corrompue, remise à zéro des missions."); }
         }
     },
 
@@ -99,8 +84,6 @@ export const gami = {
         if (this.state.seasonId !== currentSeasonId) {
             this.state.seasonId = currentSeasonId;
             this.state.seasonName = this.seasonNames[quarter];
-            this.state.level = 1;
-            this.state.xp = 0;
             this.state.dailyQuests = [];
             this.state.weeklyQuests = [];
             this.state.seasonQuests = this.generateSeasonQuests();
@@ -130,120 +113,78 @@ export const gami = {
 
     generateDailyQuests() {
         const types = [
-            { id: "d_tot", title: "Le Marathonien", desc: "Compter des véhicules.", min: 150, max: 300, type: "total", xpReward: 300 },
-            { id: "d_fr", title: "Flot National", desc: "Trouver des camions français.", min: 60, max: 120, type: "camion_fr", xpReward: 300 },
-            { id: "d_etr", title: "Transit Europe", desc: "Trouver des camions étrangers.", min: 60, max: 120, type: "camion_etr", xpReward: 300 },
-            { id: "d_uti", title: "Logistique Urbaine", desc: "Compter des Utilitaires.", min: 80, max: 150, type: "utilitaire", xpReward: 300 },
-            { id: "d_ia", title: "L'Œil d'Acier", desc: "Valider des prédictions IA exactes.", min: 15, max: 25, type: "ia_exact", xpReward: 400 },
-            { id: "d_flux", title: "Flux Tendu", desc: "Atteindre une chaîne de régularité.", target: 30, type: "regularite", xpReward: 400 }
+            { id: "d_tot", title: "Le Marathonien", desc: "Compter des véhicules.", min: 150, max: 300, type: "total", moneyReward: 50 },
+            { id: "d_fr", title: "Flot National", desc: "Trouver des camions français.", min: 60, max: 120, type: "camion_fr", moneyReward: 75 },
+            { id: "d_etr", title: "Transit Europe", desc: "Trouver des camions étrangers.", min: 60, max: 120, type: "camion_etr", moneyReward: 75 },
+            { id: "d_uti", title: "Logistique Urbaine", desc: "Compter des Utilitaires.", min: 80, max: 150, type: "utilitaire", moneyReward: 60 },
+            { id: "d_ia", title: "L'Œil d'Acier", desc: "Valider des prédictions IA exactes.", min: 15, max: 25, type: "ia_exact", moneyReward: 100 },
+            { id: "d_flux", title: "Flux Tendu", desc: "Atteindre une chaîne de régularité.", target: 30, type: "regularite", moneyReward: 150 }
         ];
         
         return types.sort(() => 0.5 - Math.random()).slice(0, 3).map(q => {
             let finalTarget = q.target ? q.target : this.getRandomInt(q.min, q.max);
             return { 
-                id: q.id, title: q.title, desc: q.desc.replace('.', ` (${finalTarget}).`), target: finalTarget, type: q.type, xpReward: q.xpReward, progress: 0, done: false 
+                id: q.id, title: q.title, desc: q.desc.replace('.', ` (${finalTarget}).`), target: finalTarget, type: q.type, moneyReward: q.moneyReward, progress: 0, done: false 
             };
         });
     },
 
     generateWeeklyQuests() {
         const types = [
-            { id: "w_tot", title: "Avenue du Monde", desc: "Compter des véhicules.", min: 3000, max: 5000, type: "total", xpReward: 1500 },
-            { id: "w_dist", title: "Tour de France", desc: "Parcourir des kilomètres.", min: 500, max: 800, type: "distance", xpReward: 1500 },
-            { id: "w_ia_cash", title: "Jackpot IA", desc: "Gagner de l'argent via les bonus IA (€).", min: 1000, max: 2500, type: "ia_cash", xpReward: 1500 },
-            { id: "w_sponsor", title: "Flotte Majeure", desc: "Valider des contrats Sponsors.", min: 25, max: 40, type: "sponsor", xpReward: 1500 },
-            { id: "w_poids", title: "Colosse aux pieds d'argile", desc: "Déplacer du tonnage (en tonnes).", min: 10000, max: 15000, type: "tonnage", xpReward: 1500 },
-            { id: "w_velo", title: "Peloton Vert", desc: "Identifier des Vélos.", min: 250, max: 400, type: "velo", xpReward: 1500 }
+            { id: "w_tot", title: "Avenue du Monde", desc: "Compter des véhicules.", min: 3000, max: 5000, type: "total", moneyReward: 500 },
+            { id: "w_dist", title: "Tour de France", desc: "Parcourir des kilomètres.", min: 500, max: 800, type: "distance", moneyReward: 750 },
+            { id: "w_ia_cash", title: "Jackpot IA", desc: "Gagner de l'argent via les bonus IA (€).", min: 1000, max: 2500, type: "ia_cash", moneyReward: 800 },
+            { id: "w_sponsor", title: "Flotte Majeure", desc: "Valider des contrats Sponsors.", min: 25, max: 40, type: "sponsor", moneyReward: 1000 },
+            { id: "w_poids", title: "Colosse aux pieds d'argile", desc: "Déplacer du tonnage (en tonnes).", min: 10000, max: 15000, type: "tonnage", moneyReward: 600 },
+            { id: "w_velo", title: "Peloton Vert", desc: "Identifier des Vélos.", min: 250, max: 400, type: "velo", moneyReward: 400 }
         ];
         
         return types.sort(() => 0.5 - Math.random()).slice(0, 2).map(q => {
             let finalTarget = this.getRandomInt(q.min, q.max);
             return { 
-                id: q.id, title: q.title, desc: q.desc.replace('.', ` (${finalTarget}).`), target: finalTarget, type: q.type, xpReward: q.xpReward, progress: 0, done: false 
+                id: q.id, title: q.title, desc: q.desc.replace('.', ` (${finalTarget}).`), target: finalTarget, type: q.type, moneyReward: q.moneyReward, progress: 0, done: false 
             };
         });
     },
 
     generateSeasonQuests() {
         const types = [
-            { id: "s_tot", title: "Le Maître du Monde", desc: "Atteindre un total de véhicules.", min: 50000, max: 100000, type: "total", xpReward: 7500 },
-            { id: "s_tycoon", title: "L'Empire du Trafic", desc: "Acheter des actifs (Flotte/Bâtiments).", min: 50, max: 100, type: "tycoon_buy", xpReward: 7500 },
-            { id: "s_alt", title: "Aigle des Sommets", desc: "Compter des véhicules à >500m d'altitude.", target: 5000, type: "altitude", xpReward: 7500 },
-            { id: "s_ia", title: "L'Oracle Suprême", desc: "Réussir des prédictions IA exactes.", target: 10000, type: "ia_exact", xpReward: 7500 },
-            { id: "s_eco", title: "Écolo-Millionnaire", desc: "Encaisser de la revente carbone (€).", target: 5000, type: "carbone_cash", xpReward: 7500 },
-            { id: "s_nuit", title: "Vampire de l'Asphalte", desc: "Compter des véhicules de nuit (21h-6h).", target: 10000, type: "nuit", xpReward: 7500 }
+            { id: "s_tot", title: "Le Maître du Monde", desc: "Atteindre un total de véhicules.", min: 50000, max: 100000, type: "total", moneyReward: 5000 },
+            { id: "s_tycoon", title: "L'Empire du Trafic", desc: "Acheter des actifs (Flotte/Bâtiments).", min: 50, max: 100, type: "tycoon_buy", moneyReward: 7500 },
+            { id: "s_alt", title: "Aigle des Sommets", desc: "Compter des véhicules à >500m d'altitude.", target: 5000, type: "altitude", moneyReward: 4000 },
+            { id: "s_ia", title: "L'Oracle Suprême", desc: "Réussir des prédictions IA exactes.", target: 10000, type: "ia_exact", moneyReward: 10000 },
+            { id: "s_eco", title: "Écolo-Millionnaire", desc: "Encaisser de la revente carbone (€).", target: 5000, type: "carbone_cash", moneyReward: 5000 },
+            { id: "s_nuit", title: "Vampire de l'Asphalte", desc: "Compter des véhicules de nuit (21h-6h).", target: 10000, type: "nuit", moneyReward: 6000 }
         ];
 
         return types.sort(() => 0.5 - Math.random()).slice(0, 2).map(q => {
             let finalTarget = q.target ? q.target : this.getRandomInt(q.min, q.max);
             return { 
-                id: q.id, title: q.title, desc: q.desc.replace('.', ` (${finalTarget}).`), target: finalTarget, type: q.type, xpReward: q.xpReward, progress: 0, done: false 
+                id: q.id, title: q.title, desc: q.desc.replace('.', ` (${finalTarget}).`), target: finalTarget, type: q.type, moneyReward: q.moneyReward, progress: 0, done: false 
             };
         });
     },
 
-    checkTalents() {
-        let unlockedSomething = false;
-        if (this.state.level >= 5 && !this.state.unlockedTalents.oeilDeLynx) {
-            this.state.unlockedTalents.oeilDeLynx = true;
-            unlockedSomething = true;
-            this.showToast("👁️ Nouveau talent : Œil de Lynx ! (+10% gains IA)");
-        }
-        if (this.state.level >= 10 && !this.state.unlockedTalents.negociateur) {
-            this.state.unlockedTalents.negociateur = true;
-            unlockedSomething = true;
-            this.showToast("💼 Nouveau talent : Négociateur ! (+20% avances sponsors)");
-        }
-        if (this.state.level >= 15 && !this.state.unlockedTalents.ecoConduite) {
-            this.state.unlockedTalents.ecoConduite = true;
-            unlockedSomething = true;
-            this.showToast("🌿 Nouveau talent : Éco-Conduite ! (-15% taxes carbone)");
-        }
-        return unlockedSomething;
-    },
-
-    addXp(amount) {
-        if (this.state.level >= this.maxLevel) return; 
-
-        this.state.xp += amount;
-        let leveledUp = false;
-
-        while (this.state.xp >= this.xpPerLevel && this.state.level < this.maxLevel) {
-            this.state.xp -= this.xpPerLevel;
-            this.state.level++;
-            leveledUp = true;
-        }
-
-        if (leveledUp) {
-            this.showToast(`🎉 Niveau Supérieur ! Tu es niveau ${this.state.level} !`);
-            if (window.ui) window.ui.playGamiSound('levelUp');
-            this.checkTalents(); 
-        }
-        this.saveState();
-    },
-
-    // 🎯 NOUVEAU : Fonction universelle pour mettre à jour n'importe quel type de quête
     updateProgress(type, amount = 1, isAbsolute = false) {
         let changed = false;
 
-                const checkAndUpdate = (q) => {
+        const checkAndUpdate = (q) => {
             if (!q || q.done) return false;
             if (q.type === type) {
-                // Si isAbsolute = true (ex: pour la régularité, on remplace si c'est plus grand)
                 if (isAbsolute) {
                     if (amount > q.progress) q.progress = Math.round(amount);
                 } else {
-                    // 💡 CORRECTION ICI : On retire le Math.round() et on conserve 2 décimales pour un affichage propre !
                     q.progress += amount;
                     q.progress = parseFloat(q.progress.toFixed(2));
                 }
 
                 if (q.progress >= q.target) {
-
                     q.progress = q.target;
                     q.done = true;
-                    this.addXp(q.xpReward);
-                    this.showToast(`🎯 Quête validée : ${q.title} (+${q.xpReward} XP)`);
+                    
+                    // 💰 Récompense en cash directement !
+                    if (window.app) window.app.addBankTransaction(q.moneyReward, `🎯 Récompense Mission : ${q.title}`);
+                    this.showToast(`🎯 Mission accomplie : ${q.title} (+${q.moneyReward} €)`);
                     if (window.ui) window.ui.playGamiSound('questDone');
                 }
                 return true;
@@ -269,8 +210,7 @@ export const gami = {
         if (typeVehicule === "Utilitaires") this.updateProgress("utilitaire", 1);
         if (typeVehicule === "Vélos") this.updateProgress("velo", 1);
 
-        // Données annexes récupérées depuis jsapp.js
-        if (extraData.weight) this.updateProgress("tonnage", extraData.weight / 1000); // Poids en tonnes
+        if (extraData.weight) this.updateProgress("tonnage", extraData.weight / 1000); 
         if (extraData.isNight) this.updateProgress("nuit", 1);
         if (extraData.alt && extraData.alt > 500) this.updateProgress("altitude", 1);
         
@@ -280,7 +220,7 @@ export const gami = {
         }
 
         if (extraData.regularity) {
-            this.updateProgress("regularite", extraData.regularity, true); // True = Valeur absolue max
+            this.updateProgress("regularite", extraData.regularity, true);
         }
     },
 
@@ -300,7 +240,7 @@ export const gami = {
             el.innerHTML += `
                 <div class="gami-quest-card ${isDone}">
                     <div class="gami-quest-info">
-                        <div class="gami-quest-title">${q.title} <span style="font-size:0.8em; color:#fff;">(+${q.xpReward} XP)</span></div>
+                        <div class="gami-quest-title">${q.title} <span style="font-size:0.8em; color:#27ae60;">(+${q.moneyReward} €)</span></div>
                         <div class="gami-quest-desc">${q.desc}</div>
                         <div class="gami-quest-progress">${q.progress} / ${q.target}</div>
                     </div>
@@ -309,39 +249,13 @@ export const gami = {
         });
     },
 
-    renderTalents() {
-        let elOeil = document.getElementById('talent-oeil');
-        let elNego = document.getElementById('talent-nego');
-        let elEco = document.getElementById('talent-eco');
-
-        if(elOeil) {
-            if (this.state.unlockedTalents.oeilDeLynx) elOeil.className = "talent-item unlocked";
-            else elOeil.className = "talent-item locked";
-        }
-        if(elNego) {
-            if (this.state.unlockedTalents.negociateur) elNego.className = "talent-item unlocked";
-            else elNego.className = "talent-item locked";
-        }
-        if(elEco) {
-            if (this.state.unlockedTalents.ecoConduite) elEco.className = "talent-item unlocked";
-            else elEco.className = "talent-item locked";
-        }
-    },
-
     updateUI() {
         let elSeason = document.getElementById('gami-season-name');
         let elDates = document.getElementById('gami-season-dates');
-        let elLvl = document.getElementById('gami-lvl-text');
-        let elBar = document.getElementById('gami-xp-bar');
-        let elLabel = document.getElementById('gami-xp-label');
 
         if(elSeason) elSeason.innerText = this.state.seasonName || "Saison";
         if(elDates) elDates.innerText = this.getSeasonDatesString();
-        if(elLvl) elLvl.innerText = this.state.level || 1;
-        if(elBar) elBar.style.width = (((this.state.xp || 0) / this.xpPerLevel) * 100) + '%';
-        if(elLabel) elLabel.innerText = `${this.state.xp || 0} / ${this.xpPerLevel} XP`;
 
-        this.renderTalents(); 
         this.renderQuests('gami-daily-container', this.state.dailyQuests, true);
         this.renderQuests('gami-weekly-container', this.state.weeklyQuests, false);
         this.renderQuests('gami-season-container', this.state.seasonQuests, false);

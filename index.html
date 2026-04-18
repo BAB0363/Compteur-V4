@@ -17,9 +17,9 @@
 <body>
 
     <div id="gami-overlay" class="no-print">
-        <div id="gami-modal">
+              <div id="gami-modal">
             <div class="gami-header">
-                <h2 class="gami-title">🎁 Passe Routier</h2>
+                <h2 class="gami-title">📋 Missions & Quêtes</h2>
                 <button class="btn-close-gami" onclick="document.getElementById('gami-overlay').style.display='none'">X</button>
             </div>
             
@@ -27,38 +27,17 @@
                 <span id="gami-season-name">Saison en cours</span><br>
                 <span id="gami-season-dates" style="font-size:0.85em; color:#bdc3c7; font-weight:normal;"></span>
             </div>
-            
-            <div class="gami-level-info">Niveau <span id="gami-lvl-text">1</span></div>
-            <div class="gami-xp-container">
-                <div class="gami-xp-fill" id="gami-xp-bar"></div>
-                <div class="gami-xp-text" id="gami-xp-label">0 / 1000 XP</div>
-            </div>
 
-            <div class="gami-section-title" style="border-color:#2ecc71; margin-top:20px;">🌳 Arbre de Talents</div>
-            <div id="gami-talents-container" class="gami-talents-grid">
-                <div id="talent-oeil" class="talent-item locked">
-                    <div class="talent-icon">👁️</div>
-                    <div class="talent-text"><strong>Œil de Lynx (Niv. 5)</strong><br>+10% gains prédictions IA</div>
-                </div>
-                <div id="talent-nego" class="talent-item locked">
-                    <div class="talent-icon">💼</div>
-                    <div class="talent-text"><strong>Négociateur (Niv. 10)</strong><br>+20% avances sponsors</div>
-                </div>
-                <div id="talent-eco" class="talent-item locked">
-                    <div class="talent-icon">🌿</div>
-                    <div class="talent-text"><strong>Éco-Conduite (Niv. 15)</strong><br>-15% taxes carbone</div>
-                </div>
-            </div>
-
-            <div class="gami-section-title" style="border-color:#3498db; margin-top:20px;">📅 Quêtes Journalières</div>
+            <div class="gami-section-title" style="border-color:#3498db; margin-top:20px;">📅 Missions Journalières</div>
             <div id="gami-daily-container"></div>
 
-            <div class="gami-section-title" style="border-color:#9b59b6; margin-top:20px;">🗓️ Quêtes Hebdomadaires</div>
+            <div class="gami-section-title" style="border-color:#9b59b6; margin-top:20px;">🗓️ Missions Hebdomadaires</div>
             <div id="gami-weekly-container"></div>
 
             <div class="gami-section-title" style="border-color:#e67e22; margin-top:20px;">🏆 Défis de Saison</div>
             <div id="gami-season-container"></div>
         </div>
+
     </div>
 
     <div id="toast-container" class="no-print"></div>
@@ -74,7 +53,7 @@
             </div>
         </div>
         <div class="top-bar-btns">
-            <button id="btn-open-gami" class="btn-gami-header" onclick="window.gami.updateUI(); document.getElementById('gami-overlay').style.display = 'flex';">🎁 Passe</button>
+            <button id="btn-open-gami" class="btn-gami-header" onclick="window.gami.updateUI(); document.getElementById('gami-overlay').style.display = 'flex';">🎁 Missions</button>
             <button id="btn-theme" onclick="window.ui.toggleDarkMode()">🌙 Nuit</button>
             <button id="btn-undo" onclick="window.app.undoLast()">↩️ Annuler</button>
         </div>
