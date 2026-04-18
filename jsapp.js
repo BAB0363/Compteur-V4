@@ -1414,8 +1414,28 @@ if (elapsed > 0 && elapsed % 900 === 0 && this.bankBalance < -500) {
     }
 }
 
-
                     this.updateCarbonGauge();
+                    
+                    if (window.tycoon && window.tycoon.state.storedFreight > 0) {
+                        let power = window.tycoon.getDeliveryPower();
+                        let currentDist = this.liveCarDistance;
+                        if (!this._lastDistDelivered) this._lastDistDelivered = currentDist;
+                        
+                        let traveled = currentDist - this._lastDistDelivered;
+                        if (traveled >= 0.1) {
+                            let tonsToDeliver = power * traveled;
+                            if (tonsToDeliver > window.tycoon.state.storedFreight) tonsToDeliver = window.tycoon.state.storedFreight;
+                            let price = window.tycoon.getDynamicPrice();
+                            let profit = tonsToDeliver * price;
+                            
+                            if (profit > 0) {
+                                this.addBankTransaction(parseFloat(profit.toFixed(2)), `Livraison (${tonsToDeliver.toFixed(1)}t)`);
+                                window.tycoon.state.storedFreight -= tonsToDeliver;
+                                window.tycoon.saveState();
+                            }
+                            this._lastDistDelivered = currentDist;
+                        }
+                    }
                 }
 
               if (window.tycoon) window.tycoon.tickSecond(elapsed);
@@ -1690,8 +1710,14 @@ if (elapsed > 0 && elapsed % 900 === 0 && this.bankBalance < -500) {
                 this.addBankTransaction(200.00, "🌈 Combo Arc-en-ciel (5 catégories !)");
                 if(window.ui) { window.ui.showToast("🌈 COMBO ARC-EN-CIEL ! +200 € !", 'rare-combo'); window.ui.playGamiSound('cash'); }
             }
-
             if (key1 === "Camions") {
+                if (amount > 0 && window.tycoon) {
+                    let randomTons = Math.floor(Math.random() * (25 - 5 + 1)) + 5;
+                    window.tycoon.state.storedFreight += randomTons;
+                    let maxCap = window.tycoon.getWarehouseCapacity();
+                    if (window.tycoon.state.storedFreight > maxCap) window.tycoon.state.storedFreight = maxCap;
+                    window.tycoon.saveState();
+                }
                 if (!this._convoiTimes) this._convoiTimes = [];
                 this._convoiTimes.push(Date.now());
                 this._convoiTimes = this._convoiTimes.filter(t => Date.now() - t <= 15000);

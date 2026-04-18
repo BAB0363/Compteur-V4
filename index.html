@@ -331,10 +331,22 @@
             <div id="company-rate-display" style="font-size: 1em; font-weight: bold; color: #7f8c8d; margin-top: 15px;">Rythme actuel : + 0.00 € / min</div>
         </div>
 
+                <div class="km-stats-container" style="border-top: 3px solid var(--purple-text);">
+            <h4 style="color:var(--purple-text);">🏗️ Entrepôt Central</h4>
+            <div id="warehouse-status" style="text-align: center; margin-bottom: 10px;">
+                <div style="font-size: 1.2em; font-weight: bold;" id="warehouse-name">Aucun</div>
+                <div style="font-size: 2em; color: var(--primary-color);" id="warehouse-tons">0.0 t</div>
+                <div style="font-size: 0.8em; color: #7f8c8d;" id="warehouse-cap">Capacité : 0 t</div>
+                <div class="pred-gauge-bg" style="margin: 10px 0;"><div id="warehouse-bar" class="pred-gauge-fill" style="width: 0%; background: var(--primary-color);"></div></div>
+            </div>
+            <button id="btn-upgrade-warehouse" class="share-btn btn-full" onclick="window.tycoon.upgradeWarehouse()">Améliorer Entrepôt</button>
+        </div>
+
         <div class="km-stats-container">
             <h4>🏭 Infrastructures (<span id="company-slots-used">0</span> / <span id="company-slots-max">0</span> places)</h4>
             <div id="company-buildings-list" class="km-stats-grid"></div>
         </div>
+
 
         <div class="km-stats-container">
             <h4>🚚 Ma Flotte</h4>
