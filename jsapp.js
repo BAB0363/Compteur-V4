@@ -1437,8 +1437,10 @@ if (elapsed > 0 && elapsed % 900 === 0 && this.bankBalance < -500) {
                         }
                     }
                 }
-
-              if (window.tycoon) window.tycoon.tickSecond(elapsed);
+// Les revenus passifs et l'usure de l'entreprise ne tournent que si le chrono Véhicules est actif
+if (!isTruck && window.tycoon) {
+    window.tycoon.tickSecond(elapsed);
+}
 
 
                 this.updateChronoDisp(type); 

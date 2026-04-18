@@ -9,10 +9,9 @@ self.onmessage = async function(e) {
         const xs = tf.tensor2d(features);
         const ys = tf.oneHot(tf.tensor1d(labels, 'int32'), numClasses);
 
-        const model = tf.sequential();
-        // Couche d'entrée (11 critères : Temps, GPS, Vitesse, Séquences...)
-        model.add(tf.layers.dense({ units: 64, activation: 'relu', inputShape: [11] }));
-        model.add(tf.layers.dense({ units: 32, activation: 'relu' }));
+                const model = tf.sequential();
+        // Couche d'entrée avec 30 neurones (plus léger, plus rapide)
+        model.add(tf.layers.dense({ units: 30, activation: 'relu', inputShape: [11] }));
         model.add(tf.layers.dense({ units: numClasses, activation: 'softmax' }));
 
         model.compile({ optimizer: 'adam', loss: 'categoricalCrossentropy' });

@@ -41,23 +41,45 @@ export const ui = {
         if (panel) panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
     },
 
-    updateGegeBrain(features, top3) {
+        updateGegeBrain(features, top3) {
         let panel = document.getElementById('gege-brain-panel');
         if (!panel) {
             // Création de la fenêtre uniquement (sans le bouton)
             panel = document.createElement('div');
             panel.id = 'gege-brain-panel';
-            panel.style.cssText = 'position:fixed; top:70px; right:10px; background:rgba(11, 14, 20, 0.85); border:1px solid #00F2FF; color:#00FF66; padding:12px; border-radius:12px; z-index:9999; font-family:monospace; font-size:11px; max-width:200px; box-shadow: 0 4px 15px rgba(0,0,0,0.7); backdrop-filter: blur(5px); display:none; pointer-events:none;';
+            panel.style.cssText = 'position:fixed; top:70px; right:10px; background:rgba(11, 14, 20, 0.85); border:1px solid #00F2FF; color:#00FF66; padding:12px; border-radius:12px; z-index:9999; font-family:monospace; font-size:11px; max-width:220px; box-shadow: 0 4px 15px rgba(0,0,0,0.7); backdrop-filter: blur(5px); display:none; pointer-events:none;';
             document.body.appendChild(panel);
         }
         
-        let html = `<b style="color:white;">🧠 Code de Gégé</b><hr style="border-color:rgba(0,242,255,0.3); margin:5px 0;">`;
-        html += `📍 Grille GPS : ${features[2].toFixed(2)} | ${features[3].toFixed(2)}<br>`;
-        html += `⏰ Heure/Jour : ${features[0].toFixed(2)} | ${features[1].toFixed(2)}<br>`;
-        html += `🛣️ Code Route : ${features[5].toFixed(2)}<br>`;
-        html += `📈 Flux trafic : ${features[9].toFixed(2)}<br>`;
+        // 🧠 1. Récupération de la mémoire à court terme (les 3 derniers véhicules)
+        let activeHist = window.ui.activeTab === 'trucks' ? window.app.truckHistory : window.app.carHistory;
+        let justVehicles = activeHist.filter(h => !h.isEvent);
+        
+        // On prend les 4 premières lettres pour que ça rentre bien dans le panneau
+        let mem = justVehicles.slice(-3).map(v => {
+            let name = window.ui.activeTab === 'trucks' ? v.brand : v.type;
+            return name === "Camions" ? "PL" : name.substring(0,4);
+        }).join(' ➡️ ') || "Vide";
+
+        // 📍 2. Calcul de l'expérience locale (véhicules dans cette case GPS exacte)
+        let currentGridLat = Math.round((window.gps.currentPos.lat || 46) * 100) / 100;
+        let currentGridLon = Math.round((window.gps.currentPos.lon || 2) * 100) / 100;
+        
+        let localExp = justVehicles.filter(h => {
+            let hLat = Math.round((h.lat || 46) * 100) / 100;
+            let hLon = Math.round((h.lon || 2) * 100) / 100;
+            return hLat === currentGridLat && hLon === currentGridLon;
+        }).length;
+
+        // 💻 3. Affichage du moniteur hacker
+        let html = `<b style="color:white;">🧠 Code de Gégé (Debug)</b><hr style="border-color:rgba(0,242,255,0.3); margin:5px 0;">`;
+        html += `📍 Case GPS : ${currentGridLat} | ${currentGridLon}<br>`;
+        html += `🎓 Exp. locale : <span style="color:#f1c40f;">${localExp} vus ici</span><br>`;
+        html += `💭 Mémoire 3V : [${mem}]<br>`;
+        html += `📈 Flux trafic : ${(features[9] * 100).toFixed(0)}%<br>`;
         html += `<hr style="border-color:rgba(0,242,255,0.3); margin:5px 0;">`;
         html += `<b style="color:white;">🔮 Probabilités :</b><br>`;
+        
         top3.forEach(p => {
             let cleanName = p.candidate.replace('_fr', ' 🇫🇷').replace('_etr', ' 🌍');
             html += `- ${cleanName} : ${p.confidence}%<br>`;
@@ -65,6 +87,7 @@ export const ui = {
         
         panel.innerHTML = html;
     },
+
 
 
 

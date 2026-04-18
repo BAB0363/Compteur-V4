@@ -131,9 +131,13 @@ export const ml = {
         const hour = d.getHours() / 24.0;
         const day = d.getDay() / 7.0;
         
-        // 🛰️ Normalisation spatiale (France approx)
-        const lat = ((h.lat || 46) - 41) / 10;
-        const lon = ((h.lon || 2) + 5) / 15;
+           // 🛰️ Normalisation spatiale en Grille (Cases d'environ 1km x 1km)
+        const gridLat = Math.round((h.lat || 46) * 100) / 100;
+        const gridLon = Math.round((h.lon || 2) * 100) / 100;
+        
+        const lat = (gridLat - 41) / 10;
+        const lon = (gridLon + 5) / 15;
+
         
         const speed = Math.min((h.speed || 0) / 130.0, 1.0);
         const road = (this.roadMap[h.road || "Inconnu"] || 0) / 3.0;
