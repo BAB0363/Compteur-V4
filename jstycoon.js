@@ -360,9 +360,12 @@ export const tycoon = {
         let carbFill = carbQuota > 0 ? (carbTotal / carbQuota) * 100 : 0;
         let displayFill = Math.min(100, carbFill); 
         
-        if(document.getElementById('company-carb-total')) {
-            document.getElementById('company-carb-total').innerText = (carbTotal / 1000).toFixed(1) + " / " + (carbQuota / 1000).toFixed(1) + " kg";
+            if(document.getElementById('company-carb-total')) {
+            let totalStr = window.app ? window.app.formatCarbon(carbTotal) : (carbTotal / 1000).toFixed(1) + " kg";
+            let quotaStr = window.app ? window.app.formatCarbon(carbQuota) : (carbQuota / 1000).toFixed(1) + " kg";
+            document.getElementById('company-carb-total').innerText = totalStr + " / " + quotaStr;
         }
+
         if(document.getElementById('company-carb-bar')) {
             let bar = document.getElementById('company-carb-bar');
             bar.style.width = displayFill + "%";
