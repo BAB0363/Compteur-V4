@@ -100,6 +100,9 @@ export const gps = {
                             // 🎯 La fameuse ligne ajoutée pour la quête "Tour de France"
                             if (window.gami) window.gami.updateProgress("distance", d);
 
+                            // On injecte les km dans le Tycoon !
+                            if (window.tycoon) window.tycoon.tickDistance(d);
+
                             if (window.app && window.app.isTruckRunning) { 
                                 window.app.liveTruckDistance += d; 
                                 window.app.globalTruckDistance += d;

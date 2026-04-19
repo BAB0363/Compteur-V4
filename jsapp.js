@@ -827,11 +827,19 @@ if (this.bankBalance < 0) {
         let wasRunning = this.isCarRunning;
         this.isCarRunning = true;
 
-        if (this.activeSponsor) {
+              if (this.activeSponsor) {
             if (this.activeSponsor.current < this.activeSponsor.target) {
-                this.addBankTransaction(-this.activeSponsor.penalty, `Rupture Contrat Sponsor (${this.activeSponsor.type})`);
-                if(window.ui) { window.ui.showToast(`📉 Contrat raté ! Pénalité : -${this.activeSponsor.penalty} €`, "anomaly"); window.ui.playGamiSound('crash'); }
+                // --- 3. AMENDE PROPORTIONNELLE ---
+                let penalty = this.activeSponsor.penalty;
+                let fivePercent = this.bankBalance * 0.05;
+                if (fivePercent > penalty) penalty = parseFloat(fivePercent.toFixed(2));
+                
+                this.addBankTransaction(-penalty, `Rupture Contrat Sponsor (${this.activeSponsor.type})`);
+                this.storage.set('sponsorCooldownActiveSec', 1800); // 30 min de punition
+
+                if(window.ui) { window.ui.showToast(`📉 Contrat raté ! Pénalité : -${penalty} €`, "anomaly"); window.ui.playGamiSound('crash'); }
             } else {
+
                 this.validateSponsorContract(); 
             }
             this.activeSponsor = null;
@@ -1379,9 +1387,17 @@ if (this.bankBalance < 0) {
                         this.lastGlobalCarTick += add * 1000;
                     }
 
-                    if (elapsed > 0 && elapsed % 60 === 0) {
+                                        // Décompte de la punition Sponsor
+                    let cd = this.storage.get('sponsorCooldownActiveSec') || 0;
+                    if (cd > 0) {
+                        cd--;
+                        this.storage.set('sponsorCooldownActiveSec', cd);
+                    }
+
+                    if (elapsed > 0 && elapsed % 60 === 0 && cd <= 0) {
                         this.generateSponsorOffer();
                     }
+
 
                     if (elapsed > 0 && elapsed % 300 === 0) { 
                         let currentHour = new Date().getHours();
