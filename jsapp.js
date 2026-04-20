@@ -3,9 +3,10 @@ import { gps } from './jsgps.js?v=46';
 import { ml } from './jsml.js?v=46';
 import { market } from './jsmarket.js?v=46';
 import { tycoon } from './jstycoon.js?v=46';
+import { exportManager } from './jsexport.js?v=47'; // ✅ On ajoute l'importation ici !
 
 window.ui = ui; window.gps = gps; window.ml = ml; window.market = market; window.tycoon = tycoon;
-
+window.exportManager = exportManager; // ✅ On relie l'exportateur à la fenêtre globale
 
 const app = {
     currentUser: localStorage.getItem('currentUser') || 'Sylvain',
@@ -14,7 +15,7 @@ const app = {
 
     // ⚖️ Dictionnaire dynamique des Poids et CO2
     vehicleSpecs: {
-        "VARIABLES": { wMin: 1100, wMax: 1900, cMin: 90, cMax: 180 },
+        "Voitures": { wMin: 1100, wMax: 1900, cMin: 90, cMax: 180 },
         "Utilitaires": { wMin: 1700, wMax: 3500, cMin: 160, cMax: 260 },
         "Motos": { wMin: 150, wMax: 400, cMin: 60, cMax: 130 },
         "Camions": { wMin: 12000, wMax: 44000, cMin: 600, cMax: 1300 },
@@ -24,7 +25,7 @@ const app = {
         "Vélos": { wMin: 10, wMax: 28, cMin: 0, cMax: 0 }
     },
 
-      // ==========================================
+    // ==========================================
     // 🏢 VARIABLES DE L'ENTREPRISE (TYCOON)
     // ==========================================
     companyCatalog: {
@@ -32,7 +33,7 @@ const app = {
             parking: { id: 'parking', name: 'Place de trottoir', price: 4000, slots: 1, icon: '🅿️' },
             terrain: { id: 'terrain', name: 'Terrain vague', price: 15000, slots: 3, icon: '🚧' },
             depot: { id: 'depot', name: 'Dépôt Sécurisé', price: 120000, slots: 10, icon: '🏭' },
-            hub: { id: 'hub', name: 'Hub Logistique', price: 800000, slots: 999, icon: '🏢' } // 999 = illimité
+            hub: { id: 'hub', name: 'Hub Logistique', price: 800000, slots: 999, icon: '🏢' }
         },
         fleet: {
             scooter: { id: 'scooter', name: 'Scooter rincé', price: 4000, income: 0.12, icon: '🛵' },
@@ -49,9 +50,8 @@ const app = {
         pendingIncome: 0
     },
 
-
-
-   //  ==========================================
+    // ✅ Correction ici : on a remis les // manquant
+    // ==========================================
     // 🏦 VARIABLES DE LA BOURSE DE L'ASPHALTE
     // ==========================================
     bankBalance: 0,
