@@ -66,6 +66,8 @@ const app = {
 
         sessionPaveWeight: 0,
     consecutiveLightVehicles: 0,
+    sessionFreightToAdd: 0, // NOUVEAU : Panier virtuel pour les marchandises
+
 
     maintenance: {
         async execute() {
@@ -1354,12 +1356,18 @@ if (this.bankBalance < 0) {
             if(isTruck) { 
                 this.truckStartTime = startTime; this.storage.set('truckStartTime', startTime); 
                 this.lastGlobalTruckTick = startTime; 
-            } else { 
+                      } else { 
                 this.carStartTime = startTime; this.storage.set('carStartTime', startTime); 
                 this.lastGlobalCarTick = startTime; 
                 this.lastCountTime = Date.now(); 
 
+                // NOUVEAU : On verrouille le rôle du Champion selon l'état de l'entrepôt
+                if (this.carSeconds === 0 && window.tycoon) {
+                    window.tycoon.championLockedInDelivery = (window.tycoon.state.storedFreight > 0);
+                }
+
                 let sponsorDesc = document.getElementById('sponsor-desc');
+
                 if (sponsorDesc && !this.activeSponsor && !this.pendingSponsor) {
                     sponsorDesc.innerText = "Recherche de sponsor en cours... 👀";
                 }
@@ -1734,15 +1742,14 @@ if (!isTruck && window.tycoon) {
                     }
                 } // fin if (!isTruck)
 
-                if (key1 === "Camions") {
+                            if (key1 === "Camions") {
                     if (amount > 0 && window.tycoon) {
                         let randomTons = Math.floor(Math.random() * (25 - 5 + 1)) + 5;
-                        window.tycoon.state.storedFreight += randomTons;
-                        let maxCap = window.tycoon.getWarehouseCapacity();
-                        if (window.tycoon.state.storedFreight > maxCap) window.tycoon.state.storedFreight = maxCap;
-                        window.tycoon.saveState();
+                        this.sessionFreightToAdd = (this.sessionFreightToAdd || 0) + randomTons;
+                        if (window.ui) window.ui.showToast(`📦 +${randomTons}t en attente d'arrivée à l'entrepôt !`);
                     }
                     if (!this._convoiTimes) this._convoiTimes = [];
+
                     this._convoiTimes.push(nowTs);
                     this._convoiTimes = this._convoiTimes.filter(t => nowTs - t <= 15000);
                     if (this._convoiTimes.length >= 3) {
@@ -1987,11 +1994,13 @@ if (!isTruck && window.tycoon) {
 
     resetSessionData(type) {
         let isTruck = type === 'trucks';
-        if (isTruck) {
+              if (isTruck) {
             this.brands.forEach(b => { this.truckCounters[b] = { fr: 0, etr: 0 }; }); 
             this.truckHistory = []; this.truckSeconds = 0; this.truckAccumulatedTime = 0; this.liveTruckDistance = 0;
             this.sessionTruckPredictions = { total: 0, success: 0 };
+            this.sessionFreightToAdd = 0; // NOUVEAU : On vide le panier si on annule
         } else {
+
             this.vehicleTypes.forEach(v => this.vehicleCounters[v] = 0); 
             this.carHistory = []; this.carSeconds = 0; this.carAccumulatedTime = 0; this.liveCarDistance = 0;
             this.sessionCarPredictions = { total: 0, success: 0 };
@@ -2044,15 +2053,26 @@ if (window.tycoon) window.tycoon.cashOut();
             return; 
         }
         
-        if (confirm("⏹️ Trajet terminé ! Veux-tu enregistrer cette session ?")) { 
+               if (confirm("⏹️ Trajet terminé ! Veux-tu enregistrer cette session ?")) { 
             if (!isTruck) {
                 this.checkSponsorOnStop(); 
                 this.sessionFinance.carbon = this.checkCarbonFootprint(); 
             }
             
+            // NOUVEAU : Déchargement du panier de fret !
+            if (isTruck && window.tycoon && this.sessionFreightToAdd > 0) {
+                window.tycoon.state.storedFreight += this.sessionFreightToAdd;
+                let maxCap = window.tycoon.getWarehouseCapacity();
+                if (window.tycoon.state.storedFreight > maxCap) window.tycoon.state.storedFreight = maxCap;
+                window.tycoon.saveState();
+                if(window.ui) window.ui.showToast(`🏗️ Déchargement réussi : +${this.sessionFreightToAdd}t en stock !`);
+                this.sessionFreightToAdd = 0;
+            }
+
             if(window.ui) window.ui.showToast("⏳ Géocodage des adresses en cours...");
             await this.saveSession(type); 
         } 
+
         else if (confirm("⚠️ La session sera effacée. Confirmer ?")) {
             this.resetSessionData(type);
         }

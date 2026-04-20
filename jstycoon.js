@@ -12,9 +12,12 @@ export const tycoon = {
         fleet: [], 
         pendingIncome: 0,
         purchaseHistory: []
-    },
+     }, // <-- Fin de state
+
+    championLockedInDelivery: false, // NOUVEAU : Définit si le champion livre ou non cette session
 
     warehouseConfig: {
+
         levels: [
             { name: "Aucun", cap: 0, price: 0 },
             { name: "Hangar de Proximité", cap: 150, price: 20000 },
@@ -179,13 +182,14 @@ export const tycoon = {
         // NOUVEAU : On identifie le champion
         let champion = this.getActiveChampion();
 
-        this.state.fleet.forEach(veh => {
+               this.state.fleet.forEach(veh => {
             let def = this.catalog.fleet[veh.type];
             
-            // NOUVEAU : Si c'est le champion, on l'ignore pour le passif ! Il est sur la route !
-            if (champion && veh.uid === champion.uid) return; 
+            // NOUVEAU : Le champion n'est exclu que s'il a été verrouillé en mode "livraison"
+            if (champion && veh.uid === champion.uid && this.championLockedInDelivery) return; 
 
             if (def && veh.fuel > 0 && veh.health > 0) {
+
                 incomePerMin += def.income;
             }
         });
@@ -516,8 +520,11 @@ export const tycoon = {
                 
                 // NOUVEAU : Visuel pour le champion
                 let activeChamp = this.getActiveChampion();
-                let isChampion = activeChamp && veh.uid === activeChamp.uid;
+                             // NOUVEAU : Visuel conditionné par le verrouillage
+                let activeChamp = this.getActiveChampion();
+                let isChampion = activeChamp && veh.uid === activeChamp.uid && this.championLockedInDelivery;
                 let badgeText = isBroken ? '🛑 PANNE' : (isChampion ? '👑 EN ROUTE' : '✅ PASSIF');
+
                 let badgeColor = isBroken ? 'var(--danger-color)' : (isChampion ? '#f39c12' : 'var(--success-color)');
                 
                 let refuelCost = (item.price * 0.02) * ((100 - veh.fuel) / 100);
