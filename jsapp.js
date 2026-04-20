@@ -546,6 +546,75 @@ const app = {
             }
             await this.saveUserData(); 
         }
+    }
+
+updateBankUI() {
+        let el = document.getElementById('display-bank');
+        let badge = document.getElementById('bank-badge');
+        if (el) el.innerText = this.bankBalance.toLocaleString('fr-FR', { maximumFractionDigits: 2 }) + ' €';
+        if (badge) {
+            badge.style.display = 'block';
+            if (this.bankBalance < 0) {
+                badge.classList.remove('bank-positive');
+                badge.classList.add('bank-negative');
+            } else {
+                badge.classList.remove('bank-negative');
+                badge.classList.add('bank-positive');
+            }
+        }
+    },
+
+    openBankModal() {
+        let modal = document.getElementById('bank-modal');
+        let elGains = document.getElementById('bank-total-gains');
+        let elLosses = document.getElementById('bank-total-losses');
+        let historyList = document.getElementById('bank-history-list');
+
+        if(elGains) elGains.innerText = this.bankStats.gains.toLocaleString('fr-FR', { maximumFractionDigits: 2 }) + ' €';
+        if(elLosses) elLosses.innerText = this.bankStats.losses.toLocaleString('fr-FR', { maximumFractionDigits: 2 }) + ' €';
+
+        if(historyList) {
+            historyList.innerHTML = '';
+            if(this.bankHistory.length === 0) {
+                historyList.innerHTML = '<div style="text-align:center; color:#7f8c8d; padding:20px;">Aucune transaction.</div>';
+            } else {
+                let sorted = [...this.bankHistory].sort((a,b) => b.timestamp - a.timestamp).slice(0, 50);
+                sorted.forEach(tx => {
+                    let color = tx.amount >= 0 ? '#27ae60' : '#e74c3c';
+                    let sign = tx.amount >= 0 ? '+' : '';
+                    let dateStr = new Date(tx.timestamp).toLocaleTimeString('fr-FR', {hour: '2-digit', minute:'2-digit', second:'2-digit'});
+                    historyList.innerHTML += `
+                        <div style="display:flex; justify-content:space-between; align-items:center; padding:10px; border-bottom:1px solid rgba(0,0,0,0.05);">
+                            <div style="display:flex; flex-direction:column;">
+                                <strong style="font-size:0.9em;">${tx.reason}</strong>
+                                <span style="font-size:0.75em; color:#7f8c8d;">${dateStr}</span>
+                            </div>
+                            <strong style="color:${color}; font-size:1.1em;">${sign}${tx.amount.toFixed(2)} €</strong>
+                        </div>
+                    `;
+                });
+            }
+        }
+        if(modal) modal.style.display = 'flex';
+    },
+
+    addBankTransaction(amount, reason) {
+        let val = parseFloat(amount);
+        if (isNaN(val) || val === 0) return;
+
+        this.bankBalance += val;
+        if (val > 0) this.bankStats.gains += val;
+        else this.bankStats.losses += Math.abs(val);
+
+        this.bankHistory.push({
+            timestamp: Date.now(),
+            amount: val,
+            reason: reason
+        });
+
+        this.updateBankUI();
+        this.saveUserData();
+        this.checkBankruptcy();
     },
 
 
