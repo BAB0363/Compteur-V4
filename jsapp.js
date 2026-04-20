@@ -24,7 +24,31 @@ const app = {
         "Vélos": { wMin: 10, wMax: 28, cMin: 0, cMax: 0 }
     },
 
-      /
+      // ==========================================
+    // 🏢 VARIABLES DE L'ENTREPRISE (TYCOON)
+    // ==========================================
+    companyCatalog: {
+        buildings: {
+            parking: { id: 'parking', name: 'Place de trottoir', price: 4000, slots: 1, icon: '🅿️' },
+            terrain: { id: 'terrain', name: 'Terrain vague', price: 15000, slots: 3, icon: '🚧' },
+            depot: { id: 'depot', name: 'Dépôt Sécurisé', price: 120000, slots: 10, icon: '🏭' },
+            hub: { id: 'hub', name: 'Hub Logistique', price: 800000, slots: 999, icon: '🏢' } // 999 = illimité
+        },
+        fleet: {
+            scooter: { id: 'scooter', name: 'Scooter rincé', price: 4000, income: 0.12, icon: '🛵' },
+            vul: { id: 'vul', name: 'VUL d\'occasion', price: 15000, income: 0.50, icon: '🚐' },
+            porteur: { id: 'porteur', name: 'Petit Porteur 19t', price: 45000, income: 1.50, icon: '🚚' },
+            tracteur: { id: 'tracteur', name: 'Tracteur Routier', price: 110000, income: 4.00, icon: '🚛' },
+            frigo: { id: 'frigo', name: 'Ens. Frigorifique', price: 170000, income: 6.00, icon: '❄️' },
+            convoi: { id: 'convoi', name: 'Convoi Exceptionnel', price: 350000, income: 12.00, icon: '⚠️' }
+        }
+    },
+    companyState: {
+        buildings: { parking: 0, terrain: 0, depot: 0, hub: 0 },
+        fleet: { scooter: 0, vul: 0, porteur: 0, tracteur: 0, frigo: 0, convoi: 0 },
+        pendingIncome: 0
+    },
+
 
 
      ==========================================
