@@ -27,8 +27,10 @@ export const ui = {
         }
     },
 
-    updateGegeBrain(features, top3) {
+        // 🧠 On ajoute "async" pour pouvoir consulter l'historique en base de données
+    async updateGegeBrain(features, top3) {
         let panel = document.getElementById('gege-brain-panel');
+        
         if (!panel) {
             panel = document.createElement('div');
             panel.id = 'gege-brain-panel';
@@ -36,30 +38,50 @@ export const ui = {
             document.body.appendChild(panel);
         }
         
-        // 🧠 1. Récupération de la mémoire à court terme (les 3 derniers véhicules)
-        let activeHist = window.ui.activeTab === 'trucks' ? window.app.truckHistory : window.app.carHistory;
+        const type = this.activeTab;
+        const currentGridLat = Math.round((window.gps.currentPos.lat || 46) * 100) / 100;
+        const currentGridLon = Math.round((window.gps.currentPos.lon || 2) * 100) / 100;
+
+        // 🎓 1. Récupération de l'expérience HISTORIQUE totale (Sessions sauvegardées + Session active)
+        let totalHistoricalExp = 0;
+        
+        try {
+            // On récupère toutes les sessions passées pour ce mode
+            const sessions = await window.app.idb.getAll(type);
+            sessions.forEach(s => {
+                if (s.history) {
+                    s.history.forEach(h => {
+                        if (!h.isEvent && h.lat && h.lon) {
+                            let hLat = Math.round(h.lat * 100) / 100;
+                            let hLon = Math.round(h.lon * 100) / 100;
+                            // On vérifie si le véhicule était dans la même "case" GPS
+                            if (hLat === currentGridLat && hLon === currentGridLon) totalHistoricalExp++;
+                        }
+                    });
+                }
+            });
+        } catch (e) { console.error("Gégé n'a pas pu lire l'historique IDB", e); }
+
+        // On ajoute les véhicules de la session en cours qui ne sont pas encore sauvegardés
+        let activeHist = type === 'trucks' ? window.app.truckHistory : window.app.carHistory;
         let justVehicles = activeHist.filter(h => !h.isEvent);
         
-        // On prend les 4 premières lettres pour que ça rentre bien dans le panneau
+        justVehicles.forEach(h => {
+            let hLat = Math.round((h.lat || 46) * 100) / 100;
+            let hLon = Math.round((h.lon || 2) * 100) / 100;
+            if (hLat === currentGridLat && hLon === currentGridLon) totalHistoricalExp++;
+        });
+
+        // 💭 2. Mémoire à court terme (les 3 derniers véhicules)
         let mem = justVehicles.slice(-3).map(v => {
-            let name = window.ui.activeTab === 'trucks' ? v.brand : v.type;
+            let name = type === 'trucks' ? v.brand : v.type;
             return name === "Camions" ? "PL" : name.substring(0,4);
         }).join(' ➡️ ') || "Vide";
 
-        // 📍 2. Calcul de l'expérience locale (véhicules dans cette case GPS exacte)
-        let currentGridLat = Math.round((window.gps.currentPos.lat || 46) * 100) / 100;
-        let currentGridLon = Math.round((window.gps.currentPos.lon || 2) * 100) / 100;
-        
-        let localExp = justVehicles.filter(h => {
-            let hLat = Math.round((h.lat || 46) * 100) / 100;
-            let hLon = Math.round((h.lon || 2) * 100) / 100;
-            return hLat === currentGridLat && hLon === currentGridLon;
-        }).length;
-
-        // 💻 3. Affichage du moniteur hacker
+        // 💻 3. Affichage du moniteur "Hacker"
         let html = `<b style="color:white;">🧠 Code de Gégé (Debug)</b><hr style="border-color:rgba(0,242,255,0.3); margin:5px 0;">`;
         html += `📍 Case GPS : ${currentGridLat} | ${currentGridLon}<br>`;
-        html += `🎓 Exp. locale : <span style="color:#f1c40f;">${localExp} vus ici</span><br>`;
+        html += `🎓 Exp. totale : <span style="color:#f1c40f;">${totalHistoricalExp} vus ici</span><br>`;
         html += `💭 Mémoire 3V : [${mem}]<br>`;
         html += `📈 Flux trafic : ${(features[9] * 100).toFixed(0)}%<br>`;
         html += `<hr style="border-color:rgba(0,242,255,0.3); margin:5px 0;">`;
@@ -72,6 +94,7 @@ export const ui = {
         
         panel.innerHTML = html;
     },
+
 
     playBeep(isAdding) {
         try {
