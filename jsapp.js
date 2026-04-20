@@ -519,14 +519,16 @@ const app = {
             this.bankHistory = [];
             this.bankStats = { gains: 0, losses: 0 };
             this.sessionFinance = { gains: 0, losses: 0, carbon: 0 };
-            
-            if (window.tycoon) {
-                window.tycoon.state = { warehouseLevel: 0, storedFreight: 0, companyCarbon: 0, companyQuota: 0, carbonModifier: 1.0, lastResetWeek: 0, buildings: {}, fleet: [], pendingIncome: 0, purchaseHistory: [] };
-                window.tycoon.saveState();
-            }
-            
-            await this.saveUserData();
-            this.updateBankUI();
+                if (window.tycoon) {
+            window.tycoon.state = { warehouseLevel: 0, storedFreight: 0, companyCarbon: 0, companyQuota: 0, carbonModifier: 1.0, lastResetWeek: 0, buildings: {}, fleet: [], pendingIncome: 0, purchaseHistory: [] };
+            window.tycoon.saveState();
+        }
+        await this.saveUserData(); 
+    }
+},
+
+updateBankUI() {
+
             if (window.tycoon) window.tycoon.renderUI();
             if (window.ui) window.ui.showToast("💸 La Bourse et l'Entreprise ont été remises à zéro !");
         }
