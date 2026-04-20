@@ -430,12 +430,13 @@
             </button>
         </div>
 
-        <div class="km-stats-container">
+              <div class="km-stats-container">
             <h4>💾 Export / Import</h4>
-            <button class="share-btn btn-full mb-10" onclick="window.app.exportSaveFile()">📤 Exporter les données (.txt)</button>
-            <input type="file" id="import-save-file" accept=".json,.gege,.txt" style="display:none;" onchange="window.app.importSaveFile(event)">
+            <button class="share-btn btn-full mb-10" onclick="window.exportManager.exportSaveFile()">📤 Exporter les données (.json)</button>
+            <input type="file" id="import-save-file" accept=".json,.gege,.txt" style="display:none;" onchange="window.exportManager.importSaveFile(event)">
             <button class="share-btn btn-full btn-green" onclick="document.getElementById('import-save-file').click()">📥 Importer une sauvegarde</button>
         </div>
+
 
                 <div class="km-stats-container border-red">
             <h4 class="text-danger">🛠️ Centre de Maintenance</h4>
@@ -630,6 +631,8 @@
     <script type="module" src="jsgami.js?v=44"></script>
 <script type="module" src="jsmarket.js?v=45"></script>
 <script type="module" src="jstycoon.js?v=46"></script>
+<script type="module" src="jsexport.js?v=47"></script>
+
     <script type="module" src="jsapp.js?v=45"></script>
     
     <script>

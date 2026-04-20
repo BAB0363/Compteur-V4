@@ -3079,13 +3079,7 @@ if (window.tycoon) window.tycoon.cashOut();
         });
     },
 
-    async triggerDownloadOrShare(dataString, fileName) {
-        const blob = new Blob([dataString], { type: "text/plain" });
-        const url = URL.createObjectURL(blob); 
-        const a = document.createElement("a"); a.href = url; a.download = fileName;
-        document.body.appendChild(a); a.click(); document.body.removeChild(a); 
-        URL.revokeObjectURL(url);
-    },
+    
 
     async exportSingleSession(event, type, sessionId) {
         event.stopPropagation();
@@ -3109,9 +3103,7 @@ if (window.tycoon) window.tycoon.cashOut();
         await this.triggerDownloadOrShare(dataStr, `Compteur_Session_${type}_${safeDate}.txt`);
     },
 
-    async exportSaveFile() {
-        let truckSessions = await this.idb.getAll('trucks');
-        let carSessions = await this.idb.getAll('cars');
+ 
 
         let enrichSession = (s) => {
             let items = s.history ? s.history.filter(h => !h.isEvent) : [];
@@ -3157,30 +3149,7 @@ if (window.tycoon) window.tycoon.cashOut();
         await this.triggerDownloadOrShare(dataStr, `Compteur_Export_${this.currentUser}_${new Date().toISOString().slice(0,10)}.txt`);
     },
 
-    importSaveFile(event) {
-        const file = event.target.files[0]; if (!file) return;
-        const reader = new FileReader();
-        reader.onload = async (e) => {
-            try {
-                const data = JSON.parse(e.target.result);
-                if (data.sessions && confirm(`⚠️ Attention : L'importation va remplacer l'historique de ${this.currentUser}. Continuer ?`)) {
-                    await this.idb.clear('trucks'); await this.idb.clear('cars');
-                    for (let s of data.sessions) { if (!s.id) s.id = Date.now().toString() + Math.random().toString(); s.user = this.currentUser; await this.idb.add(s); }
-                    
-                    if (data.globalSummary?.globalDonneesBrutesCamions) this.storage.set('globalTruckCounters', data.globalSummary.globalDonneesBrutesCamions);
-                    if (data.globalSummary?.globalDonneesBrutesVehicules) this.storage.set('globalCarCounters', data.globalSummary.globalDonneesBrutesVehicules);
-                    if (data.globalSummary?.analysesPermanentesCamions) this.storage.set('globalAnaTrucks', data.globalSummary.analysesPermanentesCamions);
-                    if (data.globalSummary?.analysesPermanentesVehicules) this.storage.set('globalAnaCars', data.globalSummary.analysesPermanentesVehicules);
-                    if (data.globalSummary?.bankBalance) {
-                        this.bankBalance = parseFloat(data.globalSummary.bankBalance);
-                        await this.saveUserData();
-                    }
-                    
-                    alert("✅ Historique et analyses importés avec succès ! Redémarrage..."); location.reload();
-                } else if(!data.sessions) { alert("❌ Format non reconnu."); }
-            } catch (err) { alert("❌ Fichier invalide ou corrompu !"); }
-        }; reader.readAsText(file);
-    },
+    
 
     async deleteSessionsByDateRange() {
         let startInput = document.getElementById('delete-start-date').value;
