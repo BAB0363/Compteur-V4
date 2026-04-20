@@ -3081,7 +3081,7 @@ if (window.tycoon) window.tycoon.cashOut();
 
     
 
-    async exportSingleSession(event, type, sessionId) {
+        async exportSingleSession(event, type, sessionId) {
         event.stopPropagation();
         let session = await this.idb.getById(sessionId);
         if(!session) return;
@@ -3097,57 +3097,14 @@ if (window.tycoon) window.tycoon.cashOut();
         
         session.masseTotaleKg = sessionWeight;
 
-        let exportData = { appVersion: "Compteur Trafic v6.2", exportDate: new Date().toISOString(), sessionType: type, session: session };
+        let exportData = { appVersion: "Compteur Trafic v6.3", exportDate: new Date().toISOString(), sessionType: type, session: session };
         const dataStr = JSON.stringify(exportData, null, 2);
         let safeDate = session.date.replace(/[\/ :]/g, '_');
-        await this.triggerDownloadOrShare(dataStr, `Compteur_Session_${type}_${safeDate}.txt`);
-    },
-
- 
-
-        let enrichSession = (s) => {
-            let items = s.history ? s.history.filter(h => !h.isEvent) : [];
-            let count = items.length;
-            let vehPerKm = s.distanceKm > 0 ? +(count / s.distanceKm).toFixed(2) : 0;
-            let freqMin = (count > 0 && s.durationSec > 0) ? +(count / (s.durationSec / 60)).toFixed(2) : 0;
-            let avgSpeed = s.durationSec > 0 ? +(s.distanceKm / (s.durationSec / 3600)).toFixed(1) : 0;
-            let espaceTemps = count > 1 ? +(s.durationSec / count).toFixed(1) : 0;
-            let rythmeH = s.durationSec > 0 ? +(count / (s.durationSec / 3600)).toFixed(1) : 0;
-            
-            let detailAuKm = {};
-            let sessionWeight = items.reduce((sum, item) => {
-                let fallback = 1350;
-                if (s.sessionType === 'trucks') fallback = 18000;
-                else if (this.vehicleSpecs[item.type]) fallback = (this.vehicleSpecs[item.type].wMin + this.vehicleSpecs[item.type].wMax) / 2;
-                return sum + (item.weight || fallback);
-            }, 0);
-
-            if (s.distanceKm > 0 && s.summary) {
-               Object.keys(s.summary).forEach(k => {
-                  let tot = typeof s.summary[k] === 'object' ? (s.summary[k].fr + s.summary[k].etr) : s.summary[k];
-                  if(tot > 0) detailAuKm[k] = +(tot / s.distanceKm).toFixed(2);
-               });
-            }
-            return { ...s, totalCount: count, masseTotaleKg: sessionWeight, scoreParKm: vehPerKm, apparitionsParMinute: freqMin, rythmeParHeure: rythmeH, vitesseMoyenneKmh: avgSpeed, espacementMoyenSec: espaceTemps, detailsAuKm: detailAuKm };
-        };
-
-        let allSessions = [...truckSessions.map(enrichSession), ...carSessions.map(enrichSession)];
         
-        let globalSummary = { 
-            profile: this.currentUser,
-            mode: this.currentMode,
-            bankBalance: this.bankBalance,
-            totalSessions: allSessions.length, 
-            globalDonneesBrutesCamions: this.globalTruckCounters, 
-            globalDonneesBrutesVehicules: this.globalCarCounters,
-            analysesPermanentesCamions: this.globalAnaTrucks,
-            analysesPermanentesVehicules: this.globalAnaCars
-        };
-
-        let exportData = { appVersion: "Compteur Trafic v6.2", exportDate: new Date().toISOString(), globalSummary: globalSummary, sessions: allSessions };
-        const dataStr = JSON.stringify(exportData, null, 2);
-        await this.triggerDownloadOrShare(dataStr, `Compteur_Export_${this.currentUser}_${new Date().toISOString().slice(0,10)}.txt`);
+        // On appelle le nouveau gestionnaire externe !
+        await window.exportManager.triggerDownloadOrShare(dataStr, `Compteur_Session_${type}_${safeDate}.txt`);
     },
+
 
     
 
