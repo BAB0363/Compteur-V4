@@ -3,10 +3,9 @@ import { gps } from './jsgps.js?v=46';
 import { ml } from './jsml.js?v=46';
 import { market } from './jsmarket.js?v=46';
 import { tycoon } from './jstycoon.js?v=46';
-import { exportManager } from './jsexport.js?v=47'; // ✅ On ajoute l'importation ici !
 
 window.ui = ui; window.gps = gps; window.ml = ml; window.market = market; window.tycoon = tycoon;
-window.exportManager = exportManager; // ✅ On relie l'exportateur à la fenêtre globale
+
 
 const app = {
     currentUser: localStorage.getItem('currentUser') || 'Sylvain',
@@ -25,7 +24,7 @@ const app = {
         "Vélos": { wMin: 10, wMax: 28, cMin: 0, cMax: 0 }
     },
 
-    // ==========================================
+      // ==========================================
     // 🏢 VARIABLES DE L'ENTREPRISE (TYCOON)
     // ==========================================
     companyCatalog: {
@@ -33,7 +32,7 @@ const app = {
             parking: { id: 'parking', name: 'Place de trottoir', price: 4000, slots: 1, icon: '🅿️' },
             terrain: { id: 'terrain', name: 'Terrain vague', price: 15000, slots: 3, icon: '🚧' },
             depot: { id: 'depot', name: 'Dépôt Sécurisé', price: 120000, slots: 10, icon: '🏭' },
-            hub: { id: 'hub', name: 'Hub Logistique', price: 800000, slots: 999, icon: '🏢' }
+            hub: { id: 'hub', name: 'Hub Logistique', price: 800000, slots: 999, icon: '🏢' } // 999 = illimité
         },
         fleet: {
             scooter: { id: 'scooter', name: 'Scooter rincé', price: 4000, income: 0.12, icon: '🛵' },
@@ -50,7 +49,7 @@ const app = {
         pendingIncome: 0
     },
 
-    // ✅ Correction ici : on a remis les // manquant
+
     // ==========================================
     // 🏦 VARIABLES DE LA BOURSE DE L'ASPHALTE
     // ==========================================
@@ -150,27 +149,21 @@ const app = {
             await window.app.saveUserData();
         },
 
-                async cleanupCompany(start, end) {
-            if (!window.tycoon || !window.tycoon.state.purchaseHistory) return;
+        async cleanupCompany(start, end) {
+            if (!window.app.compan7jyState.purchaseHistory) return;
             
             let keptHistory = [];
-            window.tycoon.state.purchaseHistory.forEach(purchase => {
-                // On vérifie le timestamp de l'achat (le champ s'appelle 'time' dans jstycoon)
-                let ts = purchase.time || 0;
-                if (ts >= start && ts <= end) {
-                    // Si l'achat est dans la plage, on le retire des compteurs
-                    if (purchase.type === 'building') {
-                        if (window.tycoon.state.buildings[purchase.id] > 0) window.tycoon.state.buildings[purchase.id]--;
-                    } else if (purchase.type === 'fleet') {
-                        let idx = window.tycoon.state.fleet.findIndex(v => v.type === purchase.id);
-                        if (idx !== -1) window.tycoon.state.fleet.splice(idx, 1);
+            window.app.companyState.purchaseHistory.forEach(purchase => {
+                if (purchase.timestamp >= start && purchase.timestamp <= end) {
+                    if (window.app.companyState[purchase.category] && window.app.companyState[purchase.category][purchase.id] > 0) {
+                        window.app.companyState[purchase.category][purchase.id]--;
                     }
                 } else {
                     keptHistory.push(purchase);
                 }
             });
-            window.tycoon.state.purchaseHistory = keptHistory;
-            window.tycoon.saveState();
+            window.app.companyState.purchaseHistory = keptHistory;
+            await window.app.saveUserData();
         },
 
         async rebuildGlobalRegistry() {
@@ -513,25 +506,113 @@ const app = {
         }
     }, 
 
-        async resetBankData() {
+    async resetBankData() {
         if (confirm(`🚨 ATTENTION SYLVAIN ! Tu vas vider ton compte en banque, ton historique financier ET revendre toute ton entreprise pour zéro euro ! Es-tu sûr de vouloir déclarer faillite ?`)) {
             this.bankBalance = 0;
             this.bankHistory = [];
             this.bankStats = { gains: 0, losses: 0 };
             this.sessionFinance = { gains: 0, losses: 0, carbon: 0 };
-                if (window.tycoon) {
-            window.tycoon.state = { warehouseLevel: 0, storedFreight: 0, companyCarbon: 0, companyQuota: 0, carbonModifier: 1.0, lastResetWeek: 0, buildings: {}, fleet: [], pendingIncome: 0, purchaseHistory: [] };
-            window.tycoon.saveState();
-        }
-        await this.saveUserData(); 
-    }
-},
-
-updateBankUI() {
-
-            if (window.tycoon) window.tycoon.renderUI();
+            
+            this.companyState = { buildings: { terrain: 0, depot: 0, hub: 0 }, fleet: { vul: 0, porteur: 0, tracteur: 0, frigo: 0, convoi: 0 }, pendingIncome: 0 };
+            
+            await this.saveUserData();
+            
+            this.updateBankUI();
+            this.renderCompanyUI();
+            
             if (window.ui) window.ui.showToast("💸 La Bourse et l'Entreprise ont été remises à zéro !");
         }
+    },
+
+    addBankTransaction(amount, reason) {
+        if (amount === 0) return;
+        this.bankBalance += amount;
+        if (amount > 0) {
+            this.bankStats.gains += amount;
+            if (this.isCarRunning) this.sessionFinance.gains += amount;
+        } else {
+            this.bankStats.losses += Math.abs(amount);
+            if (this.isCarRunning) this.sessionFinance.losses += Math.abs(amount);
+        }
+
+                let now = new Date();
+        this.bankHistory.unshift({
+            timestamp: Date.now(),
+            time: now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+            amount: amount,
+            reason: reason
+        });
+
+
+        if (this.bankHistory.length > 50) this.bankHistory.pop();
+        this.saveUserData(); 
+        this.updateBankUI(); 
+        
+        if(window.ui && window.ui.activeTab === 'company') {
+            this.renderCompanyUI();
+        }
+    },
+
+    updateBankUI() {
+        let badge = document.getElementById('bank-badge');
+        let display = document.getElementById('display-bank');
+        let banner = document.getElementById('huissier-banner');
+        let sTitle = document.getElementById('sponsor-title');
+
+        if (!badge || !display) return;
+
+        badge.style.display = 'flex';
+        display.innerText = this.bankBalance.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+
+      // ✅ NOUVEAU CODE À INSÉRER
+if (this.bankBalance < 0) {
+    badge.classList.remove('bank-positive');
+    badge.classList.add('bank-negative');
+    
+    if (banner) {
+        if (this.bankBalance <= -1000) {
+            banner.style.display = 'block';
+            banner.innerText = "⚖️ MAÎTRE ASPHALTE : Saisie de 30% sur vos gros véhicules !";
+        } else {
+            banner.style.display = 'none';
+        }
+    }
+    
+    if (sTitle && this.activeSponsor) sTitle.style.color = '#e74c3c';
+} else {
+    badge.classList.remove('bank-negative');
+    badge.classList.add('bank-positive');
+    if (banner) banner.style.display = 'none';
+    if (sTitle && this.activeSponsor) sTitle.style.color = '#f1c40f';
+}
+} , 
+
+    openBankModal() {
+        let elGains = document.getElementById('bank-total-gains');
+        let elLosses = document.getElementById('bank-total-losses');
+        let elList = document.getElementById('bank-history-list');
+
+        if (elGains) elGains.innerText = Math.round(this.bankStats.gains) + ' €';
+        if (elLosses) elLosses.innerText = Math.round(this.bankStats.losses) + ' €';
+
+        if (elList) {
+            elList.innerHTML = '';
+            if (this.bankHistory.length === 0) {
+                elList.innerHTML = '<span style="color:#7f8c8d; font-size:0.9em;">Aucune transaction... commence à compter !</span>';
+            } else {
+                this.bankHistory.forEach(tx => {
+                    let color = tx.amount > 0 ? '#27ae60' : '#e74c3c';
+                    let sign = tx.amount > 0 ? '+' : '';
+                    elList.innerHTML += `
+                        <div class="session-detail-row">
+                            <span class="session-detail-label" style="font-size:0.85em;">${tx.time} - ${tx.reason}</span>
+                            <span class="session-detail-value" style="color:${color}; font-size:0.95em;">${sign}${Math.round(tx.amount)} €</span>
+                        </div>
+                    `;
+                });
+            }
+        }
+        document.getElementById('bank-modal').style.display = 'flex';
     },
 
     async checkBankruptcy() {
@@ -542,83 +623,12 @@ updateBankUI() {
             }
             this.addBankTransaction(Math.abs(this.bankBalance), "Saisie Totale (Faillite)"); 
             
-            if (window.tycoon) {
-                window.tycoon.state = { warehouseLevel: 0, storedFreight: 0, companyCarbon: 0, companyQuota: 0, carbonModifier: 1.0, lastResetWeek: 0, buildings: {}, fleet: [], pendingIncome: 0, purchaseHistory: [] };
-                window.tycoon.saveState();
-            }
+            this.companyState = { buildings: { terrain: 0, depot: 0, hub: 0 }, fleet: { vul: 0, porteur: 0, tracteur: 0, frigo: 0, convoi: 0 }, pendingIncome: 0 };
             await this.saveUserData(); 
-        }
-    }
 
-updateBankUI() {
-        let el = document.getElementById('display-bank');
-        let badge = document.getElementById('bank-badge');
-        if (el) el.innerText = this.bankBalance.toLocaleString('fr-FR', { maximumFractionDigits: 2 }) + ' €';
-        if (badge) {
-            badge.style.display = 'block';
-            if (this.bankBalance < 0) {
-                badge.classList.remove('bank-positive');
-                badge.classList.add('bank-negative');
-            } else {
-                badge.classList.remove('bank-negative');
-                badge.classList.add('bank-positive');
-            }
+            
         }
     },
-
-    openBankModal() {
-        let modal = document.getElementById('bank-modal');
-        let elGains = document.getElementById('bank-total-gains');
-        let elLosses = document.getElementById('bank-total-losses');
-        let historyList = document.getElementById('bank-history-list');
-
-        if(elGains) elGains.innerText = this.bankStats.gains.toLocaleString('fr-FR', { maximumFractionDigits: 2 }) + ' €';
-        if(elLosses) elLosses.innerText = this.bankStats.losses.toLocaleString('fr-FR', { maximumFractionDigits: 2 }) + ' €';
-
-        if(historyList) {
-            historyList.innerHTML = '';
-            if(this.bankHistory.length === 0) {
-                historyList.innerHTML = '<div style="text-align:center; color:#7f8c8d; padding:20px;">Aucune transaction.</div>';
-            } else {
-                let sorted = [...this.bankHistory].sort((a,b) => b.timestamp - a.timestamp).slice(0, 50);
-                sorted.forEach(tx => {
-                    let color = tx.amount >= 0 ? '#27ae60' : '#e74c3c';
-                    let sign = tx.amount >= 0 ? '+' : '';
-                    let dateStr = new Date(tx.timestamp).toLocaleTimeString('fr-FR', {hour: '2-digit', minute:'2-digit', second:'2-digit'});
-                    historyList.innerHTML += `
-                        <div style="display:flex; justify-content:space-between; align-items:center; padding:10px; border-bottom:1px solid rgba(0,0,0,0.05);">
-                            <div style="display:flex; flex-direction:column;">
-                                <strong style="font-size:0.9em;">${tx.reason}</strong>
-                                <span style="font-size:0.75em; color:#7f8c8d;">${dateStr}</span>
-                            </div>
-                            <strong style="color:${color}; font-size:1.1em;">${sign}${tx.amount.toFixed(2)} €</strong>
-                        </div>
-                    `;
-                });
-            }
-        }
-        if(modal) modal.style.display = 'flex';
-    },
-
-    addBankTransaction(amount, reason) {
-        let val = parseFloat(amount);
-        if (isNaN(val) || val === 0) return;
-
-        this.bankBalance += val;
-        if (val > 0) this.bankStats.gains += val;
-        else this.bankStats.losses += Math.abs(val);
-
-        this.bankHistory.push({
-            timestamp: Date.now(),
-            amount: val,
-            reason: reason
-        });
-
-        this.updateBankUI();
-        this.saveUserData();
-        this.checkBankruptcy();
-    },
-
 
     showMoneyParticle(e, amount) {
         if (!e || !e.clientX) return;
@@ -3069,9 +3079,15 @@ if (window.tycoon) window.tycoon.cashOut();
         });
     },
 
-    
+    async triggerDownloadOrShare(dataString, fileName) {
+        const blob = new Blob([dataString], { type: "text/plain" });
+        const url = URL.createObjectURL(blob); 
+        const a = document.createElement("a"); a.href = url; a.download = fileName;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a); 
+        URL.revokeObjectURL(url);
+    },
 
-        async exportSingleSession(event, type, sessionId) {
+    async exportSingleSession(event, type, sessionId) {
         event.stopPropagation();
         let session = await this.idb.getById(sessionId);
         if(!session) return;
@@ -3087,16 +3103,84 @@ if (window.tycoon) window.tycoon.cashOut();
         
         session.masseTotaleKg = sessionWeight;
 
-        let exportData = { appVersion: "Compteur Trafic v6.3", exportDate: new Date().toISOString(), sessionType: type, session: session };
+        let exportData = { appVersion: "Compteur Trafic v6.2", exportDate: new Date().toISOString(), sessionType: type, session: session };
         const dataStr = JSON.stringify(exportData, null, 2);
         let safeDate = session.date.replace(/[\/ :]/g, '_');
-        
-        // On appelle le nouveau gestionnaire externe !
-        await window.exportManager.triggerDownloadOrShare(dataStr, `Compteur_Session_${type}_${safeDate}.txt`);
+        await this.triggerDownloadOrShare(dataStr, `Compteur_Session_${type}_${safeDate}.txt`);
     },
 
+    async exportSaveFile() {
+        let truckSessions = await this.idb.getAll('trucks');
+        let carSessions = await this.idb.getAll('cars');
 
-    
+        let enrichSession = (s) => {
+            let items = s.history ? s.history.filter(h => !h.isEvent) : [];
+            let count = items.length;
+            let vehPerKm = s.distanceKm > 0 ? +(count / s.distanceKm).toFixed(2) : 0;
+            let freqMin = (count > 0 && s.durationSec > 0) ? +(count / (s.durationSec / 60)).toFixed(2) : 0;
+            let avgSpeed = s.durationSec > 0 ? +(s.distanceKm / (s.durationSec / 3600)).toFixed(1) : 0;
+            let espaceTemps = count > 1 ? +(s.durationSec / count).toFixed(1) : 0;
+            let rythmeH = s.durationSec > 0 ? +(count / (s.durationSec / 3600)).toFixed(1) : 0;
+            
+            let detailAuKm = {};
+            let sessionWeight = items.reduce((sum, item) => {
+                let fallback = 1350;
+                if (s.sessionType === 'trucks') fallback = 18000;
+                else if (this.vehicleSpecs[item.type]) fallback = (this.vehicleSpecs[item.type].wMin + this.vehicleSpecs[item.type].wMax) / 2;
+                return sum + (item.weight || fallback);
+            }, 0);
+
+            if (s.distanceKm > 0 && s.summary) {
+               Object.keys(s.summary).forEach(k => {
+                  let tot = typeof s.summary[k] === 'object' ? (s.summary[k].fr + s.summary[k].etr) : s.summary[k];
+                  if(tot > 0) detailAuKm[k] = +(tot / s.distanceKm).toFixed(2);
+               });
+            }
+            return { ...s, totalCount: count, masseTotaleKg: sessionWeight, scoreParKm: vehPerKm, apparitionsParMinute: freqMin, rythmeParHeure: rythmeH, vitesseMoyenneKmh: avgSpeed, espacementMoyenSec: espaceTemps, detailsAuKm: detailAuKm };
+        };
+
+        let allSessions = [...truckSessions.map(enrichSession), ...carSessions.map(enrichSession)];
+        
+        let globalSummary = { 
+            profile: this.currentUser,
+            mode: this.currentMode,
+            bankBalance: this.bankBalance,
+            totalSessions: allSessions.length, 
+            globalDonneesBrutesCamions: this.globalTruckCounters, 
+            globalDonneesBrutesVehicules: this.globalCarCounters,
+            analysesPermanentesCamions: this.globalAnaTrucks,
+            analysesPermanentesVehicules: this.globalAnaCars
+        };
+
+        let exportData = { appVersion: "Compteur Trafic v6.2", exportDate: new Date().toISOString(), globalSummary: globalSummary, sessions: allSessions };
+        const dataStr = JSON.stringify(exportData, null, 2);
+        await this.triggerDownloadOrShare(dataStr, `Compteur_Export_${this.currentUser}_${new Date().toISOString().slice(0,10)}.txt`);
+    },
+
+    importSaveFile(event) {
+        const file = event.target.files[0]; if (!file) return;
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            try {
+                const data = JSON.parse(e.target.result);
+                if (data.sessions && confirm(`⚠️ Attention : L'importation va remplacer l'historique de ${this.currentUser}. Continuer ?`)) {
+                    await this.idb.clear('trucks'); await this.idb.clear('cars');
+                    for (let s of data.sessions) { if (!s.id) s.id = Date.now().toString() + Math.random().toString(); s.user = this.currentUser; await this.idb.add(s); }
+                    
+                    if (data.globalSummary?.globalDonneesBrutesCamions) this.storage.set('globalTruckCounters', data.globalSummary.globalDonneesBrutesCamions);
+                    if (data.globalSummary?.globalDonneesBrutesVehicules) this.storage.set('globalCarCounters', data.globalSummary.globalDonneesBrutesVehicules);
+                    if (data.globalSummary?.analysesPermanentesCamions) this.storage.set('globalAnaTrucks', data.globalSummary.analysesPermanentesCamions);
+                    if (data.globalSummary?.analysesPermanentesVehicules) this.storage.set('globalAnaCars', data.globalSummary.analysesPermanentesVehicules);
+                    if (data.globalSummary?.bankBalance) {
+                        this.bankBalance = parseFloat(data.globalSummary.bankBalance);
+                        await this.saveUserData();
+                    }
+                    
+                    alert("✅ Historique et analyses importés avec succès ! Redémarrage..."); location.reload();
+                } else if(!data.sessions) { alert("❌ Format non reconnu."); }
+            } catch (err) { alert("❌ Fichier invalide ou corrompu !"); }
+        }; reader.readAsText(file);
+    },
 
     async deleteSessionsByDateRange() {
         let startInput = document.getElementById('delete-start-date').value;
