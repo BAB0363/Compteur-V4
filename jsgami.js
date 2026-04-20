@@ -22,7 +22,11 @@ export const gami = {
     },
 
     init() {
-        this.loadState();
+        // Le chargement se fait via le moteur global dans jsapp.js,
+        // mais on garde une sécurité si l'état est vide.
+        if (!this.state.seasonId) {
+            this.loadState();
+        }
         
         if (!Array.isArray(this.state.dailyQuests)) this.state.dailyQuests = [];
         if (!Array.isArray(this.state.weeklyQuests)) this.state.weeklyQuests = [];
@@ -38,8 +42,9 @@ export const gami = {
         if (saved) {
             try {
                 let parsed = JSON.parse(saved);
+                // On fusionne pour ne pas perdre les données déjà injectées par l'importateur
                 this.state = { ...this.state, ...parsed };
-            } catch(e) { console.error("Sauvegarde corrompue, remise à zéro des missions."); }
+            } catch(e) { console.error("Erreur chargement missions."); }
         }
     },
 
@@ -63,13 +68,9 @@ export const gami = {
         let now = new Date();
         let year = now.getFullYear();
         let quarter = Math.floor(now.getMonth() / 3) + 1;
-        
         let startMonth = (quarter - 1) * 3;
-        let endMonth = startMonth + 2;
-        
         let startDate = new Date(year, startMonth, 1);
-        let endDate = new Date(year, endMonth + 1, 0); 
-        
+        let endDate = new Date(year, startMonth + 3, 0); 
         const format = (d) => d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' });
         return `(du ${format(startDate)} au ${format(endDate)})`;
     },
@@ -150,7 +151,6 @@ export const gami = {
     generateSeasonQuests() {
         const types = [
             { id: "s_tot", title: "Le Maître du Monde", desc: "Atteindre un total de véhicules.", min: 50000, max: 100000, type: "total", moneyReward: 5000 },
-            { id: "s_tycoon", title: "L'Empire du Trafic", desc: "Acheter des actifs (Flotte/Bâtiments).", min: 50, max: 100, type: "tycoon_buy", moneyReward: 7500 },
             { id: "s_alt", title: "Aigle des Sommets", desc: "Compter des véhicules à >500m d'altitude.", target: 5000, type: "altitude", moneyReward: 4000 },
             { id: "s_ia", title: "L'Oracle Suprême", desc: "Réussir des prédictions IA exactes.", target: 10000, type: "ia_exact", moneyReward: 10000 },
             { id: "s_eco", title: "Écolo-Millionnaire", desc: "Encaisser de la revente carbone (€).", target: 5000, type: "carbone_cash", moneyReward: 5000 },
@@ -167,7 +167,6 @@ export const gami = {
 
     updateProgress(type, amount = 1, isAbsolute = false) {
         let changed = false;
-
         const checkAndUpdate = (q) => {
             if (!q || q.done) return false;
             if (q.type === type) {
@@ -177,12 +176,9 @@ export const gami = {
                     q.progress += amount;
                     q.progress = parseFloat(q.progress.toFixed(2));
                 }
-
                 if (q.progress >= q.target) {
                     q.progress = q.target;
                     q.done = true;
-                    
-                    // 💰 Récompense en cash directement !
                     if (window.app) window.app.addBankTransaction(q.moneyReward, `🎯 Récompense Mission : ${q.title}`);
                     this.showToast(`🎯 Mission accomplie : ${q.title} (+${q.moneyReward} €)`);
                     if (window.ui) window.ui.playGamiSound('questDone');
@@ -191,17 +187,14 @@ export const gami = {
             }
             return false;
         };
-
         if (this.state.dailyQuests) this.state.dailyQuests.forEach(q => { if(checkAndUpdate(q)) changed = true; });
         if (this.state.weeklyQuests) this.state.weeklyQuests.forEach(q => { if(checkAndUpdate(q)) changed = true; });
         if (this.state.seasonQuests) this.state.seasonQuests.forEach(q => { if(checkAndUpdate(q)) changed = true; });
-
         if (changed) this.saveState();
     },
 
     notifyVehicleAdded(typeVehicule, nationalite = null, extraData = {}) {
         this.updateProgress("total", 1);
-        
         if (typeVehicule === "Camions") {
             this.updateProgress("poids_lourds", 1);
             if (nationalite === "fr") this.updateProgress("camion_fr", 1);
@@ -209,16 +202,13 @@ export const gami = {
         }
         if (typeVehicule === "Utilitaires") this.updateProgress("utilitaire", 1);
         if (typeVehicule === "Vélos") this.updateProgress("velo", 1);
-
         if (extraData.weight) this.updateProgress("tonnage", extraData.weight / 1000); 
         if (extraData.isNight) this.updateProgress("nuit", 1);
         if (extraData.alt && extraData.alt > 500) this.updateProgress("altitude", 1);
-        
         if (extraData.isExact) {
             this.updateProgress("ia_exact", 1);
             if (extraData.iaCash > 0) this.updateProgress("ia_cash", extraData.iaCash);
         }
-
         if (extraData.regularity) {
             this.updateProgress("regularite", extraData.regularity, true);
         }
@@ -228,15 +218,12 @@ export const gami = {
         let el = document.getElementById(containerId);
         if(!el) return;
         el.innerHTML = '';
-        
         if (!questsArray || questsArray.length === 0) {
-            el.innerHTML = '<span style="color:#7f8c8d; font-size:0.8em;">Génération...</span>';
+            el.innerHTML = '<span style=\"color:#7f8c8d; font-size:0.8em;\">Génération...</span>';
             return;
         }
-
         questsArray.forEach((q) => {
             let isDone = q.done ? "gami-quest-done" : "";
-            
             el.innerHTML += `
                 <div class="gami-quest-card ${isDone}">
                     <div class="gami-quest-info">
@@ -252,10 +239,8 @@ export const gami = {
     updateUI() {
         let elSeason = document.getElementById('gami-season-name');
         let elDates = document.getElementById('gami-season-dates');
-
         if(elSeason) elSeason.innerText = this.state.seasonName || "Saison";
         if(elDates) elDates.innerText = this.getSeasonDatesString();
-
         this.renderQuests('gami-daily-container', this.state.dailyQuests, true);
         this.renderQuests('gami-weekly-container', this.state.weeklyQuests, false);
         this.renderQuests('gami-season-container', this.state.seasonQuests, false);
@@ -266,7 +251,6 @@ export const gami = {
         toast.className = 'gami-toast';
         toast.innerText = msg;
         document.body.appendChild(toast);
-        
         setTimeout(() => toast.classList.add('show'), 100);
         setTimeout(() => {
             toast.classList.remove('show');
@@ -274,5 +258,4 @@ export const gami = {
         }, 4000);
     }
 };
-
 window.gami = gami;

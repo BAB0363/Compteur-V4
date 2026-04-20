@@ -24,30 +24,7 @@ const app = {
         "Vélos": { wMin: 10, wMax: 28, cMin: 0, cMax: 0 }
     },
 
-      // ==========================================
-    // 🏢 VARIABLES DE L'ENTREPRISE (TYCOON)
-    // ==========================================
-    companyCatalog: {
-        buildings: {
-            parking: { id: 'parking', name: 'Place de trottoir', price: 4000, slots: 1, icon: '🅿️' },
-            terrain: { id: 'terrain', name: 'Terrain vague', price: 15000, slots: 3, icon: '🚧' },
-            depot: { id: 'depot', name: 'Dépôt Sécurisé', price: 120000, slots: 10, icon: '🏭' },
-            hub: { id: 'hub', name: 'Hub Logistique', price: 800000, slots: 999, icon: '🏢' } // 999 = illimité
-        },
-        fleet: {
-            scooter: { id: 'scooter', name: 'Scooter rincé', price: 4000, income: 0.12, icon: '🛵' },
-            vul: { id: 'vul', name: 'VUL d\'occasion', price: 15000, income: 0.50, icon: '🚐' },
-            porteur: { id: 'porteur', name: 'Petit Porteur 19t', price: 45000, income: 1.50, icon: '🚚' },
-            tracteur: { id: 'tracteur', name: 'Tracteur Routier', price: 110000, income: 4.00, icon: '🚛' },
-            frigo: { id: 'frigo', name: 'Ens. Frigorifique', price: 170000, income: 6.00, icon: '❄️' },
-            convoi: { id: 'convoi', name: 'Convoi Exceptionnel', price: 350000, income: 12.00, icon: '⚠️' }
-        }
-    },
-    companyState: {
-        buildings: { parking: 0, terrain: 0, depot: 0, hub: 0 },
-        fleet: { scooter: 0, vul: 0, porteur: 0, tracteur: 0, frigo: 0, convoi: 0 },
-        pendingIncome: 0
-    },
+      /
 
 
     // ==========================================
@@ -149,21 +126,27 @@ const app = {
             await window.app.saveUserData();
         },
 
-        async cleanupCompany(start, end) {
-            if (!window.app.compan7jyState.purchaseHistory) return;
+                async cleanupCompany(start, end) {
+            if (!window.tycoon || !window.tycoon.state.purchaseHistory) return;
             
             let keptHistory = [];
-            window.app.companyState.purchaseHistory.forEach(purchase => {
-                if (purchase.timestamp >= start && purchase.timestamp <= end) {
-                    if (window.app.companyState[purchase.category] && window.app.companyState[purchase.category][purchase.id] > 0) {
-                        window.app.companyState[purchase.category][purchase.id]--;
+            window.tycoon.state.purchaseHistory.forEach(purchase => {
+                // On vérifie le timestamp de l'achat (le champ s'appelle 'time' dans jstycoon)
+                let ts = purchase.time || 0;
+                if (ts >= start && ts <= end) {
+                    // Si l'achat est dans la plage, on le retire des compteurs
+                    if (purchase.type === 'building') {
+                        if (window.tycoon.state.buildings[purchase.id] > 0) window.tycoon.state.buildings[purchase.id]--;
+                    } else if (purchase.type === 'fleet') {
+                        let idx = window.tycoon.state.fleet.findIndex(v => v.type === purchase.id);
+                        if (idx !== -1) window.tycoon.state.fleet.splice(idx, 1);
                     }
                 } else {
                     keptHistory.push(purchase);
                 }
             });
-            window.app.companyState.purchaseHistory = keptHistory;
-            await window.app.saveUserData();
+            window.tycoon.state.purchaseHistory = keptHistory;
+            window.tycoon.saveState();
         },
 
         async rebuildGlobalRegistry() {
@@ -506,113 +489,23 @@ const app = {
         }
     }, 
 
-    async resetBankData() {
+        async resetBankData() {
         if (confirm(`🚨 ATTENTION SYLVAIN ! Tu vas vider ton compte en banque, ton historique financier ET revendre toute ton entreprise pour zéro euro ! Es-tu sûr de vouloir déclarer faillite ?`)) {
             this.bankBalance = 0;
             this.bankHistory = [];
             this.bankStats = { gains: 0, losses: 0 };
             this.sessionFinance = { gains: 0, losses: 0, carbon: 0 };
             
-            this.companyState = { buildings: { terrain: 0, depot: 0, hub: 0 }, fleet: { vul: 0, porteur: 0, tracteur: 0, frigo: 0, convoi: 0 }, pendingIncome: 0 };
+            if (window.tycoon) {
+                window.tycoon.state = { warehouseLevel: 0, storedFreight: 0, companyCarbon: 0, companyQuota: 0, carbonModifier: 1.0, lastResetWeek: 0, buildings: {}, fleet: [], pendingIncome: 0, purchaseHistory: [] };
+                window.tycoon.saveState();
+            }
             
             await this.saveUserData();
-            
             this.updateBankUI();
-            this.renderCompanyUI();
-            
+            if (window.tycoon) window.tycoon.renderUI();
             if (window.ui) window.ui.showToast("💸 La Bourse et l'Entreprise ont été remises à zéro !");
         }
-    },
-
-    addBankTransaction(amount, reason) {
-        if (amount === 0) return;
-        this.bankBalance += amount;
-        if (amount > 0) {
-            this.bankStats.gains += amount;
-            if (this.isCarRunning) this.sessionFinance.gains += amount;
-        } else {
-            this.bankStats.losses += Math.abs(amount);
-            if (this.isCarRunning) this.sessionFinance.losses += Math.abs(amount);
-        }
-
-                let now = new Date();
-        this.bankHistory.unshift({
-            timestamp: Date.now(),
-            time: now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-            amount: amount,
-            reason: reason
-        });
-
-
-        if (this.bankHistory.length > 50) this.bankHistory.pop();
-        this.saveUserData(); 
-        this.updateBankUI(); 
-        
-        if(window.ui && window.ui.activeTab === 'company') {
-            this.renderCompanyUI();
-        }
-    },
-
-    updateBankUI() {
-        let badge = document.getElementById('bank-badge');
-        let display = document.getElementById('display-bank');
-        let banner = document.getElementById('huissier-banner');
-        let sTitle = document.getElementById('sponsor-title');
-
-        if (!badge || !display) return;
-
-        badge.style.display = 'flex';
-        display.innerText = this.bankBalance.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
-
-      // ✅ NOUVEAU CODE À INSÉRER
-if (this.bankBalance < 0) {
-    badge.classList.remove('bank-positive');
-    badge.classList.add('bank-negative');
-    
-    if (banner) {
-        if (this.bankBalance <= -1000) {
-            banner.style.display = 'block';
-            banner.innerText = "⚖️ MAÎTRE ASPHALTE : Saisie de 30% sur vos gros véhicules !";
-        } else {
-            banner.style.display = 'none';
-        }
-    }
-    
-    if (sTitle && this.activeSponsor) sTitle.style.color = '#e74c3c';
-} else {
-    badge.classList.remove('bank-negative');
-    badge.classList.add('bank-positive');
-    if (banner) banner.style.display = 'none';
-    if (sTitle && this.activeSponsor) sTitle.style.color = '#f1c40f';
-}
-} , 
-
-    openBankModal() {
-        let elGains = document.getElementById('bank-total-gains');
-        let elLosses = document.getElementById('bank-total-losses');
-        let elList = document.getElementById('bank-history-list');
-
-        if (elGains) elGains.innerText = Math.round(this.bankStats.gains) + ' €';
-        if (elLosses) elLosses.innerText = Math.round(this.bankStats.losses) + ' €';
-
-        if (elList) {
-            elList.innerHTML = '';
-            if (this.bankHistory.length === 0) {
-                elList.innerHTML = '<span style="color:#7f8c8d; font-size:0.9em;">Aucune transaction... commence à compter !</span>';
-            } else {
-                this.bankHistory.forEach(tx => {
-                    let color = tx.amount > 0 ? '#27ae60' : '#e74c3c';
-                    let sign = tx.amount > 0 ? '+' : '';
-                    elList.innerHTML += `
-                        <div class="session-detail-row">
-                            <span class="session-detail-label" style="font-size:0.85em;">${tx.time} - ${tx.reason}</span>
-                            <span class="session-detail-value" style="color:${color}; font-size:0.95em;">${sign}${Math.round(tx.amount)} €</span>
-                        </div>
-                    `;
-                });
-            }
-        }
-        document.getElementById('bank-modal').style.display = 'flex';
     },
 
     async checkBankruptcy() {
@@ -623,12 +516,14 @@ if (this.bankBalance < 0) {
             }
             this.addBankTransaction(Math.abs(this.bankBalance), "Saisie Totale (Faillite)"); 
             
-            this.companyState = { buildings: { terrain: 0, depot: 0, hub: 0 }, fleet: { vul: 0, porteur: 0, tracteur: 0, frigo: 0, convoi: 0 }, pendingIncome: 0 };
+            if (window.tycoon) {
+                window.tycoon.state = { warehouseLevel: 0, storedFreight: 0, companyCarbon: 0, companyQuota: 0, carbonModifier: 1.0, lastResetWeek: 0, buildings: {}, fleet: [], pendingIncome: 0, purchaseHistory: [] };
+                window.tycoon.saveState();
+            }
             await this.saveUserData(); 
-
-            
         }
     },
+
 
     showMoneyParticle(e, amount) {
         if (!e || !e.clientX) return;
