@@ -518,11 +518,10 @@ export const tycoon = {
                 let isBroken = veh.health <= 0 || veh.fuel <= 0;
                 let sellPrice = (item.price * 0.60) * (veh.health / 100);
                 
-                // NOUVEAU : Visuel pour le champion
-                let activeChamp = this.getActiveChampion();
-                             // NOUVEAU : Visuel conditionné par le verrouillage
+                              // NOUVEAU : Visuel conditionné par le verrouillage
                 let activeChamp = this.getActiveChampion();
                 let isChampion = activeChamp && veh.uid === activeChamp.uid && this.championLockedInDelivery;
+
                 let badgeText = isBroken ? '🛑 PANNE' : (isChampion ? '👑 EN ROUTE' : '✅ PASSIF');
 
                 let badgeColor = isBroken ? 'var(--danger-color)' : (isChampion ? '#f39c12' : 'var(--success-color)');
