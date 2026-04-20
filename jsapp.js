@@ -713,10 +713,17 @@ if (this.bankBalance < 0) {
             if (item.type === "Vélos" && item.bikeBonus) bikeBonus += item.bikeBonus;
         });
 
-        quota += bikeBonus; 
+                quota += bikeBonus; 
         
+        // --- 🌿 TRANSFERT VERS LE BILAN SEMAINE DE L'ENTREPRISE ---
+        if (window.tycoon) {
+            window.tycoon.addCarbon(totalRealCo2, quota);
+        }
+        // ----------------------------------------------------------
+
         let diff = quota - totalRealCo2; 
              let euros = parseFloat((diff / 100).toFixed(2));
+
 
 
 
@@ -1540,22 +1547,15 @@ if (!isTruck && window.tycoon) {
         if (currentCount + amount >= 0) {
             if (window.ui) window.ui.playBeep(amount > 0);
 
-                // --- NOUVEAU BLOC CARBONE ENTREPRISE ---
-            if (amount > 0 && window.tycoon) {
-                let categoryAverage = specs ? (specs.cMin + specs.cMax) / 2 : 120;
-                let emitted = randCo2;
-                let quota = categoryAverage;
-
+                          // --- AJUSTEMENT VÉLOS (Le bilan global se fera en fin de session) ---
+            if (amount > 0) {
                 if (key1 === "Vélos") {
-                    emitted = 0;
-                    // On pré-calcule le bonus vélo ici pour qu'il soit identique partout
+                    // On pré-calcule le bonus vélo ici pour la jauge de session
                     bikeBonus = Math.floor(Math.random() * 1751); 
-                    quota = bikeBonus; 
                 }
-
-                window.tycoon.addCarbon(emitted, quota);
             }
-            // ---------------------------------------
+            // --------------------------------------------------------------------
+
 
 
             if (amount > 0) {
