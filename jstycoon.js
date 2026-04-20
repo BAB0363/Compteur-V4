@@ -27,7 +27,7 @@ export const tycoon = {
         ]
     },
 
-    catalog: {
+  catalog: {
         buildings: {
             relais: { id: 'relais', name: 'Relais Scooter', price: 4000, slots: 2, icon: '🛵', maxLimit: 5, targetVeh: 'scooter' },
             hangar: { id: 'hangar', name: 'Hangar Urbain', price: 28000, slots: 3, icon: '🚐', maxLimit: 4, targetVeh: 'vul' },
@@ -37,12 +37,12 @@ export const tycoon = {
             zone: { id: 'zone', name: 'Zone de Convoi', price: 500000, slots: 3, icon: '⚠️', maxLimit: 2, targetVeh: 'convoi' }
         },
         fleet: {
-            scooter: { id: 'scooter', name: 'Scooter de livraison', price: 2500, income: 0.15, icon: '🛵', buildingId: 'relais' },
-            vul: { id: 'vul', name: 'Fourgon utilitaire', price: 18000, income: 0.60, icon: '🚐', buildingId: 'hangar' },
-            porteur: { id: 'porteur', name: 'Porteur 19 tonnes', price: 55000, income: 1.80, icon: '🚚', buildingId: 'quai' },
-            tracteur: { id: 'tracteur', name: 'Tracteur Routier', price: 130000, income: 4.50, icon: '🚛', buildingId: 'plateforme' },
-            frigo: { id: 'frigo', name: 'Ensemble Frigorifique', price: 190000, income: 7.00, icon: '❄️', buildingId: 'terminal' },
-            convoi: { id: 'convoi', name: 'Convoi Exceptionnel', price: 400000, income: 15.00, icon: '⚠️', buildingId: 'zone' }
+            scooter: { id: 'scooter', name: 'Scooter de livraison', price: 2500, income: 0.05, icon: '🛵', buildingId: 'relais' },
+            vul: { id: 'vul', name: 'Fourgon utilitaire', price: 18000, income: 0.20, icon: '🚐', buildingId: 'hangar' },
+            porteur: { id: 'porteur', name: 'Porteur 19 tonnes', price: 55000, income: 0.60, icon: '🚚', buildingId: 'quai' },
+            tracteur: { id: 'tracteur', name: 'Tracteur Routier', price: 130000, income: 1.50, icon: '🚛', buildingId: 'plateforme' },
+            frigo: { id: 'frigo', name: 'Ensemble Frigorifique', price: 190000, income: 2.50, icon: '❄️', buildingId: 'terminal' },
+            convoi: { id: 'convoi', name: 'Convoi Exceptionnel', price: 400000, income: 5.00, icon: '⚠️', buildingId: 'zone' }
         }
     },
 
@@ -114,7 +114,7 @@ export const tycoon = {
     },
 
     getDynamicPrice() {
-        const basePrice = 0.05;
+        const basePrice = 2.50;
         const cap = this.getWarehouseCapacity();
         if (cap === 0) return 0;
         const fillRate = this.state.storedFreight / cap;

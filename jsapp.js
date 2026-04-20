@@ -27,22 +27,7 @@ const app = {
       // ==========================================
     // 🏢 VARIABLES DE L'ENTREPRISE (TYCOON)
     // ==========================================
-    companyCatalog: {
-        buildings: {
-            parking: { id: 'parking', name: 'Place de trottoir', price: 4000, slots: 1, icon: '🅿️' },
-            terrain: { id: 'terrain', name: 'Terrain vague', price: 15000, slots: 3, icon: '🚧' },
-            depot: { id: 'depot', name: 'Dépôt Sécurisé', price: 120000, slots: 10, icon: '🏭' },
-            hub: { id: 'hub', name: 'Hub Logistique', price: 800000, slots: 999, icon: '🏢' } // 999 = illimité
-        },
-        fleet: {
-            scooter: { id: 'scooter', name: 'Scooter rincé', price: 4000, income: 0.12, icon: '🛵' },
-            vul: { id: 'vul', name: 'VUL d\'occasion', price: 15000, income: 0.50, icon: '🚐' },
-            porteur: { id: 'porteur', name: 'Petit Porteur 19t', price: 45000, income: 1.50, icon: '🚚' },
-            tracteur: { id: 'tracteur', name: 'Tracteur Routier', price: 110000, income: 4.00, icon: '🚛' },
-            frigo: { id: 'frigo', name: 'Ens. Frigorifique', price: 170000, income: 6.00, icon: '❄️' },
-            convoi: { id: 'convoi', name: 'Convoi Exceptionnel', price: 350000, income: 12.00, icon: '⚠️' }
-        }
-    },
+    
     companyState: {
         buildings: { parking: 0, terrain: 0, depot: 0, hub: 0 },
         fleet: { scooter: 0, vul: 0, porteur: 0, tracteur: 0, frigo: 0, convoi: 0 },
@@ -315,40 +300,40 @@ const app = {
         }
     },
 
-        getCompanyStats() {
-        if (!this.companyState) this.companyState = { buildings: {}, fleet: {}, pendingIncome: 0 };
-        if (!this.companyState.buildings) this.companyState.buildings = {};
-        if (!this.companyState.fleet) this.companyState.fleet = {};
+            getCompanyStats() {
+        if (!window.tycoon) return { maxSlots: 0, usedSlots: 0, incomePerMin: 0 };
+        
+        // 🎯 On pointe explicitement vers jstycoon ici
+        const catalog = window.tycoon.catalog; 
+        const state = window.tycoon.state;
 
-        // 🧠 Calcul dynamique des places (plus besoin d'ajouter les noms à la main !)
         let maxSlots = 0;
-        Object.keys(this.companyState.buildings).forEach(k => {
-            if (this.companyCatalog.buildings[k]) {
-                maxSlots += (this.companyState.buildings[k] || 0) * this.companyCatalog.buildings[k].slots;
+        Object.keys(state.buildings).forEach(k => {
+            if (catalog.buildings[k]) {
+                maxSlots += (state.buildings[k] || 0) * catalog.buildings[k].slots;
             }
         });
         
-        let usedSlots = 0;
-        Object.values(this.companyState.fleet).forEach(val => usedSlots += (val || 0));
-        
+        let usedSlots = state.fleet.length;
         let incomePerMin = 0;
-        Object.keys(this.companyState.fleet).forEach(k => {
-            if (this.companyCatalog.fleet[k]) {
-                incomePerMin += (this.companyState.fleet[k] || 0) * this.companyCatalog.fleet[k].income;
+        let champion = window.tycoon.getActiveChampion();
+
+        state.fleet.forEach(veh => {
+            let def = catalog.fleet[veh.type];
+            if (champion && veh.uid === champion.uid && window.tycoon.championLockedInDelivery) return; 
+            if (def && veh.fuel > 0 && veh.health > 0) {
+                incomePerMin += def.income;
             }
         });
 
-        if (this.companyState.buildings.hub > 0) {
-            incomePerMin *= 1.10;
+        // Applique ton modificateur de carbone sur les revenus passifs si besoin
+        if (state.carbonModifier > 1) {
+            incomePerMin = incomePerMin * state.carbonModifier;
         }
-        
-        // 📢 PUBLICITÉ TYCOON : +5% par véhicule possédé dans la flotte
-        if (usedSlots > 0) {
-            incomePerMin *= (1 + usedSlots * 0.05);
-        }
-        
+
         return { maxSlots, usedSlots, incomePerMin };
     },
+
 
 
     buyCompanyItem(category, id) {
@@ -403,8 +388,8 @@ const app = {
         let buildList = document.getElementById('company-buildings-list');
         if(buildList) {
             buildList.innerHTML = '';
-            Object.keys(this.companyCatalog.buildings).forEach(k => {
-                let item = this.companyCatalog.buildings[k];
+            Object.keys(window.tycoon.catalog.buildings).forEach(k => {
+                let item = window.tycoon.catalog.buildings[k];
                 let count = this.companyState.buildings[k] || 0;
                 let canBuy = this.bankBalance >= item.price;
                 
@@ -423,8 +408,8 @@ const app = {
         let fleetList = document.getElementById('company-fleet-list');
         if(fleetList) {
             fleetList.innerHTML = '';
-            Object.keys(this.companyCatalog.fleet).forEach(k => {
-                let item = this.companyCatalog.fleet[k];
+            Object.keys(window.tycoon.catalog.fleet).forEach(k => {
+                let item = window.tycoon.catalog.fleet[k];
                 let count = this.companyState.fleet[k] || 0;
                 let canBuy = this.bankBalance >= item.price && stats.usedSlots < stats.maxSlots;
                 let btnTxt = stats.usedSlots >= stats.maxSlots && stats.maxSlots > 0 ? "Parking plein" : "Acheter";
