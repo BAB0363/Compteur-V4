@@ -27,7 +27,7 @@ export const tycoon = {
     catalog: {
         buildings: {
             relais: { id: 'relais', name: 'Relais Scooter', price: 4000, slots: 2, icon: '🛵', maxLimit: 5, targetVeh: 'scooter' },
-            hangar: { id: 'hangar', name: 'Hangar Urbain', price: 28000, slots: 3, icon: '🚐', maxLimit: 4, targetVeh: 'vul' }, // Prix augmenté ! 📈
+            hangar: { id: 'hangar', name: 'Hangar Urbain', price: 28000, slots: 3, icon: '🚐', maxLimit: 4, targetVeh: 'vul' },
             quai: { id: 'quai', name: 'Quai Régional', price: 35000, slots: 5, icon: '🚚', maxLimit: 3, targetVeh: 'porteur' },
             plateforme: { id: 'plateforme', name: 'Plateforme Logistique', price: 100000, slots: 10, icon: '🚛', maxLimit: 2, targetVeh: 'tracteur' },
             terminal: { id: 'terminal', name: 'Terminal Frigo', price: 250000, slots: 5, icon: '❄️', maxLimit: 2, targetVeh: 'frigo' },
@@ -124,15 +124,30 @@ export const tycoon = {
         return price * modifier;
     },
 
+    // 🏆 NOUVEAU : Trouver le Champion (Véhicule Actif)
+    getActiveChampion() {
+        // On récupère tous les véhicules en état de rouler
+        let availableVehicles = this.state.fleet.filter(v => v.health > 20 && v.fuel > 0);
+        if (availableVehicles.length === 0) return null;
+
+        const caps = { 'scooter': 0.05, 'vul': 0.8, 'porteur': 8, 'tracteur': 24, 'frigo': 24, 'convoi': 60 };
+        
+        // On les trie du plus puissant au moins puissant
+        availableVehicles.sort((a, b) => (caps[b.type] || 0) - (caps[a.type] || 0));
+        
+        // On renvoie le premier (le plus puissant dispo !)
+        return availableVehicles[0];
+    },
+
     getDeliveryPower() {
-        let totalTonsPerKm = 0;
-        this.state.fleet.forEach(veh => {
-            const caps = { 'scooter': 0.05, 'vul': 0.8, 'porteur': 8, 'tracteur': 24, 'frigo': 24, 'convoi': 60 };
-            if (veh.health > 20 && veh.fuel > 0) {
-                totalTonsPerKm += caps[veh.type] || 0;
-            }
-        });
-        return totalTonsPerKm;
+        let champion = this.getActiveChampion();
+        // Si aucun véhicule n'est dispo, on livre 0
+        if (!champion) return 0; 
+        
+        const caps = { 'scooter': 0.05, 'vul': 0.8, 'porteur': 8, 'tracteur': 24, 'frigo': 24, 'convoi': 60 };
+        
+        // Le champion livre, mais on divise sa capa par 10 pour l'équilibrage Kilométrique ! ⚖️
+        return (caps[champion.type] || 0) / 10;
     },
 
     upgradeWarehouse() {
@@ -161,8 +176,15 @@ export const tycoon = {
         let usedSlots = this.state.fleet.length;
         let incomePerMin = 0;
 
+        // NOUVEAU : On identifie le champion
+        let champion = this.getActiveChampion();
+
         this.state.fleet.forEach(veh => {
             let def = this.catalog.fleet[veh.type];
+            
+            // NOUVEAU : Si c'est le champion, on l'ignore pour le passif ! Il est sur la route !
+            if (champion && veh.uid === champion.uid) return; 
+
             if (def && veh.fuel > 0 && veh.health > 0) {
                 incomePerMin += def.income;
             }
@@ -488,8 +510,15 @@ export const tycoon = {
             this.state.fleet.forEach(veh => {
                 let item = this.catalog.fleet[veh.type];
                 if (!item) return;
+
                 let isBroken = veh.health <= 0 || veh.fuel <= 0;
                 let sellPrice = (item.price * 0.60) * (veh.health / 100);
+                
+                // NOUVEAU : Visuel pour le champion
+                let activeChamp = this.getActiveChampion();
+                let isChampion = activeChamp && veh.uid === activeChamp.uid;
+                let badgeText = isBroken ? '🛑 PANNE' : (isChampion ? '👑 EN ROUTE' : '✅ PASSIF');
+                let badgeColor = isBroken ? 'var(--danger-color)' : (isChampion ? '#f39c12' : 'var(--success-color)');
                 
                 let refuelCost = (item.price * 0.02) * ((100 - veh.fuel) / 100);
                 let repairCost = (item.price * 0.08) * ((100 - veh.health) / 100);
@@ -498,10 +527,10 @@ export const tycoon = {
                 repairCost += (item.price * 0.04) * (missingTires / 100);
 
                 fleetList.innerHTML += `
-                    <div class="tycoon-card owned" style="${isBroken ? 'border-color:var(--danger-color); background:rgba(220,53,69,0.05);' : ''}">
-                        <div class="tycoon-owned-badge" style="${isBroken ? 'background:var(--danger-color);' : ''}">${isBroken ? '🛑 PANNE' : '✅ ACTIF'}</div>
+                    <div class="tycoon-card owned" style="${isBroken ? 'border-color:var(--danger-color); background:rgba(220,53,69,0.05);' : (isChampion ? 'border-color:#f39c12;' : '')}">
+                        <div class="tycoon-owned-badge" style="background:${badgeColor};">${badgeText}</div>
                         <div class="tycoon-title">${item.icon} ${item.name}</div>
-                        <div class="tycoon-revenue" style="${isBroken ? 'color:var(--danger-color);' : ''}">Revenu : ${isBroken ? '0.00' : '+'+item.income.toFixed(2)} €/min</div>
+                        <div class="tycoon-revenue" style="${isBroken ? 'color:var(--danger-color);' : ''}">Revenu : ${isBroken ? '0.00 €/min' : (isChampion ? 'Livraison Kms 🛣️' : '+'+item.income.toFixed(2)+' €/min')}</div>
                         
                         <div style="margin: 8px 0;">
                             <div style="display:flex; justify-content:space-between; font-size:0.8em; margin-bottom:2px;">
