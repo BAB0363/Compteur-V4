@@ -14,7 +14,7 @@ const app = {
 
     // ⚖️ Dictionnaire dynamique des Poids et CO2
     vehicleSpecs: {
-        "Voitures": { wMin: 1100, wMax: 1900, cMin: 90, cMax: 180 },
+        "VARIABLES": { wMin: 1100, wMax: 1900, cMin: 90, cMax: 180 },
         "Utilitaires": { wMin: 1700, wMax: 3500, cMin: 160, cMax: 260 },
         "Motos": { wMin: 150, wMax: 400, cMin: 60, cMax: 130 },
         "Camions": { wMin: 12000, wMax: 44000, cMin: 600, cMax: 1300 },
@@ -51,7 +51,7 @@ const app = {
 
 
 
-     ==========================================
+   //  ==========================================
     // 🏦 VARIABLES DE LA BOURSE DE L'ASPHALTE
     // ==========================================
     bankBalance: 0,

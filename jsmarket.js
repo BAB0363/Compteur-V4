@@ -36,25 +36,7 @@ export const market = {
         if (type === "Poids Lourds") type = "Camions";
         return this.state.values[type] ? parseFloat(this.state.values[type].current.toFixed(2)) : 1.00;
     },
-    // Appelé à chaque clic : fait chuter le prix du véhicule compté, et monter la rareté des autres
-    recordDemand(type) {
-        if (type === "Poids Lourds") type = "Camions";
-        if (!this.state.values[type]) return;
-
-        let item = this.state.values[type];
-        item.current = Math.max(item.min, item.current * 0.98); 
-        item.trend = -1; // 🔴 Tendance à la baisse
-        
-        Object.keys(this.state.values).forEach(k => {
-            if (k !== type) {
-                let other = this.state.values[k];
-                other.current = Math.min(other.max, other.current * 1.005);
-                other.trend = 1; // 🟢 Tendance à la hausse
-            }
-        });
-        this.saveState();
-    },
-
+ 
 
         // Appelé à chaque clic : fait chuter le prix du véhicule compté, et monter la rareté des autres
     recordDemand(type) {
