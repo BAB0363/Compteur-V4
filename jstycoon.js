@@ -36,14 +36,15 @@ export const tycoon = {
             terminal: { id: 'terminal', name: 'Terminal Frigo', price: 250000, slots: 5, icon: '❄️', maxLimit: 2, targetVeh: 'frigo' },
             zone: { id: 'zone', name: 'Zone de Convoi', price: 500000, slots: 3, icon: '⚠️', maxLimit: 2, targetVeh: 'convoi' }
         },
-        fleet: {
-            scooter: { id: 'scooter', name: 'Scooter de livraison', price: 2500, income: 0.05, icon: '🛵', buildingId: 'relais' },
-            vul: { id: 'vul', name: 'Fourgon utilitaire', price: 18000, income: 0.20, icon: '🚐', buildingId: 'hangar' },
-            porteur: { id: 'porteur', name: 'Porteur 19 tonnes', price: 55000, income: 0.60, icon: '🚚', buildingId: 'quai' },
-            tracteur: { id: 'tracteur', name: 'Tracteur Routier', price: 130000, income: 1.50, icon: '🚛', buildingId: 'plateforme' },
-            frigo: { id: 'frigo', name: 'Ensemble Frigorifique', price: 190000, income: 2.50, icon: '❄️', buildingId: 'terminal' },
-            convoi: { id: 'convoi', name: 'Convoi Exceptionnel', price: 400000, income: 5.00, icon: '⚠️', buildingId: 'zone' }
+                fleet: {
+            scooter: { id: 'scooter', name: 'Scooter de livraison', price: 2500, income: 0.05, capacity: 0.05, icon: '🛵', buildingId: 'relais' },
+            vul: { id: 'vul', name: 'Fourgon utilitaire', price: 18000, income: 0.20, capacity: 0.8, icon: '🚐', buildingId: 'hangar' },
+            porteur: { id: 'porteur', name: 'Porteur 19 tonnes', price: 55000, income: 0.60, capacity: 8, icon: '🚚', buildingId: 'quai' },
+            tracteur: { id: 'tracteur', name: 'Tracteur Routier', price: 130000, income: 1.50, capacity: 24, icon: '🚛', buildingId: 'plateforme' },
+            frigo: { id: 'frigo', name: 'Ensemble Frigorifique', price: 190000, income: 2.50, capacity: 24, icon: '❄️', buildingId: 'terminal' },
+            convoi: { id: 'convoi', name: 'Convoi Exceptionnel', price: 400000, income: 5.00, capacity: 60, icon: '⚠️', buildingId: 'zone' }
         }
+
     },
 
     init() {
@@ -127,31 +128,29 @@ export const tycoon = {
         return price * modifier;
     },
 
-    // 🏆 NOUVEAU : Trouver le Champion (Véhicule Actif)
-    getActiveChampion() {
-        // On récupère tous les véhicules en état de rouler
+      getActiveChampion() {
         let availableVehicles = this.state.fleet.filter(v => v.health > 20 && v.fuel > 0);
         if (availableVehicles.length === 0) return null;
 
-        const caps = { 'scooter': 0.05, 'vul': 0.8, 'porteur': 8, 'tracteur': 24, 'frigo': 24, 'convoi': 60 };
+        availableVehicles.sort((a, b) => {
+            let capA = this.catalog.fleet[a.type] ? this.catalog.fleet[a.type].capacity : 0;
+            let capB = this.catalog.fleet[b.type] ? this.catalog.fleet[b.type].capacity : 0;
+            return capB - capA;
+        });
         
-        // On les trie du plus puissant au moins puissant
-        availableVehicles.sort((a, b) => (caps[b.type] || 0) - (caps[a.type] || 0));
-        
-        // On renvoie le premier (le plus puissant dispo !)
         return availableVehicles[0];
     },
 
-    getDeliveryPower() {
+
+        getDeliveryPower() {
         let champion = this.getActiveChampion();
-        // Si aucun véhicule n'est dispo, on livre 0
         if (!champion) return 0; 
         
-        const caps = { 'scooter': 0.05, 'vul': 0.8, 'porteur': 8, 'tracteur': 24, 'frigo': 24, 'convoi': 60 };
+        let championCapacity = this.catalog.fleet[champion.type] ? this.catalog.fleet[champion.type].capacity : 0;
         
-        // Le champion livre, mais on divise sa capa par 10 pour l'équilibrage Kilométrique ! ⚖️
-        return (caps[champion.type] || 0) / 10;
+        return championCapacity / 10;
     },
+
 
     upgradeWarehouse() {
         const nextLevel = this.state.warehouseLevel + 1;
@@ -537,6 +536,8 @@ export const tycoon = {
                         <div class="tycoon-owned-badge" style="background:${badgeColor};">${badgeText}</div>
                         <div class="tycoon-title">${item.icon} ${item.name}</div>
                         <div class="tycoon-revenue" style="${isBroken ? 'color:var(--danger-color);' : ''}">Revenu : ${isBroken ? '0.00 €/min' : (isChampion ? 'Livraison Kms 🛣️' : '+'+item.income.toFixed(2)+' €/min')}</div>
+<div class="tycoon-revenue" style="color:#e67e22; font-size:0.85em;">📦 Capacité : ${item.capacity < 1 ? (item.capacity * 1000) + ' kg' : item.capacity + ' t'}</div>
+
                         
                         <div style="margin: 8px 0;">
                             <div style="display:flex; justify-content:space-between; font-size:0.8em; margin-bottom:2px;">
@@ -579,6 +580,8 @@ export const tycoon = {
                     <div class="tycoon-card" style="opacity: 0.85;">
                         <div class="tycoon-title">${item.icon} ${item.name}</div>
                         <div class="tycoon-revenue">Potentiel : +${item.income.toFixed(2)} €/min</div>
+<div class="tycoon-revenue" style="color:#e67e22; font-size:0.85em;">📦 Capacité Fret : ${item.capacity < 1 ? (item.capacity * 1000) + ' kg' : item.capacity + ' t'}</div>
+
                         <div class="tycoon-revenue" style="color:var(--primary-color); font-weight:bold; font-size:0.85em;">Places : ${currentUsed} / ${maxSlots}</div>
                         <div class="tycoon-price">${item.price.toLocaleString('fr-FR')} €</div>
                         <button class="btn-buy" ${!canBuy ? 'disabled' : ''} onclick="window.tycoon.buyVehicle('${k}')">${btnTxt}</button>
