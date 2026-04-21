@@ -1744,18 +1744,24 @@ if (!isTruck && window.tycoon) {
                     }
                 }
 
-                if (window.gami) {
-                    let alt = window.gps && window.gps.currentPos ? window.gps.currentPos.alt : 0;
-                    let extraData = {
-                        weight: randWeight,
-                        isNight: isNight,
-                        alt: alt,
-                        regularity: this.regularityChain,
-                        isExact: isExact,
-                        iaCash: isExact ? baseVal : 0
-                    };
-                    window.gami.notifyVehicleAdded(key1, null, extraData);
-                }
+              if (window.gami) {
+    let alt = window.gps && window.gps.currentPos ? window.gps.currentPos.alt : 0;
+    let extraData = {
+        weight: randWeight,
+        isNight: isNight,
+        alt: alt,
+        regularity: this.regularityChain,
+        isExact: isExact,
+        iaCash: isExact ? baseVal : 0
+    };
+    
+    // 🚚 CORRECTION : On adapte les infos envoyées aux missions
+    let gamiType = isTruck ? "Camions" : key1;
+    let gamiNat = isTruck ? key2 : null; // key2 contient 'fr' ou 'etr' pour les camions
+    
+    window.gami.notifyVehicleAdded(gamiType, gamiNat, extraData);
+}
+
             } // fin if (amount > 0)
 
             if (isTruck) { counters[key1][key2] += amount; globalCounters[key1][key2] += amount; }
