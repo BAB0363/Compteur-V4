@@ -1,4 +1,4 @@
-// jstycoon.js - Gestion avancée de l'Empire (Flotte, Usure, Carburant, Logistique)
+// jstycoon.js - Gestion avancée de l'Empire (Flotte, Usure, Carburant, Logistique, Rentabilité)
 export const tycoon = {
     state: {
         warehouseLevel: 0,
@@ -59,7 +59,6 @@ export const tycoon = {
             catch(e) { console.error("Erreur de lecture Tycoon"); }
         }
         
-        // 🔧 CORRECTIF : Siphonnage du surplus d'essence (Bug % vers Litres)
         if (this.state.fleet) {
             this.state.fleet.forEach(v => {
                 let def = this.catalog.fleet[v.type];
@@ -67,6 +66,8 @@ export const tycoon = {
                     if (v.fuel > def.fuelTank) v.fuel = def.fuelTank;
                     if (v.tires > 100) v.tires = 100;
                     if (v.health > 100) v.health = 100;
+                    if (v.gains === undefined) v.gains = 0; 
+                    if (v.losses === undefined) v.losses = 0;
                 }
             });
         }
@@ -166,6 +167,15 @@ export const tycoon = {
         let powerPenalty = 1 - (fillRate * 0.20); 
         
         return (championCapacity / 10) * powerPenalty;
+    },
+
+    // Injecté par jsapp.js pour créditer le champion
+    recordChampionProfit(amount) {
+        let champ = this.getActiveChampion();
+        if (champ) {
+            champ.gains = (champ.gains || 0) + amount;
+            this.saveState();
+        }
     },
 
     upgradeWarehouse() {
@@ -283,7 +293,9 @@ export const tycoon = {
                 fuel: def.fuelTank,
                 tires: 100,
                 kms: 0,
-                kmsSinceService: 0
+                kmsSinceService: 0,
+                gains: 0,
+                losses: 0
             };
             this.state.fleet.push(newVeh);
             this.state.purchaseHistory.push({ type: 'fleet', id: id, time: Date.now(), price: def.price });
@@ -325,6 +337,7 @@ export const tycoon = {
         
         window.app.addBankTransaction(-cost, `Plein ${def.name}`);
         v.fuel = def.fuelTank;
+        v.losses = (v.losses || 0) + cost;
         this.saveState();
         this.renderUI();
     },
@@ -342,6 +355,7 @@ export const tycoon = {
         
         window.app.addBankTransaction(-cost, `Pneus Neufs ${def.name}`);
         v.tires = 100;
+        v.losses = (v.losses || 0) + cost;
         this.saveState();
         this.renderUI();
     },
@@ -363,6 +377,7 @@ export const tycoon = {
         window.app.addBankTransaction(-cost, `Révision ${def.name}`);
         v.health = 100;
         v.kmsSinceService = 0; 
+        v.losses = (v.losses || 0) + cost;
         this.saveState();
         this.renderUI();
     },
@@ -397,6 +412,7 @@ export const tycoon = {
                 let chance = km * 0.05; 
                 if (Math.random() < chance) {
                     veh.health = Math.max(0, veh.health - 25);
+                    veh.losses = (veh.losses || 0) + 1000;
                     if (window.app) window.app.addBankTransaction(-1000, `💥 Crevaison (${def.name})`);
                     if(window.ui) window.ui.showToast(`💥 Crevaison de ton ${def.name} ! Dépannage : -1000€`, "anomaly");
                 }
@@ -408,10 +424,37 @@ export const tycoon = {
 
     tickSecond(secondsElapsed) {
         let stats = this.getStats();
+        
+        // Distribution du revenu passif (au prorata de la seconde)
         if (stats.incomePerMin > 0) {
             this.state.pendingIncome += (stats.incomePerMin / 60);
             let displayPending = document.getElementById('company-pending-income');
             if (displayPending) displayPending.innerText = this.state.pendingIncome.toFixed(2) + ' €';
+
+            // Distribution dans le bilan comptable de chaque véhicule actif
+            let bonusMultiplier = 1.0;
+            let usedSlots = this.state.fleet.length;
+            if (usedSlots > 0) {
+                if (usedSlots <= 5) bonusMultiplier += (usedSlots * 5)/100;
+                else if (usedSlots <= 15) bonusMultiplier += (25 + ((usedSlots - 5) * 2))/100;
+                else bonusMultiplier += (45 + ((usedSlots - 15) * 0.5))/100;
+            }
+            if (bonusMultiplier > 1.5) bonusMultiplier = 1.5;
+            if ((this.state.buildings.zone || 0) > 0) bonusMultiplier *= 1.10;
+            let carbonMod = this.state.carbonModifier || 1.0;
+
+            let champ = this.getActiveChampion();
+            if (window.app && window.app.bankBalance >= 0) {
+                this.state.fleet.forEach(veh => {
+                    let def = this.catalog.fleet[veh.type];
+                    if (!def) return;
+                    if (champ && veh.uid === champ.uid && this.championLockedInDelivery) return;
+                    
+                    if (veh.fuel > 0 && veh.health > 20) {
+                        veh.gains = (veh.gains || 0) + ((def.income / 60) * bonusMultiplier * carbonMod);
+                    }
+                });
+            }
         }
 
         if (secondsElapsed > 0 && secondsElapsed % 60 === 0) {
@@ -432,6 +475,8 @@ export const tycoon = {
                         let dmg = isMajor ? 40 : 15;
                         veh.health = Math.max(0, veh.health - dmg);
                         let cost = isMajor ? (def.price * 0.05) : (def.price * 0.01);
+                        veh.losses = (veh.losses || 0) + cost;
+                        
                         if (window.app) window.app.addBankTransaction(-cost, `🚨 Panne Imprévue (${def.name})`);
                         if(window.ui) window.ui.showToast(`🚨 Panne ${isMajor ? 'MAJEURE' : 'mineure'} sur ton ${def.name} ! Frais : -${cost.toFixed(0)}€`, "anomaly");
                         needsRender = true;
@@ -555,7 +600,6 @@ export const tycoon = {
 
         let fleetList = document.getElementById('company-fleet-list');
         if(fleetList) {
-            // 🧹 RETRAIT DU GRID, PASSAGE EN LISTE COMPACTE VERTICALE
             fleetList.className = ''; 
             fleetList.style.display = 'flex';
             fleetList.style.flexDirection = 'column';
@@ -573,6 +617,13 @@ export const tycoon = {
                 let status = isCritical ? "🔴 ACTION REQUISE" : (isWarning ? "🟠 SURVEILLANCE" : (isChamp ? "👑 CHAMPION" : "✅ OK"));
                 
                 let sellPrice = (def.price * 0.60) * (v.health / 100);
+                
+                // Récupération du bilan
+                let vehGains = v.gains || 0;
+                let vehLosses = v.losses || 0;
+                let vehROI = vehGains - vehLosses;
+                let roiColor = vehROI >= 0 ? '#27ae60' : '#e74c3c';
+                let roiSign = vehROI > 0 ? '+' : '';
 
                 fleetList.innerHTML += `
                     <div style="background:var(--card-bg); border-left: 5px solid ${color}; border-radius:6px; padding: 10px 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); cursor: pointer; overflow:hidden;" onclick="this.querySelector('.details').style.display = this.querySelector('.details').style.display === 'none' ? 'block' : 'none'">
@@ -588,6 +639,22 @@ export const tycoon = {
                                 <div>🛞 Pneus : <b>${Math.round(v.tires || 100)}%</b></div>
                                 <div>🛣️ Révis. : <b>${Math.max(0, Math.round(def.serviceInterval - v.kmsSinceService))} km</b></div>
                             </div>
+                            
+                            <div style="margin-bottom: 12px; border-top: 1px dashed var(--border-color); padding-top: 8px;">
+                                <div style="display:flex; justify-content:space-between; font-size:0.85em;">
+                                    <span style="color:#7f8c8d;">📈 Bénéfices (Passifs + Fret)</span>
+                                    <span style="color:#27ae60; font-weight:bold;">+${vehGains.toLocaleString('fr-FR', {maximumFractionDigits:2})} €</span>
+                                </div>
+                                <div style="display:flex; justify-content:space-between; font-size:0.85em; margin-top:2px;">
+                                    <span style="color:#7f8c8d;">📉 Frais (Pompe, Garage...)</span>
+                                    <span style="color:#e74c3c; font-weight:bold;">-${vehLosses.toLocaleString('fr-FR', {maximumFractionDigits:2})} €</span>
+                                </div>
+                                <div style="display:flex; justify-content:space-between; font-size:0.95em; margin-top:5px; padding-top:5px; border-top: 1px solid rgba(0,0,0,0.05);">
+                                    <span style="color:var(--text-color); font-weight:bold;">💰 Bilan Net</span>
+                                    <span style="color:${roiColor}; font-weight:bold;">${roiSign}${vehROI.toLocaleString('fr-FR', {maximumFractionDigits:2})} €</span>
+                                </div>
+                            </div>
+
                             <div style="display:flex; gap:6px;">
                                 <button style="flex:1; background:#27ae60; color:white; border:none; padding:8px; border-radius:4px; font-weight:bold; font-size:0.9em;" onclick="event.stopPropagation(); window.tycoon.refuel('${v.uid}')">⛽ Plein</button>
                                 <button style="flex:1; background:#3498db; color:white; border:none; padding:8px; border-radius:4px; font-weight:bold; font-size:0.9em;" onclick="event.stopPropagation(); window.tycoon.repair('${v.uid}')">🔧 Révis.</button>

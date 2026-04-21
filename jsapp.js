@@ -574,13 +574,13 @@ if (this.bankBalance < 0) {
 }
 } , 
 
-    openBankModal() {
+        openBankModal() {
         let elGains = document.getElementById('bank-total-gains');
         let elLosses = document.getElementById('bank-total-losses');
         let elList = document.getElementById('bank-history-list');
 
-        if (elGains) elGains.innerText = Math.round(this.bankStats.gains) + ' €';
-        if (elLosses) elLosses.innerText = Math.round(this.bankStats.losses) + ' €';
+        if (elGains) elGains.innerText = this.bankStats.gains.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+        if (elLosses) elLosses.innerText = this.bankStats.losses.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
 
         if (elList) {
             elList.innerHTML = '';
@@ -589,11 +589,13 @@ if (this.bankBalance < 0) {
             } else {
                 this.bankHistory.forEach(tx => {
                     let color = tx.amount > 0 ? '#27ae60' : '#e74c3c';
-                    let sign = tx.amount > 0 ? '+' : '';
+                    let sign = tx.amount > 0 ? '+' : '-';
+                    let formattedAmount = Math.abs(tx.amount).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                    
                     elList.innerHTML += `
                         <div class="session-detail-row">
                             <span class="session-detail-label" style="font-size:0.85em;">${tx.time} - ${tx.reason}</span>
-                            <span class="session-detail-value" style="color:${color}; font-size:0.95em;">${sign}${Math.round(tx.amount)} €</span>
+                            <span class="session-detail-value" style="color:${color}; font-size:0.95em;">${sign} ${formattedAmount} €</span>
                         </div>
                     `;
                 });
@@ -601,6 +603,7 @@ if (this.bankBalance < 0) {
         }
         document.getElementById('bank-modal').style.display = 'flex';
     },
+
 
     async checkBankruptcy() {
         if (this.bankBalance <= -10000) {
@@ -1444,11 +1447,13 @@ if (elapsed > 0 && elapsed % 900 === 0 && this.bankBalance < -500) {
                             let price = window.tycoon.getDynamicPrice();
                             let profit = tonsToDeliver * price;
                             
-                            if (profit > 0) {
+                                                      if (profit > 0) {
                                 this.addBankTransaction(parseFloat(profit.toFixed(2)), `Livraison (${tonsToDeliver.toFixed(1)}t)`);
                                 window.tycoon.state.storedFreight -= tonsToDeliver;
+                                if (window.tycoon.recordChampionProfit) window.tycoon.recordChampionProfit(profit); // NOUVEAU : Envoi au Champion
                                 window.tycoon.saveState();
                             }
+
                             this._lastDistDelivered = currentDist;
                         }
                     }
