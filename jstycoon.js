@@ -36,15 +36,14 @@ export const tycoon = {
             terminal: { id: 'terminal', name: 'Terminal Frigo', price: 250000, slots: 5, icon: '❄️', maxLimit: 2, targetVeh: 'frigo' },
             zone: { id: 'zone', name: 'Zone de Convoi', price: 500000, slots: 3, icon: '⚠️', maxLimit: 2, targetVeh: 'convoi' }
         },
-                fleet: {
-            scooter: { id: 'scooter', name: 'Scooter de livraison', price: 2500, income: 0.05, capacity: 0.05, icon: '🛵', buildingId: 'relais' },
-            vul: { id: 'vul', name: 'Fourgon utilitaire', price: 18000, income: 0.20, capacity: 0.8, icon: '🚐', buildingId: 'hangar' },
-            porteur: { id: 'porteur', name: 'Porteur 19 tonnes', price: 55000, income: 0.60, capacity: 8, icon: '🚚', buildingId: 'quai' },
-            tracteur: { id: 'tracteur', name: 'Tracteur Routier', price: 130000, income: 1.50, capacity: 24, icon: '🚛', buildingId: 'plateforme' },
-            frigo: { id: 'frigo', name: 'Ensemble Frigorifique', price: 190000, income: 2.50, capacity: 24, icon: '❄️', buildingId: 'terminal' },
-            convoi: { id: 'convoi', name: 'Convoi Exceptionnel', price: 400000, income: 5.00, capacity: 60, icon: '⚠️', buildingId: 'zone' }
+        fleet: {
+            scooter: { id: 'scooter', name: 'Scooter de livraison', price: 2500, income: 0.05, capacity: 0.05, icon: '🛵', buildingId: 'relais', tireLifeKm: 8000, fuelPerKm: 0.03, serviceInterval: 5000 },
+            vul: { id: 'vul', name: 'Fourgon utilitaire', price: 18000, income: 0.20, capacity: 0.8, icon: '🚐', buildingId: 'hangar', tireLifeKm: 45000, fuelPerKm: 0.08, serviceInterval: 15000 },
+            porteur: { id: 'porteur', name: 'Porteur 19 tonnes', price: 55000, income: 0.60, capacity: 8, icon: '🚚', buildingId: 'quai', tireLifeKm: 150000, fuelPerKm: 0.15, serviceInterval: 30000 },
+            tracteur: { id: 'tracteur', name: 'Tracteur Routier', price: 130000, income: 1.50, capacity: 24, icon: '🚛', buildingId: 'plateforme', tireLifeKm: 200000, fuelPerKm: 0.25, serviceInterval: 50000 },
+            frigo: { id: 'frigo', name: 'Ensemble Frigorifique', price: 190000, income: 2.50, capacity: 24, icon: '❄️', buildingId: 'terminal', tireLifeKm: 180000, fuelPerKm: 0.28, serviceInterval: 40000 },
+            convoi: { id: 'convoi', name: 'Convoi Exceptionnel', price: 400000, income: 5.00, capacity: 60, icon: '⚠️', buildingId: 'zone', tireLifeKm: 12000, fuelPerKm: 0.50, serviceInterval: 10000 }
         }
-
     },
 
     init() {
@@ -86,21 +85,19 @@ export const tycoon = {
             return;
         }
         if (currentWeek !== this.state.lastResetWeek) {
-            // Le jugement se fait sur le ratio (Émis vs Quota autorisé) ⚖️
             let ratio = this.state.companyQuota > 0 ? (this.state.companyCarbon / this.state.companyQuota) : 1;
             
             if (ratio > 1.0) {
-                this.state.carbonModifier = 0.7; // Malus : Dépassement du quota
+                this.state.carbonModifier = 0.7;
                 if(window.ui) window.ui.showToast("🚨 Bilan Hebdo : Malus Carbone (-30% sur les ventes) !");
             } else if (ratio <= 0.8 && this.state.companyCarbon > 0) {
-                this.state.carbonModifier = 1.2; // Bonus : Bilan très propre (20% de marge)
+                this.state.carbonModifier = 1.2;
                 if(window.ui) window.ui.showToast("🌿 Bilan Hebdo : Bonus Écolo (+20% sur les ventes) !");
             } else {
-                this.state.carbonModifier = 1.0; // Neutre
+                this.state.carbonModifier = 1.0;
                 if(window.ui) window.ui.showToast("⚖️ Bilan Hebdo : Neutre.");
             }
             
-            // Remise à zéro pour la nouvelle semaine
             this.state.companyCarbon = 0; 
             this.state.companyQuota = 0;
             this.state.lastResetWeek = currentWeek;
@@ -124,11 +121,14 @@ export const tycoon = {
         if (fillRate < 0.20) price = basePrice * 1.5;
         if (fillRate > 0.80) price = basePrice * 0.5;
         
+        let volumeBonus = 1 + (fillRate * 0.15);
+        price = price * volumeBonus;
+
         let modifier = this.state.carbonModifier || 1.0;
         return price * modifier;
     },
 
-      getActiveChampion() {
+    getActiveChampion() {
         let availableVehicles = this.state.fleet.filter(v => v.health > 20 && v.fuel > 0);
         if (availableVehicles.length === 0) return null;
 
@@ -141,16 +141,18 @@ export const tycoon = {
         return availableVehicles[0];
     },
 
-
-        getDeliveryPower() {
+    getDeliveryPower() {
         let champion = this.getActiveChampion();
         if (!champion) return 0; 
         
         let championCapacity = this.catalog.fleet[champion.type] ? this.catalog.fleet[champion.type].capacity : 0;
         
-        return championCapacity / 10;
+        let cap = this.getWarehouseCapacity();
+        let fillRate = cap > 0 ? (this.state.storedFreight / cap) : 0;
+        let powerPenalty = 1 - (fillRate * 0.20); 
+        
+        return (championCapacity / 10) * powerPenalty;
     },
-
 
     upgradeWarehouse() {
         const nextLevel = this.state.warehouseLevel + 1;
@@ -178,36 +180,30 @@ export const tycoon = {
         let usedSlots = this.state.fleet.length;
         let incomePerMin = 0;
 
-        // NOUVEAU : On identifie le champion
         let champion = this.getActiveChampion();
 
-               this.state.fleet.forEach(veh => {
+        this.state.fleet.forEach(veh => {
             let def = this.catalog.fleet[veh.type];
-            
-            // NOUVEAU : Le champion n'est exclu que s'il a été verrouillé en mode "livraison"
             if (champion && veh.uid === champion.uid && this.championLockedInDelivery) return; 
 
             if (def && veh.fuel > 0 && veh.health > 0) {
-
                 incomePerMin += def.income;
             }
         });
 
         if ((this.state.buildings.zone || 0) > 0) incomePerMin *= 1.10;
         
-        // --- 1. BONUS DÉCROISSANT TYCOON ---
         let bonusPct = 0;
         if (usedSlots > 0) {
             if (usedSlots <= 5) bonusPct = usedSlots * 5;
             else if (usedSlots <= 15) bonusPct = 25 + ((usedSlots - 5) * 2);
             else bonusPct = 45 + ((usedSlots - 15) * 0.5);
         }
-        if (bonusPct > 50) bonusPct = 50; // Plafond absolu à 50%
+        if (bonusPct > 50) bonusPct = 50; 
         incomePerMin *= (1 + (bonusPct / 100));
 
-        // --- 5. LA GRÈVE DES CHAUFFEURS ---
         if (window.app && window.app.bankBalance < 0) {
-            incomePerMin = 0; // Solde négatif = Grève totale !
+            incomePerMin = 0; 
         }
 
         return { maxSlots, usedSlots, incomePerMin };
@@ -271,7 +267,9 @@ export const tycoon = {
                 type: id,
                 health: 100,
                 fuel: 100,
-                tires: 100
+                tires: 100,
+                kms: 0,
+                kmsSinceService: 0
             };
             this.state.fleet.push(newVeh);
             this.state.purchaseHistory.push({ type: 'fleet', id: id, time: Date.now(), price: item.price });
@@ -319,52 +317,70 @@ export const tycoon = {
 
     repair(uid) {
         let veh = this.state.fleet.find(v => v.uid === uid);
-        if (!veh || (veh.health >= 100 && (veh.tires === undefined || veh.tires >= 100))) return;
+        if (!veh || (veh.health >= 100 && (veh.tires === undefined || veh.tires >= 100) && (veh.kmsSinceService === undefined || veh.kmsSinceService === 0))) return;
         
         let item = this.catalog.fleet[veh.type];
         let missingHealth = 100 - veh.health;
         let missingTires = veh.tires !== undefined ? 100 - veh.tires : 0;
         
-        // --- 2. MULTIPLICATEUR DE PANNE (< 30%) ---
         let cost = ((item.price * 0.08) * (missingHealth / 100));
-        if (veh.health <= 30) cost *= 3; // Sanction x3 !
+        if (veh.health <= 30) cost *= 3; 
         
-        cost += ((item.price * 0.04) * (missingTires / 100)); // +4% pour le train de pneus
+        cost += ((item.price * 0.04) * (missingTires / 100)); 
+        
+        if (veh.kmsSinceService > 0) cost += (item.price * 0.01);
         
         if (window.app.bankBalance < cost) {
-            if(window.ui) window.ui.showToast("❌ Pas assez d'argent pour les pièces !");
+            if(window.ui) window.ui.showToast("❌ Pas assez d'argent pour le garage !");
             return;
         }
         
-        window.app.addBankTransaction(-cost, `Garage & Pneus : ${item.name}`);
+        window.app.addBankTransaction(-cost, `Garage & Révision : ${item.name}`);
         veh.health = 100;
         veh.tires = 100;
+        veh.kmsSinceService = 0; 
         this.saveState();
         this.renderUI();
     },
 
     tickDistance(km) {
         if (!this.state.fleet || this.state.fleet.length === 0) return;
-        
-        let tireWear = (km / 20000) * 100; // 100% sur 20 000 km
         let needsSave = false;
 
+        let cap = this.getWarehouseCapacity();
+        let fillRate = cap > 0 ? (this.state.storedFreight / cap) : 0;
+        let weightPenalty = 1 + fillRate; 
+
         this.state.fleet.forEach(veh => {
+            let def = this.catalog.fleet[veh.type];
+            if (!def) return;
+
+            if (veh.kms === undefined) veh.kms = 0;
+            if (veh.kmsSinceService === undefined) veh.kmsSinceService = 0;
+            veh.kms += km;
+            veh.kmsSinceService += km;
+
+            let tireWear = (km / def.tireLifeKm) * 100;
             if (veh.tires === undefined) veh.tires = 100;
-            if (veh.tires > 0) {
-                veh.tires = Math.max(0, veh.tires - tireWear);
-                needsSave = true;
+            if (veh.tires > 0) veh.tires = Math.max(0, veh.tires - tireWear);
+
+            let fuelConsumed = (km * def.fuelPerKm) * weightPenalty;
+            if (veh.fuel > 0) veh.fuel = Math.max(0, veh.fuel - fuelConsumed);
+
+            if (veh.kmsSinceService > def.serviceInterval) {
+                let penalty = km * 5; 
+                veh.health = Math.max(0, veh.health - penalty);
             }
 
-            // --- 4. ROULETTE RUSSE DE LA CREVAISON ---
             if (veh.tires <= 10) {
-                let chance = km * 0.05; // 5% de chance par kilomètre roulé
+                let chance = km * 0.05; 
                 if (Math.random() < chance) {
                     veh.health = Math.max(0, veh.health - 25);
-                    if (window.app) window.app.addBankTransaction(-1000, `💥 Crevaison (${this.catalog.fleet[veh.type].name})`);
-                    if(window.ui) window.ui.showToast(`💥 Crevaison de ton ${this.catalog.fleet[veh.type].name} ! Dépannage : -1000€`, "anomaly");
+                    if (window.app) window.app.addBankTransaction(-1000, `💥 Crevaison (${def.name})`);
+                    if(window.ui) window.ui.showToast(`💥 Crevaison de ton ${def.name} ! Dépannage : -1000€`, "anomaly");
                 }
             }
+            needsSave = true;
         });
         if (needsSave) this.saveState();
     },
@@ -380,13 +396,25 @@ export const tycoon = {
         if (secondsElapsed > 0 && secondsElapsed % 60 === 0) {
             let needsRender = false;
             this.state.fleet.forEach(veh => {
+                let def = this.catalog.fleet[veh.type];
+                if (!def) return;
+
                 if (veh.fuel > 0) {
-                    veh.fuel = Math.max(0, veh.fuel - 2);
+                    veh.fuel = Math.max(0, veh.fuel - 0.1); 
                     needsRender = true;
                 }
+
                 if (veh.fuel > 0 && veh.health > 0) {
-                    veh.health = Math.max(0, veh.health - 1);
-                    needsRender = true;
+                    let breakdownChance = veh.health > 80 ? 0.001 : (veh.health < 50 ? 0.02 : 0.005);
+                    if (Math.random() < breakdownChance) {
+                        let isMajor = veh.health < 50 && Math.random() < 0.3;
+                        let dmg = isMajor ? 40 : 15;
+                        veh.health = Math.max(0, veh.health - dmg);
+                        let cost = isMajor ? (def.price * 0.05) : (def.price * 0.01);
+                        if (window.app) window.app.addBankTransaction(-cost, `🚨 Panne Imprévue (${def.name})`);
+                        if(window.ui) window.ui.showToast(`🚨 Panne ${isMajor ? 'MAJEURE' : 'mineure'} sur ton ${def.name} ! Frais : -${cost.toFixed(0)}€`, "anomaly");
+                        needsRender = true;
+                    }
                 }
             });
             if (needsRender && window.ui && window.ui.activeTab === 'company') {
@@ -426,7 +454,6 @@ export const tycoon = {
         if(document.getElementById('warehouse-cap')) document.getElementById('warehouse-cap').innerText = "Capacité max : " + cap + " t";
         if(document.getElementById('warehouse-bar')) document.getElementById('warehouse-bar').style.width = Math.min(100, fillPct) + "%";
 
-        // --- MISE À JOUR VISUELLE DU CARBONE ENTREPRISE (SYSTÈME QUOTA) 🌿 ---
         let carbTotal = this.state.companyCarbon || 0;
         let carbQuota = this.state.companyQuota || 0;
         
@@ -442,7 +469,6 @@ export const tycoon = {
         if(document.getElementById('company-carb-bar')) {
             let bar = document.getElementById('company-carb-bar');
             bar.style.width = displayFill + "%";
-            // Rouge si dépassement (>100%), Orange si proche (>80%), sinon Vert
             bar.style.backgroundColor = carbFill > 100 ? "#e74c3c" : (carbFill > 80 ? "#f39c12" : "#27ae60");
         }
         if(document.getElementById('company-carb-status-text')) {
@@ -517,17 +543,15 @@ export const tycoon = {
                 let isBroken = veh.health <= 0 || veh.fuel <= 0;
                 let sellPrice = (item.price * 0.60) * (veh.health / 100);
                 
-                              // NOUVEAU : Visuel conditionné par le verrouillage
                 let activeChamp = this.getActiveChampion();
                 let isChampion = activeChamp && veh.uid === activeChamp.uid && this.championLockedInDelivery;
 
                 let badgeText = isBroken ? '🛑 PANNE' : (isChampion ? '👑 EN ROUTE' : '✅ PASSIF');
-
                 let badgeColor = isBroken ? 'var(--danger-color)' : (isChampion ? '#f39c12' : 'var(--success-color)');
                 
                 let refuelCost = (item.price * 0.02) * ((100 - veh.fuel) / 100);
                 let repairCost = (item.price * 0.08) * ((100 - veh.health) / 100);
-                if (veh.health <= 30) repairCost *= 3; // Visuel Sanction
+                if (veh.health <= 30) repairCost *= 3; 
                 let missingTires = veh.tires !== undefined ? 100 - veh.tires : 0;
                 repairCost += (item.price * 0.04) * (missingTires / 100);
 
@@ -536,8 +560,11 @@ export const tycoon = {
                         <div class="tycoon-owned-badge" style="background:${badgeColor};">${badgeText}</div>
                         <div class="tycoon-title">${item.icon} ${item.name}</div>
                         <div class="tycoon-revenue" style="${isBroken ? 'color:var(--danger-color);' : ''}">Revenu : ${isBroken ? '0.00 €/min' : (isChampion ? 'Livraison Kms 🛣️' : '+'+item.income.toFixed(2)+' €/min')}</div>
-<div class="tycoon-revenue" style="color:#e67e22; font-size:0.85em;">📦 Capacité : ${item.capacity < 1 ? (item.capacity * 1000) + ' kg' : item.capacity + ' t'}</div>
-
+                        <div class="tycoon-revenue" style="color:#e67e22; font-size:0.85em;">📦 Capacité : ${item.capacity < 1 ? (item.capacity * 1000) + ' kg' : item.capacity + ' t'}</div>
+                        <div style="font-size: 0.8em; color:#8e44ad; margin-top:5px; font-weight:bold;">
+                            🔧 Rév. dans : ${Math.max(0, item.serviceInterval - (veh.kmsSinceService || 0)).toLocaleString('fr-FR', {maximumFractionDigits:0})} km<br>
+                            🛞 Pneus : ${Math.max(0, (veh.tires !== undefined ? veh.tires : 100) / 100 * item.tireLifeKm).toLocaleString('fr-FR', {maximumFractionDigits:0})} km restants
+                        </div>
                         
                         <div style="margin: 8px 0;">
                             <div style="display:flex; justify-content:space-between; font-size:0.8em; margin-bottom:2px;">
@@ -550,7 +577,7 @@ export const tycoon = {
                             
                             <div style="display:flex; justify-content:space-between; font-size:0.8em; margin-bottom:2px; margin-top:6px;">
                                 <span>🔧 État (${Math.round(veh.health)}%) | 🛞 Pneus (${veh.tires !== undefined ? Math.round(veh.tires) : 100}%)</span>
-                                <span>${veh.health >= 100 && (veh.tires === undefined || veh.tires >= 100) ? 'Neuf' : repairCost.toFixed(2)+' €'}</span>
+                                <span>${veh.health >= 100 && (veh.tires === undefined || veh.tires >= 100) && (veh.kmsSinceService === undefined || veh.kmsSinceService === 0) ? 'Neuf' : repairCost.toFixed(2)+' €'}</span>
                             </div>
                             <div style="background:var(--border-color); height:6px; border-radius:3px; overflow:hidden;">
                                 <div style="width:${veh.health}%; height:100%; background:${veh.health > 30 ? 'var(--primary-color)' : 'var(--danger-color)'};"></div>
@@ -559,7 +586,7 @@ export const tycoon = {
 
                         <div style="display:flex; gap:5px;">
                             <button style="flex:1; background:var(--success-color); color:white; border:none; border-radius:5px; padding:6px; font-weight:bold; cursor:pointer;" onclick="window.tycoon.refuel('${veh.uid}')" ${veh.fuel >= 100 || window.app.bankBalance < refuelCost ? 'disabled' : ''}>Plein</button>
-                            <button style="flex:1; background:var(--primary-color); color:white; border:none; border-radius:5px; padding:6px; font-weight:bold; cursor:pointer;" onclick="window.tycoon.repair('${veh.uid}')" ${veh.health >= 100 && (veh.tires === undefined || veh.tires >= 100) || window.app.bankBalance < repairCost ? 'disabled' : ''}>Réparer</button>
+                            <button style="flex:1; background:var(--primary-color); color:white; border:none; border-radius:5px; padding:6px; font-weight:bold; cursor:pointer;" onclick="window.tycoon.repair('${veh.uid}')" ${veh.health >= 100 && (veh.tires === undefined || veh.tires >= 100) && (veh.kmsSinceService === undefined || veh.kmsSinceService === 0) || window.app.bankBalance < repairCost ? 'disabled' : ''}>Réparer</button>
                         </div>
                         <button style="margin-top:5px; background:var(--danger-color); color:white; border:none; border-radius:5px; padding:8px; font-weight:bold; cursor:pointer; width:100%;" onclick="window.tycoon.sellVehicle('${veh.uid}')">Revendre (${sellPrice.toLocaleString('fr-FR', {maximumFractionDigits:0})} €)</button>
                     </div>
@@ -580,8 +607,7 @@ export const tycoon = {
                     <div class="tycoon-card" style="opacity: 0.85;">
                         <div class="tycoon-title">${item.icon} ${item.name}</div>
                         <div class="tycoon-revenue">Potentiel : +${item.income.toFixed(2)} €/min</div>
-<div class="tycoon-revenue" style="color:#e67e22; font-size:0.85em;">📦 Capacité Fret : ${item.capacity < 1 ? (item.capacity * 1000) + ' kg' : item.capacity + ' t'}</div>
-
+                        <div class="tycoon-revenue" style="color:#e67e22; font-size:0.85em;">📦 Capacité Fret : ${item.capacity < 1 ? (item.capacity * 1000) + ' kg' : item.capacity + ' t'}</div>
                         <div class="tycoon-revenue" style="color:var(--primary-color); font-weight:bold; font-size:0.85em;">Places : ${currentUsed} / ${maxSlots}</div>
                         <div class="tycoon-price">${item.price.toLocaleString('fr-FR')} €</div>
                         <button class="btn-buy" ${!canBuy ? 'disabled' : ''} onclick="window.tycoon.buyVehicle('${k}')">${btnTxt}</button>
