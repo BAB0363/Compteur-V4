@@ -4,7 +4,7 @@ export const tycoon = {
         warehouseLevel: 0,
         storedFreight: 0,
         companyCarbon: 0,
-        companyQuota: 0, // NOUVEAU : Le quota dynamique autorisé
+        companyQuota: 0, 
         carbonModifier: 1.0,
         lastResetWeek: 0,
         buildings: {}, 
@@ -45,7 +45,7 @@ export const tycoon = {
         }
     },
 
-    fuelPrice: 1.80, // Prix au litre constant
+    fuelPrice: 1.80,
 
     init() {
         this.loadState();
@@ -58,6 +58,19 @@ export const tycoon = {
             try { this.state = { ...this.state, ...JSON.parse(saved) }; }
             catch(e) { console.error("Erreur de lecture Tycoon"); }
         }
+        
+        // 🔧 CORRECTIF : Siphonnage du surplus d'essence (Bug % vers Litres)
+        if (this.state.fleet) {
+            this.state.fleet.forEach(v => {
+                let def = this.catalog.fleet[v.type];
+                if (def) {
+                    if (v.fuel > def.fuelTank) v.fuel = def.fuelTank;
+                    if (v.tires > 100) v.tires = 100;
+                    if (v.health > 100) v.health = 100;
+                }
+            });
+        }
+        
         this.checkWeeklyCarbon();
     },
 
@@ -542,6 +555,11 @@ export const tycoon = {
 
         let fleetList = document.getElementById('company-fleet-list');
         if(fleetList) {
+            // 🧹 RETRAIT DU GRID, PASSAGE EN LISTE COMPACTE VERTICALE
+            fleetList.className = ''; 
+            fleetList.style.display = 'flex';
+            fleetList.style.flexDirection = 'column';
+            fleetList.style.gap = '8px';
             fleetList.innerHTML = '';
             
             this.state.fleet.forEach(v => {
@@ -557,25 +575,25 @@ export const tycoon = {
                 let sellPrice = (def.price * 0.60) * (v.health / 100);
 
                 fleetList.innerHTML += `
-                    <div class="tycoon-card" style="border-left: 5px solid ${color}; padding: 8px; margin-bottom: 5px; cursor: pointer; overflow:hidden;" onclick="this.querySelector('.details').style.display = this.querySelector('.details').style.display === 'none' ? 'block' : 'none'">
+                    <div style="background:var(--card-bg); border-left: 5px solid ${color}; border-radius:6px; padding: 10px 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); cursor: pointer; overflow:hidden;" onclick="this.querySelector('.details').style.display = this.querySelector('.details').style.display === 'none' ? 'block' : 'none'">
                         <div style="display:flex; justify-content:space-between; align-items:center;">
-                            <span>${def.icon} <b>${def.name}</b> <small style="color:#7f8c8d;">#${v.uid.slice(-3)}</small></span>
-                            <span style="font-size:0.7em; font-weight:bold; color:${color};">${status}</span>
+                            <span style="font-size:1.05em; font-weight:bold; color:var(--text-color);">${def.icon} ${def.name} <small style="color:#7f8c8d; font-size:0.8em; font-weight:normal;">#${v.uid.slice(-3)}</small></span>
+                            <span style="font-size:0.7em; font-weight:bold; color:${color}; background:rgba(0,0,0,0.05); padding:4px 8px; border-radius:4px;">${status}</span>
                         </div>
                         
-                        <div class="details" style="display:none; margin-top:10px; border-top:1px solid rgba(0,0,0,0.1); padding-top:10px;">
-                            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; font-size:0.85em; margin-bottom: 10px;">
+                        <div class="details" style="display:none; margin-top:12px; border-top:1px solid var(--border-color); padding-top:12px;">
+                            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; font-size:0.85em; margin-bottom: 12px; color:var(--text-color);">
                                 <div>⛽ <b>${v.fuel.toFixed(1)} / ${def.fuelTank} L</b></div>
                                 <div>🔧 État : <b>${Math.round(v.health)}%</b></div>
                                 <div>🛞 Pneus : <b>${Math.round(v.tires || 100)}%</b></div>
                                 <div>🛣️ Révis. : <b>${Math.max(0, Math.round(def.serviceInterval - v.kmsSinceService))} km</b></div>
                             </div>
-                            <div style="display:flex; gap:5px;">
-                                <button style="flex:1; background:#27ae60; color:white; border:none; padding:8px; border-radius:4px; font-weight:bold;" onclick="event.stopPropagation(); window.tycoon.refuel('${v.uid}')">⛽ Plein</button>
-                                <button style="flex:1; background:#3498db; color:white; border:none; padding:8px; border-radius:4px; font-weight:bold;" onclick="event.stopPropagation(); window.tycoon.repair('${v.uid}')">🔧 Révis.</button>
-                                <button style="flex:1; background:#8e44ad; color:white; border:none; padding:8px; border-radius:4px; font-weight:bold;" onclick="event.stopPropagation(); window.tycoon.changeTires('${v.uid}')">🛞 Pneus</button>
+                            <div style="display:flex; gap:6px;">
+                                <button style="flex:1; background:#27ae60; color:white; border:none; padding:8px; border-radius:4px; font-weight:bold; font-size:0.9em;" onclick="event.stopPropagation(); window.tycoon.refuel('${v.uid}')">⛽ Plein</button>
+                                <button style="flex:1; background:#3498db; color:white; border:none; padding:8px; border-radius:4px; font-weight:bold; font-size:0.9em;" onclick="event.stopPropagation(); window.tycoon.repair('${v.uid}')">🔧 Révis.</button>
+                                <button style="flex:1; background:#8e44ad; color:white; border:none; padding:8px; border-radius:4px; font-weight:bold; font-size:0.9em;" onclick="event.stopPropagation(); window.tycoon.changeTires('${v.uid}')">🛞 Pneus</button>
                             </div>
-                            <button style="margin-top:5px; background:var(--danger-color); color:white; border:none; border-radius:4px; padding:8px; font-weight:bold; cursor:pointer; width:100%;" onclick="event.stopPropagation(); window.tycoon.sellVehicle('${v.uid}')">Revendre (${sellPrice.toLocaleString('fr-FR', {maximumFractionDigits:0})} €)</button>
+                            <button style="margin-top:6px; background:var(--danger-color); color:white; border:none; border-radius:4px; padding:8px; font-weight:bold; cursor:pointer; width:100%; font-size:0.9em;" onclick="event.stopPropagation(); window.tycoon.sellVehicle('${v.uid}')">Revendre (${sellPrice.toLocaleString('fr-FR', {maximumFractionDigits:0})} €)</button>
                         </div>
                     </div>
                 `;
@@ -589,16 +607,18 @@ export const tycoon = {
                 
                 let isFull = currentUsed >= maxSlots;
                 let canBuy = window.app.bankBalance >= item.price && !isFull;
-                let btnTxt = isFull ? (maxSlots > 0 ? "Parking plein" : "Bâtiment requis") : "Acheter neuf";
+                let btnTxt = isFull ? (maxSlots > 0 ? "Parking plein" : "Requis") : "Acheter";
 
                 fleetList.innerHTML += `
-                    <div class="tycoon-card" style="opacity: 0.85;">
-                        <div class="tycoon-title">${item.icon} ${item.name}</div>
-                        <div class="tycoon-revenue">Potentiel : +${item.income.toFixed(2)} €/min</div>
-                        <div class="tycoon-revenue" style="color:#e67e22; font-size:0.85em;">📦 Capacité Fret : ${item.capacity < 1 ? (item.capacity * 1000) + ' kg' : item.capacity + ' t'}</div>
-                        <div class="tycoon-revenue" style="color:var(--primary-color); font-weight:bold; font-size:0.85em;">Places : ${currentUsed} / ${maxSlots}</div>
-                        <div class="tycoon-price">${item.price.toLocaleString('fr-FR')} €</div>
-                        <button class="btn-buy" ${!canBuy ? 'disabled' : ''} onclick="window.tycoon.buyVehicle('${k}')">${btnTxt}</button>
+                    <div style="background:var(--card-bg); border-radius:6px; padding: 10px 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display:flex; justify-content:space-between; align-items:center; opacity: 0.85;">
+                        <div style="display:flex; flex-direction:column; gap:2px;">
+                            <span style="font-size:1em; color:var(--text-color);">${item.icon} <b>${item.name}</b></span>
+                            <span style="font-size:0.75em; color:#7f8c8d;">Places : ${currentUsed}/${maxSlots} | Potentiel : +${item.income.toFixed(2)}€</span>
+                        </div>
+                        <div style="display:flex; flex-direction:column; align-items:flex-end;">
+                            <span style="font-size:0.85em; font-weight:bold; color:var(--text-color); margin-bottom:4px;">${item.price.toLocaleString('fr-FR')} €</span>
+                            <button style="background:var(--primary-color); color:white; border:none; padding:4px 10px; border-radius:4px; font-weight:bold; font-size:0.8em;" ${!canBuy ? 'disabled style="background:#bdc3c7;"' : ''} onclick="window.tycoon.buyVehicle('${k}')">${btnTxt}</button>
+                        </div>
                     </div>
                 `;
             });
