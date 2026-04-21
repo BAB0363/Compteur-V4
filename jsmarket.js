@@ -57,7 +57,7 @@ export const market = {
         this.saveState();
     },
 
-    fluctuateMarket() {
+        fluctuateMarket() {
         Object.keys(this.state.values).forEach(k => {
             let item = this.state.values[k];
             let randomVariation = 1 + ((Math.random() - 0.5) * 0.1); 
@@ -69,7 +69,13 @@ export const market = {
         });
         this.saveState();
         if(window.ui) window.ui.showToast("📈 Fluctuation de la Bourse de l'Asphalte !");
+        
+        // 🚀 NOUVEAU : On force l'interface à redessiner les boutons avec les nouveaux prix
+        if (window.app && window.app.currentMode === 'voiture') {
+            window.app.renderCars();
+        }
     }
+
 
 };
 
