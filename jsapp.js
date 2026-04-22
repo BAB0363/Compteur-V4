@@ -3132,16 +3132,16 @@ if (window.tycoon) window.tycoon.cashOut();
             elJournal.onclick = () => { if(window.ui) window.ui.toggleGegeBrain(); };
         }
 
-                // IMPORTANT : On efface la prédiction en cours pour ne pas mettre d'amende injuste au joueur
+                     // IMPORTANT : On efface la prédiction en cours pour ne pas mettre d'amende injuste au joueur
         if (type === 'trucks') {
             this.currentPredictionTruck = null;
         } else {
             this.currentPredictionCar = null;
         }
-    }
-    //... autres fonctions
+    }, // <--- C'est CETTE virgule qui manquait pour séparer les fonctions !
     
     updatePricingUI() {
+
         const grid = document.getElementById('pricing-grid');
         if (!grid) return;
         
