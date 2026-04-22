@@ -78,10 +78,9 @@ export const tycoon = {
         localStorage.setItem(`tycoon_state_${user}`, JSON.stringify(this.state));
     },
 
-    // 🧠 NOUVELLE LOGIQUE : LE SMART DISPATCH
+    // 🧠 LOGIQUE SMART DISPATCH INTÉGRÉE
     getFleetStatus() {
         let availableFleet = this.state.fleet.filter(v => v.health > 20 && v.fuel > 0);
-        // On trie du plus GROS au plus PETIT
         availableFleet.sort((a, b) => this.catalog.fleet[b.type].capacity - this.catalog.fleet[a.type].capacity);
 
         let remainingFreight = this.state.storedFreight;
@@ -194,7 +193,7 @@ export const tycoon = {
 
         status.passiveVehicles.forEach(veh => {
             let def = this.catalog.fleet[veh.type];
-            if (def) {
+            if (def && veh.fuel > 0 && veh.health > 20) {
                 incomePerMin += def.income;
             }
         });
@@ -372,6 +371,7 @@ export const tycoon = {
         if (window.app && !window.app.isCarRunning && !window.app.isTruckRunning) return;
 
         let needsSave = false;
+
         let cap = this.getWarehouseCapacity();
         let fillRate = cap > 0 ? (this.state.storedFreight / cap) : 0;
         let weightPenalty = 1 + fillRate; 
@@ -431,7 +431,9 @@ export const tycoon = {
             if (window.app && window.app.bankBalance >= 0) {
                 status.passiveVehicles.forEach(veh => {
                     let def = this.catalog.fleet[veh.type];
-                    if (def) {
+                    if (!def) return;
+                    
+                    if (veh.fuel > 0 && veh.health > 20) {
                         veh.gains = (veh.gains || 0) + ((def.income / 60) * bonusMultiplier * carbonMod);
                     }
                 });
@@ -476,7 +478,7 @@ export const tycoon = {
             let earned = parseFloat(this.state.pendingIncome.toFixed(2));
             if (earned > 0) {
                 if (window.app && !window.app.isTruckRunning) window.app.sessionFinance.gains += earned;
-                window.app.addBankTransaction(earned, "🏢 Bénéfices Flotte (Session)");
+                window.app.addBankTransaction(earned, "🏢 Bénéfices Flotte (Passif)");
                 if (window.ui) {
                     window.ui.playGamiSound('cash');
                     window.ui.showToast(`🏢 Tes chauffeurs ont généré +${earned} € !`);
@@ -491,7 +493,7 @@ export const tycoon = {
 
     renderUI() {
         let stats = this.getStats();
-        let status = this.getFleetStatus(); 
+        let status = this.getFleetStatus();
         
         let cap = this.getWarehouseCapacity();
         let levelInfo = this.warehouseConfig.levels[this.state.warehouseLevel];
@@ -554,67 +556,105 @@ export const tycoon = {
         
         if(elPending) elPending.innerText = this.state.pendingIncome.toFixed(2) + ' €';
 
-        // 🎨 UI COMPACTE DES BÂTIMENTS
+        // 🎨 NOUVEAU VISUEL DES BÂTIMENTS (Mode compact en ligne)
         let buildList = document.getElementById('company-buildings-list');
         if(buildList) {
             buildList.innerHTML = '';
+            buildList.style.display = 'flex';
+            buildList.style.flexDirection = 'column';
+            buildList.style.gap = '8px';
             Object.keys(this.catalog.buildings).forEach(k => {
-                let b = this.catalog.buildings[k];
+                let item = this.catalog.buildings[k];
                 let count = this.state.buildings[k] || 0;
-                let price = this.getBuildingPrice(k);
-                let canBuy = window.app && window.app.bankBalance >= price && count < b.maxLimit;
+                let currentPrice = this.getBuildingPrice(k);
+                let isMaxed = count >= item.maxLimit;
+                
+                let canBuy = window.app && window.app.bankBalance >= currentPrice && !isMaxed;
+                let btnTxt = isMaxed ? "Max" : "Investir";
                 
                 buildList.innerHTML += `
-                    <div class="vehicle-card" style="opacity: ${count === b.maxLimit ? '0.6' : '1'}">
-                        <div class="vehicle-name" style="display:flex; justify-content:space-between; align-items:center; padding: 2px 4px; border-bottom: 1px dashed var(--border-color); margin-bottom: 4px;">
-                            <span>${b.icon} ${b.name} (${count}/${b.maxLimit})</span>
-                            <span style="font-size:0.9em; font-weight:bold;">${price.toLocaleString('fr-FR')}€</span>
+                    <div style="background:var(--card-bg); border-radius:6px; padding: 10px 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display:flex; justify-content:space-between; align-items:center; ${isMaxed ? 'opacity: 0.6;' : ''}">
+                        <div style="display:flex; flex-direction:column; gap:2px;">
+                            <span style="font-size:1em; color:var(--text-color);">${item.icon} <b>${item.name}</b></span>
+                            <span style="font-size:0.75em; color:#7f8c8d;">Places : ${count}/${item.maxLimit} | Capacité : +${item.slots}</span>
                         </div>
-                        <div class="vehicle-controls">
-                            <button class="btn-add btn-add-fr" ${!canBuy ? 'disabled' : ''} onclick="window.tycoon.buyBuilding('${k}')" style="width:100%; border-radius: 4px; font-size: 0.9em;">Investir</button>
+                        <div style="display:flex; flex-direction:column; align-items:flex-end;">
+                            <span style="font-size:0.85em; font-weight:bold; color:var(--text-color); margin-bottom:4px; ${isMaxed ? 'text-decoration: line-through;' : ''}">${currentPrice.toLocaleString('fr-FR')} €</span>
+                            <button style="background:var(--primary-color); color:white; border:none; padding:4px 10px; border-radius:4px; font-weight:bold; font-size:0.8em;" ${!canBuy ? 'disabled style="background:#bdc3c7;"' : ''} onclick="window.tycoon.buyBuilding('${k}')">${btnTxt}</button>
                         </div>
-                    </div>`;
+                    </div>
+                `;
             });
         }
 
-        // 🎨 UI COMPACTE DE LA FLOTTE
         let fleetList = document.getElementById('company-fleet-list');
         if(fleetList) {
-            fleetList.className = 'km-stats-grid'; 
-            fleetList.style.display = 'grid';
+            fleetList.className = ''; 
+            fleetList.style.display = 'flex';
+            fleetList.style.flexDirection = 'column';
+            fleetList.style.gap = '8px';
             fleetList.innerHTML = '';
             
             this.state.fleet.forEach(v => {
-                let d = this.catalog.fleet[v.type];
-                let isDelivering = status.deliveringVehicles.some(dv => dv.uid === v.uid);
-                let badge = isDelivering ? '📦' : '☕';
-                let colorBorder = isDelivering ? '#27ae60' : '#3498db';
+                let def = this.catalog.fleet[v.type];
                 
-                let isCritical = v.fuel <= (d.fuelTank * 0.1) || v.health <= 30 || (v.tires || 100) <= 10;
-                if (isCritical) colorBorder = '#e74c3c';
-
-                let vehROI = (v.gains || 0) - (v.losses || 0);
+                // LOGIQUE VISUELLE SMART DISPATCH 📦/☕
+                let isDelivering = status.deliveringVehicles.some(dv => dv.uid === v.uid);
+                let badge = isDelivering ? '📦 LIVRAISON' : '☕ PASSIF';
+                let baseColor = isDelivering ? '#27ae60' : '#3498db';
+                
+                let isCritical = v.fuel <= (def.fuelTank * 0.1) || v.health <= 30 || (v.tires || 100) <= 10;
+                let isWarning = v.fuel <= (def.fuelTank * 0.3) || v.health <= 60 || v.kmsSinceService >= (def.serviceInterval * 0.8);
+                let color = isCritical ? "#e74c3c" : (isWarning ? "#f39c12" : baseColor);
+                let statusTxt = isCritical ? "🔴 ACTION REQUISE" : (isWarning ? "🟠 SURVEILLANCE" : badge);
+                
+                let sellPrice = (def.price * 0.60) * (v.health / 100);
+                
+                let vehGains = v.gains || 0;
+                let vehLosses = v.losses || 0;
+                let vehROI = vehGains - vehLosses;
+                let roiColor = vehROI >= 0 ? '#27ae60' : '#e74c3c';
+                let roiSign = vehROI > 0 ? '+' : '';
 
                 fleetList.innerHTML += `
-                    <div class="vehicle-card" style="border-left: 5px solid ${colorBorder};">
-                        <div class="vehicle-name" style="display:flex; justify-content:space-between; align-items:center; padding: 2px 4px; border-bottom: 1px dashed var(--border-color); margin-bottom: 4px;">
-                            <span>${d.icon} ${d.name} ${badge}</span>
-                            <span style="font-size:0.9em; font-weight:bold; color: ${vehROI >= 0 ? '#27ae60' : '#e74c3c'}">${vehROI.toFixed(0)}€</span>
+                    <div style="background:var(--card-bg); border-left: 5px solid ${color}; border-radius:6px; padding: 10px 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); cursor: pointer; overflow:hidden;" onclick="this.querySelector('.details').style.display = this.querySelector('.details').style.display === 'none' ? 'block' : 'none'">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <span style="font-size:1.05em; font-weight:bold; color:var(--text-color);">${def.icon} ${def.name} <small style="color:#7f8c8d; font-size:0.8em; font-weight:normal;">#${v.uid.slice(-3)}</small></span>
+                            <span style="font-size:0.7em; font-weight:bold; color:white; background:${color}; padding:4px 8px; border-radius:4px;">${statusTxt}</span>
                         </div>
                         
-                        <div style="display:flex; gap: 5px; padding: 0 4px 4px 4px; font-size: 0.7em;">
-                            <div style="flex:1; background:#bdc3c7; border-radius:2px; height:4px; overflow:hidden;" title="Carburant"><div style="width:${(v.fuel/d.fuelTank)*100}%; background:#f1c40f; height:100%;"></div></div>
-                            <div style="flex:1; background:#bdc3c7; border-radius:2px; height:4px; overflow:hidden;" title="Santé Moteur"><div style="width:${v.health}%; background:#e74c3c; height:100%;"></div></div>
-                            <div style="flex:1; background:#bdc3c7; border-radius:2px; height:4px; overflow:hidden;" title="État des Pneus"><div style="width:${v.tires||100}%; background:#34495e; height:100%;"></div></div>
-                        </div>
+                        <div class="details" style="display:none; margin-top:12px; border-top:1px solid var(--border-color); padding-top:12px;">
+                            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; font-size:0.85em; margin-bottom: 12px; color:var(--text-color);">
+                                <div>⛽ <b>${v.fuel.toFixed(1)} / ${def.fuelTank} L</b></div>
+                                <div>🔧 État : <b>${Math.round(v.health)}%</b></div>
+                                <div>🛞 Pneus : <b>${Math.round(v.tires || 100)}%</b></div>
+                                <div>🛣️ Révis. : <b>${Math.max(0, Math.round(def.serviceInterval - v.kmsSinceService))} km</b></div>
+                            </div>
+                            
+                            <div style="margin-bottom: 12px; border-top: 1px dashed var(--border-color); padding-top: 8px;">
+                                <div style="display:flex; justify-content:space-between; font-size:0.85em;">
+                                    <span style="color:#7f8c8d;">📈 Bénéfices (Passifs + Fret)</span>
+                                    <span style="color:#27ae60; font-weight:bold;">+${vehGains.toLocaleString('fr-FR', {maximumFractionDigits:2})} €</span>
+                                </div>
+                                <div style="display:flex; justify-content:space-between; font-size:0.85em; margin-top:2px;">
+                                    <span style="color:#7f8c8d;">📉 Frais (Pompe, Garage...)</span>
+                                    <span style="color:#e74c3c; font-weight:bold;">-${vehLosses.toLocaleString('fr-FR', {maximumFractionDigits:2})} €</span>
+                                </div>
+                                <div style="display:flex; justify-content:space-between; font-size:0.95em; margin-top:5px; padding-top:5px; border-top: 1px solid rgba(0,0,0,0.05);">
+                                    <span style="color:var(--text-color); font-weight:bold;">💰 Bilan Net</span>
+                                    <span style="color:${roiColor}; font-weight:bold;">${roiSign}${vehROI.toLocaleString('fr-FR', {maximumFractionDigits:2})} €</span>
+                                </div>
+                            </div>
 
-                        <div class="vehicle-controls">
-                            <button class="btn-corr" onclick="window.tycoon.refuel('${v.uid}')" title="Plein ⛽">⛽</button>
-                            <button class="btn-corr" onclick="window.tycoon.repair('${v.uid}')" title="Réparer 🔧">🔧</button>
-                            <button class="btn-corr" onclick="window.tycoon.changeTires('${v.uid}')" title="Pneus 🛞">🛞</button>
-                            <button class="btn-corr" style="background:#e74c3c; color:white; border:none;" onclick="window.tycoon.sellVehicle('${v.uid}')" title="Vendre 🗑️">🗑️</button>
+                            <div style="display:flex; gap:6px;">
+                                <button style="flex:1; background:#27ae60; color:white; border:none; padding:8px; border-radius:4px; font-weight:bold; font-size:0.9em;" onclick="event.stopPropagation(); window.tycoon.refuel('${v.uid}')">⛽ Plein</button>
+                                <button style="flex:1; background:#3498db; color:white; border:none; padding:8px; border-radius:4px; font-weight:bold; font-size:0.9em;" onclick="event.stopPropagation(); window.tycoon.repair('${v.uid}')">🔧 Révis.</button>
+                                <button style="flex:1; background:#8e44ad; color:white; border:none; padding:8px; border-radius:4px; font-weight:bold; font-size:0.9em;" onclick="event.stopPropagation(); window.tycoon.changeTires('${v.uid}')">🛞 Pneus</button>
+                            </div>
+                            <button style="margin-top:6px; background:var(--danger-color); color:white; border:none; border-radius:4px; padding:8px; font-weight:bold; cursor:pointer; width:100%; font-size:0.9em;" onclick="event.stopPropagation(); window.tycoon.sellVehicle('${v.uid}')">Revendre (${sellPrice.toLocaleString('fr-FR', {maximumFractionDigits:0})} €)</button>
                         </div>
-                    </div>`;
+                    </div>
+                `;
             });
             
             Object.keys(this.catalog.fleet).forEach(k => {
@@ -623,19 +663,22 @@ export const tycoon = {
                 let maxSlots = (this.state.buildings[bId] || 0) * this.catalog.buildings[bId].slots;
                 let currentUsed = this.state.fleet.filter(v => v.type === k).length;
                 
-                if (currentUsed < maxSlots) {
-                    let canBuy = window.app && window.app.bankBalance >= item.price;
-                    fleetList.innerHTML += `
-                        <div class="vehicle-card" style="opacity:0.7">
-                            <div class="vehicle-name" style="display:flex; justify-content:space-between; align-items:center; padding: 2px 4px; border-bottom: 1px dashed var(--border-color); margin-bottom: 4px;">
-                                <span>${item.icon} Acheter ${item.name}</span>
-                                <span style="font-size:0.9em; font-weight:bold;">${item.price.toLocaleString('fr-FR')}€</span>
-                            </div>
-                            <div class="vehicle-controls">
-                                <button class="btn-add btn-add-fr" ${!canBuy ? 'disabled' : ''} onclick="window.tycoon.buyVehicle('${k}')" style="width:100%; border-radius: 4px; font-size: 0.9em;">Commander</button>
-                            </div>
-                        </div>`;
-                }
+                let isFull = currentUsed >= maxSlots;
+                let canBuy = window.app.bankBalance >= item.price && !isFull;
+                let btnTxt = isFull ? (maxSlots > 0 ? "Parking plein" : "Requis") : "Acheter";
+
+                fleetList.innerHTML += `
+                    <div style="background:var(--card-bg); border-radius:6px; padding: 10px 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display:flex; justify-content:space-between; align-items:center; opacity: 0.85;">
+                        <div style="display:flex; flex-direction:column; gap:2px;">
+                            <span style="font-size:1em; color:var(--text-color);">${item.icon} <b>${item.name}</b></span>
+                            <span style="font-size:0.75em; color:#7f8c8d;">Places : ${currentUsed}/${maxSlots} | Potentiel : +${item.income.toFixed(2)}€</span>
+                        </div>
+                        <div style="display:flex; flex-direction:column; align-items:flex-end;">
+                            <span style="font-size:0.85em; font-weight:bold; color:var(--text-color); margin-bottom:4px;">${item.price.toLocaleString('fr-FR')} €</span>
+                            <button style="background:var(--primary-color); color:white; border:none; padding:4px 10px; border-radius:4px; font-weight:bold; font-size:0.8em;" ${!canBuy ? 'disabled style="background:#bdc3c7;"' : ''} onclick="window.tycoon.buyVehicle('${k}')">${btnTxt}</button>
+                        </div>
+                    </div>
+                `;
             });
         }
     }
