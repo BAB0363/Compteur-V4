@@ -1747,12 +1747,16 @@ if (!isTruck && window.tycoon) {
                     }
                 } // fin if (!isTruck)
 
-                            if (key1 === "Camions") {
-                    if (amount > 0 && window.tycoon) {
-                        let randomTons = Math.floor(Math.random() * (25 - 5 + 1)) + 5;
-                        this.sessionFreightToAdd = (this.sessionFreightToAdd || 0) + randomTons;
-                        if (window.ui) window.ui.showToast(`📦 +${randomTons}t en attente d'arrivée à l'entrepôt !`);
+                                       if (key1 === "Camions") {
+                    // La Loterie du Fret (Uniquement en mode Véhicules !)
+                    if (amount > 0 && window.tycoon && !isTruck) {
+                        if (Math.random() <= 0.15) {
+                            let randomTons = Math.floor(Math.random() * (25 - 5 + 1)) + 5;
+                            this.sessionFreightToAdd = (this.sessionFreightToAdd || 0) + randomTons;
+                            if (window.ui) window.ui.showToast(`📦 Jackpot fret ! +${randomTons}t en attente d'arrivée !`);
+                        }
                     }
+
                     if (!this._convoiTimes) this._convoiTimes = [];
 
                     this._convoiTimes.push(nowTs);
@@ -2008,9 +2012,10 @@ if (!isTruck && window.tycoon) {
               if (isTruck) {
             this.brands.forEach(b => { this.truckCounters[b] = { fr: 0, etr: 0 }; }); 
             this.truckHistory = []; this.truckSeconds = 0; this.truckAccumulatedTime = 0; this.liveTruckDistance = 0;
-            this.sessionTruckPredictions = { total: 0, success: 0 };
-            this.sessionFreightToAdd = 0; // NOUVEAU : On vide le panier si on annule
+                        this.sessionTruckPredictions = { total: 0, success: 0 };
         } else {
+            this.sessionFreightToAdd = 0; // Vider le panier si annulation en mode Véhicule
+
 
             this.vehicleTypes.forEach(v => this.vehicleCounters[v] = 0); 
             this.carHistory = []; this.carSeconds = 0; this.carAccumulatedTime = 0; this.liveCarDistance = 0;
@@ -2070,8 +2075,8 @@ if (window.tycoon) window.tycoon.cashOut();
                 this.sessionFinance.carbon = this.checkCarbonFootprint(); 
             }
             
-            // NOUVEAU : Déchargement du panier de fret !
-            if (isTruck && window.tycoon && this.sessionFreightToAdd > 0) {
+                        // NOUVEAU : Déchargement du panier de fret ! (Uniquement en mode Véhicules)
+            if (!isTruck && window.tycoon && this.sessionFreightToAdd > 0) {
                 window.tycoon.state.storedFreight += this.sessionFreightToAdd;
                 let maxCap = window.tycoon.getWarehouseCapacity();
                 if (window.tycoon.state.storedFreight > maxCap) window.tycoon.state.storedFreight = maxCap;
@@ -2079,6 +2084,7 @@ if (window.tycoon) window.tycoon.cashOut();
                 if(window.ui) window.ui.showToast(`🏗️ Déchargement réussi : +${this.sessionFreightToAdd}t en stock !`);
                 this.sessionFreightToAdd = 0;
             }
+
 
             if(window.ui) window.ui.showToast("⏳ Géocodage des adresses en cours...");
             await this.saveSession(type); 

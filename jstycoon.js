@@ -78,7 +78,6 @@ export const tycoon = {
         localStorage.setItem(`tycoon_state_${user}`, JSON.stringify(this.state));
     },
 
-    // 🧠 LOGIQUE SMART DISPATCH INTÉGRÉE
     getFleetStatus() {
         let availableFleet = this.state.fleet.filter(v => v.health > 20 && v.fuel > 0);
         availableFleet.sort((a, b) => this.catalog.fleet[b.type].capacity - this.catalog.fleet[a.type].capacity);
@@ -368,7 +367,8 @@ export const tycoon = {
     tickDistance(km) {
         if (!this.state.fleet || this.state.fleet.length === 0) return;
         
-        if (window.app && !window.app.isCarRunning && !window.app.isTruckRunning) return;
+        // 🚨 MODIFICATION : Le Tycoon ne prend l'usure GPS que si le mode Véhicules est actif !
+        if (window.app && !window.app.isCarRunning) return;
 
         let needsSave = false;
 
@@ -379,6 +379,9 @@ export const tycoon = {
         this.state.fleet.forEach(veh => {
             let def = this.catalog.fleet[veh.type];
             if (!def) return;
+
+            // 1. On mémorise l'état AVANT l'usure
+            let wasWarning = veh.fuel <= (def.fuelTank * 0.3) || veh.health <= 60 || veh.kmsSinceService >= (def.serviceInterval * 0.8);
 
             veh.kms = (veh.kms || 0) + km;
             veh.kmsSinceService = (veh.kmsSinceService || 0) + km;
@@ -403,6 +406,13 @@ export const tycoon = {
                     if(window.ui) window.ui.showToast(`💥 Crevaison de ton ${def.name} ! Dépannage : -1000€`, "anomaly");
                 }
             }
+
+            // 2. On vérifie l'état APRÈS l'usure pour afficher l'alerte préventive 🟠
+            let isWarning = veh.fuel <= (def.fuelTank * 0.3) || veh.health <= 60 || veh.kmsSinceService >= (def.serviceInterval * 0.8);
+            if (!wasWarning && isWarning && window.ui) {
+                window.ui.showToast(`🟠 Alerte flotte : Ton ${def.name} passe en zone orange !`, "anomaly");
+            }
+
             needsSave = true;
         });
         if (needsSave) this.saveState();
@@ -446,6 +456,9 @@ export const tycoon = {
                 let def = this.catalog.fleet[veh.type];
                 if (!def) return;
 
+                // 1. Mémorisation de l'état AVANT conso temporelle
+                let wasWarning = veh.fuel <= (def.fuelTank * 0.3) || veh.health <= 60 || veh.kmsSinceService >= (def.serviceInterval * 0.8);
+
                 if (veh.fuel > 0) {
                     veh.fuel = Math.max(0, veh.fuel - 0.03); 
                     needsRender = true;
@@ -465,7 +478,14 @@ export const tycoon = {
                         needsRender = true;
                     }
                 }
+
+                // 2. Vérification de l'état APRÈS conso temporelle
+                let isWarning = veh.fuel <= (def.fuelTank * 0.3) || veh.health <= 60 || veh.kmsSinceService >= (def.serviceInterval * 0.8);
+                if (!wasWarning && isWarning && window.ui) {
+                    window.ui.showToast(`🟠 Alerte flotte : Ton ${def.name} passe en zone orange !`, "anomaly");
+                }
             });
+            
             if (needsRender && window.ui && window.ui.activeTab === 'company') {
                 this.renderUI();
             }
@@ -556,7 +576,6 @@ export const tycoon = {
         
         if(elPending) elPending.innerText = this.state.pendingIncome.toFixed(2) + ' €';
 
-        // 🎨 NOUVEAU VISUEL DES BÂTIMENTS (Mode compact en ligne)
         let buildList = document.getElementById('company-buildings-list');
         if(buildList) {
             buildList.innerHTML = '';
@@ -598,7 +617,6 @@ export const tycoon = {
             this.state.fleet.forEach(v => {
                 let def = this.catalog.fleet[v.type];
                 
-                // LOGIQUE VISUELLE SMART DISPATCH 📦/☕
                 let isDelivering = status.deliveringVehicles.some(dv => dv.uid === v.uid);
                 let badge = isDelivering ? '📦 LIVRAISON' : '☕ PASSIF';
                 let baseColor = isDelivering ? '#27ae60' : '#3498db';
