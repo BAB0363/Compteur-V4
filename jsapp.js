@@ -1435,28 +1435,43 @@ if (elapsed > 0 && elapsed % 900 === 0 && this.bankBalance < -500) {
 
                     this.updateCarbonGauge();
                     
+                                        // --- NOUVEAU SMART DISPATCH ---
                     if (window.tycoon && window.tycoon.state.storedFreight > 0) {
-                        let power = window.tycoon.getDeliveryPower();
                         let currentDist = this.liveCarDistance;
                         if (!this._lastDistDelivered) this._lastDistDelivered = currentDist;
                         
                         let traveled = currentDist - this._lastDistDelivered;
                         if (traveled >= 0.1) {
-                            let tonsToDeliver = power * traveled;
-                            if (tonsToDeliver > window.tycoon.state.storedFreight) tonsToDeliver = window.tycoon.state.storedFreight;
+                            let status = window.tycoon.getFleetStatus();
+                            let totalDelivered = 0;
                             let price = window.tycoon.getDynamicPrice();
-                            let profit = tonsToDeliver * price;
-                            
-                                                      if (profit > 0) {
-                                this.addBankTransaction(parseFloat(profit.toFixed(2)), `Livraison (${tonsToDeliver.toFixed(1)}t)`);
-                                window.tycoon.state.storedFreight -= tonsToDeliver;
-                                if (window.tycoon.recordChampionProfit) window.tycoon.recordChampionProfit(profit); // NOUVEAU : Envoi au Champion
+
+                            status.deliveringVehicles.forEach(veh => {
+                                let cap = window.tycoon.catalog.fleet[veh.type].capacity;
+                                let power = cap / 10; 
+                                let tons = power * traveled;
+                                
+                                let stockRestant = window.tycoon.state.storedFreight - totalDelivered;
+                                if (tons > stockRestant) tons = stockRestant;
+                                
+                                if (tons > 0) {
+                                    totalDelivered += tons;
+                                    veh.gains = (veh.gains || 0) + (tons * price);
+                                }
+                            });
+
+                            if (totalDelivered > 0) {
+                                let profit = parseFloat((totalDelivered * price).toFixed(2));
+                                this.addBankTransaction(profit, `Livraison Flotte (${totalDelivered.toFixed(1)}t)`);
+                                window.tycoon.state.storedFreight -= totalDelivered;
                                 window.tycoon.saveState();
                             }
 
                             this._lastDistDelivered = currentDist;
                         }
                     }
+                    // --- FIN DU SMART DISPATCH ---
+
                 }
 // Les revenus passifs et l'usure de l'entreprise ne tournent que si le chrono Véhicules est actif
 if (!isTruck && window.tycoon) {
