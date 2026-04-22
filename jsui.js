@@ -5,6 +5,19 @@ export const ui = {
     audioCtx: null,
     lottieInstance: null,
 
+    toggleFullscreen() {
+        if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen().catch(err => {
+                console.warn(`Erreur plein écran: ${err.message}`);
+            });
+            document.getElementById('btn-fullscreen').innerText = "📱 Sortir";
+        } else {
+            document.exitFullscreen();
+            document.getElementById('btn-fullscreen').innerText = "📺 Écran";
+        }
+    },
+
+
     // 🧠 Moniteur de Gégé
     toggleGegeBrain() {
         let panel = document.getElementById('gege-brain-panel');

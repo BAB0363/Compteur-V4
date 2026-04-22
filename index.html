@@ -45,16 +45,19 @@
 
     <div class="top-bar-controls no-print">
         <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-            <div id="current-profile-display" class="profile-badge">
+                        <div id="current-profile-display" class="profile-badge">
                 👤 <span id="display-user">Sylvain</span> <span class="badge-separator">|</span> <span id="display-mode">🚗 Voiture</span>
+                <span class="badge-separator">|</span> <span id="display-clock" style="font-family: monospace; font-weight: bold; color: #f1c40f;">00:00</span>
             </div>
+
             <div id="bank-badge" class="profile-badge bank-positive" style="display: none; cursor: pointer;" onclick="window.app.openBankModal()" title="Ouvrir la Bourse de l'Asphalte">
                 🏦 <span id="display-bank">0 €</span>
             </div>
         </div>
-        <div class="top-bar-btns">
+              <div class="top-bar-btns">
             <button id="btn-open-gami" class="btn-gami-header" onclick="window.gami.updateUI(); document.getElementById('gami-overlay').style.display = 'flex';">🎁 Missions</button>
-            <button id="btn-theme" onclick="window.ui.toggleDarkMode()">🌙 Nuit</button>
+            <button id="btn-fullscreen" onclick="window.ui.toggleFullscreen()">📺 Écran</button>
+
             <button id="btn-undo" onclick="window.app.undoLast()">↩️ Annuler</button>
         </div>
     </div>
@@ -187,6 +190,13 @@
                 <div class="pred-gauge-bg" style="margin-bottom: 4px; height: 8px;"><div id="carbon-gauge-fill" class="pred-gauge-fill" style="width: 0%;"></div></div>
                 <div id="carbon-gauge-text" style="font-size: 0.8em; color: #7f8c8d; font-weight: bold;">0 g / 0 g autorisés</div>
             </div>
+
+            <div id="pricing-info-box" class="prediction-box" style="margin-top: 8px; padding: 10px; border-color: #3498db; min-height: auto;">
+                <div style="font-size: 0.85em; font-weight: bold; margin-bottom: 5px;">📊 Grille des Tarifs Actuels</div>
+                <div id="pricing-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px; font-size: 0.75em;">
+                    </div>
+            </div>
+
 
         </div>
         

@@ -1394,11 +1394,10 @@ if (!isTruck && window.tycoon) {
                     baseVal = marketData.netValue;
                     if (isExact) transactionName += ` (x${gegeMultiplier} IA)`;
 
-                    // Gégé affiche les notifications envoyées par le Marché
+                                        // Gégé affiche les notifications envoyées par le Marché
                     marketData.events.forEach(ev => {
-                        if (ev === 'aube') {
-                            if(window.ui) window.ui.showToast(`🌅 Prime de l'Aube ! Gains doublés !`, 'success');
-                        } else if (ev === 'alt') {
+                        if (ev === 'alt') {
+
                             if(window.ui) window.ui.showToast(`⛰️ Bonus d'Altitude (+10%) !`);
                         } else if (ev === 'congestion_frais') {
                             if (!this._congestNotified || this._congestNotified[key1] !== 'frais') {
@@ -3140,7 +3139,47 @@ if (window.tycoon) window.tycoon.cashOut();
             this.currentPredictionCar = null;
         }
     }
+    //... autres fonctions
+    
+    updatePricingUI() {
+        const grid = document.getElementById('pricing-grid');
+        if (!grid) return;
+        
+        const hour = new Date().getHours();
+        let status = "";
+        
+        if (hour >= 5 && hour < 7) status = "🌅 Aube : Gains x2";
+        else if ((hour >= 7 && hour < 9) || (hour >= 17 && hour < 19)) status = "🚗 Pointe : PL x2 | VL /2";
+        else if (hour >= 21 || hour < 5) status = "🌙 Nuit : PL x5 | VL /2";
+        else status = "☀️ Journée : Tarifs Standards";
+
+        grid.innerHTML = `
+            <div style="grid-column: 1 / -1; color: #f1c40f; font-weight: bold; text-align: center; border-bottom: 1px solid var(--border-color); padding-bottom: 3px; margin-bottom: 3px;">${status}</div>
+            <div style="color: #7f8c8d;">05h - 07h</div> <div style="text-align: right;">Prime Aube x2</div>
+            <div style="color: #7f8c8d;">07h-09h / 17h-19h</div> <div style="text-align: right;">Heure de Pointe</div>
+            <div style="color: #7f8c8d;">21h - 05h</div> <div style="text-align: right;">Tarif de Nuit</div>
+        `;
+    },
+    
+    initClockAndPricing() {
+        if (this.clockInterval) clearInterval(this.clockInterval);
+        this.updatePricingUI(); // Premier appel immédiat
+        
+        this.clockInterval = setInterval(() => {
+            const now = new Date();
+            const clockEl = document.getElementById('display-clock');
+            if (clockEl) {
+                clockEl.innerText = now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+            }
+            // Mise à jour de la grille des prix si on change d'heure (on check au changement de minute)
+            if (now.getSeconds() === 0) {
+                this.updatePricingUI();
+            }
+        }, 1000);
+    }
+
 }; // <-- C'EST LUI LE SAUVEUR ! Il ferme l'objet app.
+
 
 window.app = app;
 
@@ -3152,7 +3191,10 @@ const startApp = async () => {
     if(window.gami) window.gami.init(); 
     if(window.market) window.market.init();
     if(window.tycoon) window.tycoon.init();
+    
+    app.initClockAndPricing(); // ⏱️ Lancement de l'horloge et de la grille !
 };
+
 
 
 
