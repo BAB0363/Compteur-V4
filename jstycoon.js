@@ -382,8 +382,12 @@ export const tycoon = {
         this.renderUI();
     },
 
-    tickDistance(km) {
+        tickDistance(km) {
         if (!this.state.fleet || this.state.fleet.length === 0) return;
+        
+        // 🛑 CORRECTIF GÉGÉ : On bloque l'usure et le carburant si le chrono est en pause !
+        if (window.app && !window.app.isCarRunning && !window.app.isTruckRunning) return;
+
         let needsSave = false;
 
         let cap = this.getWarehouseCapacity();
@@ -421,6 +425,7 @@ export const tycoon = {
         });
         if (needsSave) this.saveState();
     },
+
 
     tickSecond(secondsElapsed) {
         let stats = this.getStats();
