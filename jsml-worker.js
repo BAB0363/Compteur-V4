@@ -1,4 +1,4 @@
-// jsml-worker.js - Gégé 2.0 : Réseau de neurones spatial
+// jsml-worker.js - Gégé 2.0 : Réseau de neurones spatial (Version MUSCLÉE)
 importScripts('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0/dist/tf.min.js');
 
 self.onmessage = async function(e) {
@@ -9,9 +9,11 @@ self.onmessage = async function(e) {
         const xs = tf.tensor2d(features);
         const ys = tf.oneHot(tf.tensor1d(labels, 'int32'), numClasses);
 
-                const model = tf.sequential();
-        // Couche d'entrée avec 30 neurones (plus léger, plus rapide)
-        model.add(tf.layers.dense({ units: 30, activation: 'relu', inputShape: [11] }));
+        const model = tf.sequential();
+        
+        // 🧠 NOUVEAU CERVEAU : 64 neurones en entrée + 32 neurones de réflexion profonde
+        model.add(tf.layers.dense({ units: 64, activation: 'relu', inputShape: [11] }));
+        model.add(tf.layers.dense({ units: 32, activation: 'relu' }));
         model.add(tf.layers.dense({ units: numClasses, activation: 'softmax' }));
 
         model.compile({ optimizer: 'adam', loss: 'categoricalCrossentropy' });
