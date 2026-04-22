@@ -325,12 +325,14 @@ const app = {
         this.saveUserData(); 
         this.updateBankUI(); 
         
-             if(window.ui && window.ui.activeTab === 'company') {
+                         if(window.ui && window.ui.activeTab === 'company') {
             if(window.tycoon) window.tycoon.renderUI();
         }
+    }, // <--- VOILÀ LA FAMEUSE ACCOLADE MANQUANTE ! 🩹
 
 
     updateBankUI() {
+
         let badge = document.getElementById('bank-badge');
         let display = document.getElementById('display-bank');
         let banner = document.getElementById('huissier-banner');
