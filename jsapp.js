@@ -24,15 +24,11 @@ const app = {
         "Vélos": { wMin: 10, wMax: 28, cMin: 0, cMax: 0 }
     },
 
-      // ==========================================
+         // ==========================================
     // 🏢 VARIABLES DE L'ENTREPRISE (TYCOON)
+    // -> Gérées désormais à 100% dans jstycoon.js
     // ==========================================
-    
-    companyState: {
-        buildings: { parking: 0, terrain: 0, depot: 0, hub: 0 },
-        fleet: { scooter: 0, vul: 0, porteur: 0, tracteur: 0, frigo: 0, convoi: 0 },
-        pendingIncome: 0
-    },
+
 
 
     // ==========================================
@@ -49,9 +45,9 @@ const app = {
     lastCountTime: 0,
     regularityChain: 0,
 
-        sessionPaveWeight: 0,
+                sessionPaveWeight: 0,
     consecutiveLightVehicles: 0,
-    sessionFreightToAdd: 0, // NOUVEAU : Panier virtuel pour les marchandises
+
 
 
     maintenance: {
@@ -136,22 +132,29 @@ const app = {
             await window.app.saveUserData();
         },
 
-        async cleanupCompany(start, end) {
-            if (!window.app.compan7jyState.purchaseHistory) return;
+                async cleanupCompany(start, end) {
+            if (!window.tycoon || !window.tycoon.state.purchaseHistory) return;
             
             let keptHistory = [];
-            window.app.companyState.purchaseHistory.forEach(purchase => {
-                if (purchase.timestamp >= start && purchase.timestamp <= end) {
-                    if (window.app.companyState[purchase.category] && window.app.companyState[purchase.category][purchase.id] > 0) {
-                        window.app.companyState[purchase.category][purchase.id]--;
+            window.tycoon.state.purchaseHistory.forEach(purchase => {
+                if (purchase.time >= start && purchase.time <= end) {
+                    if (purchase.type === 'building' && window.tycoon.state.buildings[purchase.id] > 0) {
+                        window.tycoon.state.buildings[purchase.id]--;
+                    } else if (purchase.type === 'fleet') {
+                        let idx = window.tycoon.state.fleet.slice().reverse().findIndex(v => v.type === purchase.id);
+                        if (idx !== -1) {
+                            let realIdx = window.tycoon.state.fleet.length - 1 - idx;
+                            window.tycoon.state.fleet.splice(realIdx, 1);
+                        }
                     }
                 } else {
                     keptHistory.push(purchase);
                 }
             });
-            window.app.companyState.purchaseHistory = keptHistory;
-            await window.app.saveUserData();
+            window.tycoon.state.purchaseHistory = keptHistory;
+            window.tycoon.saveState();
         },
+
 
         async rebuildGlobalRegistry() {
             const types = ['trucks', 'cars'];
@@ -221,34 +224,22 @@ const app = {
         }
     },
 
-    async initBank() {
+        async initBank() {
         let userData = null;
         if (this.idb && this.idb.db) {
             userData = await this.idb.getUserData(this.currentUser);
         }
         
-               let needsMigration = false;
-        let defaultCompany = { buildings: { terrain: 0, depot: 0, hub: 0 }, fleet: { vul: 0, porteur: 0, tracteur: 0, frigo: 0, convoi: 0 }, pendingIncome: 0, purchaseHistory: [] };
+        let needsMigration = false;
 
         if (userData) {
             this.bankBalance = userData.bankBalance || 0;
             this.bankHistory = userData.bankHistory || [];
             this.bankStats = userData.bankStats || { gains: 0, losses: 0 };
             
-            this.companyState = JSON.parse(JSON.stringify(defaultCompany));
-                    if (userData.companyState) {
-                if (userData.companyState.buildings) this.companyState.buildings = { ...defaultCompany.buildings, ...userData.companyState.buildings };
-                if (userData.companyState.fleet) this.companyState.fleet = { ...defaultCompany.fleet, ...userData.companyState.fleet };
-                this.companyState.pendingIncome = userData.companyState.pendingIncome || 0;
-                this.companyState.purchaseHistory = userData.companyState.purchaseHistory || [];
-            }
-
-            
             if (window.gami && userData.gamiState) {
                 window.gami.state = userData.gamiState;
             }
-        } else {
-            this.companyState = JSON.parse(JSON.stringify(defaultCompany));
         }
 
         let savedBank = localStorage.getItem('bankState_' + this.currentUser);
@@ -256,16 +247,6 @@ const app = {
             this.bankBalance = parseFloat(savedBank);
             this.bankHistory = JSON.parse(localStorage.getItem('bankHistory_' + this.currentUser) || "[]");
             this.bankStats = JSON.parse(localStorage.getItem('bankStats_' + this.currentUser) || '{"gains":0,"losses":0}');
-            
-                   let savedComp = localStorage.getItem('companyState_' + this.currentUser);
-            if (savedComp) {
-                let parsed = JSON.parse(savedComp);
-                if (parsed.buildings) this.companyState.buildings = { ...defaultCompany.buildings, ...parsed.buildings };
-                if (parsed.fleet) this.companyState.fleet = { ...defaultCompany.fleet, ...parsed.fleet };
-                this.companyState.pendingIncome = parsed.pendingIncome || 0;
-                this.companyState.purchaseHistory = parsed.purchaseHistory || [];
-            }
-
             
             let savedGami = localStorage.getItem('gami_state_' + this.currentUser);
             if (savedGami && window.gami) window.gami.state = JSON.parse(savedGami);
@@ -278,13 +259,12 @@ const app = {
             localStorage.removeItem('bankState_' + this.currentUser);
             localStorage.removeItem('bankHistory_' + this.currentUser);
             localStorage.removeItem('bankStats_' + this.currentUser);
-            localStorage.removeItem('companyState_' + this.currentUser);
             localStorage.removeItem('gami_state_' + this.currentUser);
+            localStorage.removeItem('companyState_' + this.currentUser); 
         }
 
-        this.companyState.pendingIncome = 0; 
         this.updateBankUI();
-        this.renderCompanyUI();
+        if (window.tycoon) window.tycoon.renderUI();
     },
 
     async saveUserData() {
@@ -292,7 +272,6 @@ const app = {
             bankBalance: this.bankBalance,
             bankHistory: this.bankHistory,
             bankStats: this.bankStats,
-            companyState: this.companyState,
             gamiState: window.gami ? window.gami.state : null
         };
         if (this.idb && this.idb.db) {
@@ -300,216 +279,27 @@ const app = {
         }
     },
 
-            getCompanyStats() {
-        if (!window.tycoon) return { maxSlots: 0, usedSlots: 0, incomePerMin: 0 };
-        
-        // 🎯 On pointe explicitement vers jstycoon ici
-        const catalog = window.tycoon.catalog; 
-        const state = window.tycoon.state;
-
-        let maxSlots = 0;
-        Object.keys(state.buildings).forEach(k => {
-            if (catalog.buildings[k]) {
-                maxSlots += (state.buildings[k] || 0) * catalog.buildings[k].slots;
-            }
-        });
-        
-        let usedSlots = state.fleet.length;
-        let incomePerMin = 0;
-        let champion = window.tycoon.getActiveChampion();
-
-        state.fleet.forEach(veh => {
-            let def = catalog.fleet[veh.type];
-            if (champion && veh.uid === champion.uid && window.tycoon.championLockedInDelivery) return; 
-            if (def && veh.fuel > 0 && veh.health > 0) {
-                incomePerMin += def.income;
-            }
-        });
-
-        // Applique ton modificateur de carbone sur les revenus passifs si besoin
-        if (state.carbonModifier > 1) {
-            incomePerMin = incomePerMin * state.carbonModifier;
-        }
-
-        return { maxSlots, usedSlots, incomePerMin };
-    },
-
-
-
-    buyCompanyItem(category, id) {
-        let item = this.companyCatalog[category][id];
-        if (!item) return;
-        
-        if (this.bankBalance < item.price) {
-            if(window.ui) window.ui.showToast("❌ Fonds insuffisants pour cet investissement !");
-            return;
-        }
-        
-        if (category === 'fleet') {
-            let stats = this.getCompanyStats();
-            if (stats.usedSlots >= stats.maxSlots) {
-                if(window.ui) window.ui.showToast("🅿️ Plus de place de parking ! Achète des infrastructures d'abord.");
-                return;
-            }
-        }
-
-             if(confirm(`Investir ${item.price.toLocaleString('fr-FR')} € dans : ${item.name} ?`)) {
-            this.addBankTransaction(-item.price, `Achat Actif : ${item.name}`);
-            if(window.gami) window.gami.updateProgress('tycoon_buy', 1); // 🎯 QUÊTE TYCOON
-            
-            if (!this.companyState.purchaseHistory) this.companyState.purchaseHistory = [];
-            this.companyState.purchaseHistory.push({ category: category, id: id, timestamp: Date.now(), price: item.price });
-
-            this.companyState[category][id] = (this.companyState[category][id] || 0) + 1;
-            this.saveUserData();
-            this.renderCompanyUI();
-
-            
-            if(window.ui) {
-                window.ui.playGamiSound('cash');
-                window.ui.showToast(`🏢 Achat réussi : ${item.name} !`);
-            }
-        }
-    },
-
-    async renderCompanyUI() {
-        let stats = this.getCompanyStats();
-        
-        let elSlotsUsed = document.getElementById('company-slots-used');
-        let elSlotsMax = document.getElementById('company-slots-max');
-        let elRate = document.getElementById('company-rate-display');
-        let elPending = document.getElementById('company-pending-income');
-
-        if(elSlotsUsed) elSlotsUsed.innerText = stats.usedSlots;
-        if(elSlotsMax) elSlotsMax.innerText = stats.maxSlots === 0 ? "0" : (stats.maxSlots >= 999 ? "∞" : stats.maxSlots);
-        if(elRate) elRate.innerText = `Rythme actuel : + ${stats.incomePerMin.toFixed(2)} € / min`;
-        if(elPending) elPending.innerText = this.companyState.pendingIncome.toFixed(2) + ' €';
-
-        let buildList = document.getElementById('company-buildings-list');
-        if(buildList) {
-            buildList.innerHTML = '';
-            Object.keys(window.tycoon.catalog.buildings).forEach(k => {
-                let item = window.tycoon.catalog.buildings[k];
-                let count = this.companyState.buildings[k] || 0;
-                let canBuy = this.bankBalance >= item.price;
-                
-                buildList.innerHTML += `
-                    <div class="tycoon-card ${count > 0 ? 'owned' : ''}">
-                        ${count > 0 ? `<div class="tycoon-owned-badge">${count}x</div>` : ''}
-                        <div class="tycoon-title">${item.icon} ${item.name}</div>
-                        <div class="tycoon-revenue">Places : +${item.slots >= 999 ? 'Illimitées' : item.slots}</div>
-                        <div class="tycoon-price">${item.price.toLocaleString('fr-FR')} €</div>
-                        <button class="btn-buy" ${!canBuy ? 'disabled' : ''} onclick="window.app.buyCompanyItem('buildings', '${k}')">Acheter</button>
-                    </div>
-                `;
-            });
-        }
-
-        let fleetList = document.getElementById('company-fleet-list');
-        if(fleetList) {
-            fleetList.innerHTML = '';
-            Object.keys(window.tycoon.catalog.fleet).forEach(k => {
-                let item = window.tycoon.catalog.fleet[k];
-                let count = this.companyState.fleet[k] || 0;
-                let canBuy = this.bankBalance >= item.price && stats.usedSlots < stats.maxSlots;
-                let btnTxt = stats.usedSlots >= stats.maxSlots && stats.maxSlots > 0 ? "Parking plein" : "Acheter";
-
-                fleetList.innerHTML += `
-                    <div class="tycoon-card ${count > 0 ? 'owned' : ''}">
-                        ${count > 0 ? `<div class="tycoon-owned-badge">${count}x</div>` : ''}
-                        <div class="tycoon-title">${item.icon} ${item.name}</div>
-                        <div class="tycoon-revenue">Revenu net : +${item.income.toFixed(2)} €/min</div>
-                        <div class="tycoon-price">${item.price.toLocaleString('fr-FR')} €</div>
-                        <button class="btn-buy" ${!canBuy ? 'disabled' : ''} onclick="window.app.buyCompanyItem('fleet', '${k}')">${btnTxt}</button>
-                    </div>
-                `;
-            });
-        }
-
-        let histContainer = document.getElementById('company-financial-history');
-        if (histContainer && this.idb && this.idb.db) {
-            let carSessions = await this.idb.getAll('cars');
-            carSessions.sort((a,b) => b.id - a.id);
-            
-            let html = '';
-            let financialSessions = carSessions.filter(s => s.sessionFinance && (s.sessionFinance.gains > 0 || s.sessionFinance.losses > 0 || s.sessionFinance.carbon !== 0));
-
-            if(financialSessions.length === 0) {
-                html = '<span style="color:#7f8c8d; font-size:0.9em; padding: 10px; display: block; text-align: center;">Aucun ticket de caisse généré. Fais un trajet ! 🚗💨</span>';
-            } else {
-                financialSessions.slice(0, 15).forEach(s => {
-                    let sf = s.sessionFinance || { gains: 0, losses: 0, carbon: 0 };
-                    let gains = sf.gains || 0;
-                    let losses = sf.losses || 0;
-                    let carb = sf.carbon || 0;
-                    let bal = gains - losses + carb; 
-                    
-                    let color = bal >= 0 ? '#27ae60' : '#e74c3c';
-                    let sign = bal > 0 ? '+' : '';
-                    
-                    let htmlDetailVehicules = '';
-                    if (s.summary) {
-                        Object.keys(s.summary).forEach(type => {
-                            let count = s.summary[type];
-                            if (count > 0) {
-                                let icon = type === "Voitures" ? "🚗" : type === "Utilitaires" ? "🚐" : type === "Camions" ? "🚛" : type === "Engins agricoles" ? "🚜" : type === "Bus/Car" ? "🚌" : type === "Camping-cars" ? "🏕️" : type === "Motos" ? "🏍️" : type === "Vélos" ? "🚲" : "🚘";
-                                htmlDetailVehicules += `<div style="display:flex; justify-content: space-between; font-size:0.8em; margin-bottom:2px; color: var(--text-color);">
-                                    <span>${icon} ${type === "Camions" ? "Poids Lourds" : type} (x${count})</span>
-                                </div>`;
-                            }
-                        });
-                    }
-
-                    html += `
-                    <div class="tycoon-card clickable" style="cursor:pointer; padding: 12px; border-left: 4px solid ${color}; margin-bottom:10px;" onclick="window.app.showSessionDetails('cars', '${s.id}')">
-                        <div style="display:flex; justify-content: space-between; border-bottom: 1px dashed var(--border-color); padding-bottom: 5px; margin-bottom: 8px;">
-                            <strong style="font-size:0.9em;">🧾 SESSION ${s.date.split(' ')[0]}</strong>
-                            <strong style="color:${color};">${sign}${bal} €</strong>
-                        </div>
-                        
-                        <div style="margin-bottom: 8px;">
-                            <strong style="font-size:0.75em; color:#7f8c8d; display:block; margin-bottom:4px; text-transform:uppercase;">Détail du comptage :</strong>
-                            ${htmlDetailVehicules}
-                        </div>
-
-                        <div style="border-top: 1px solid rgba(0,0,0,0.05); padding-top: 5px; font-size:0.8em;">
-                            <div style="display:flex; justify-content: space-between; margin-bottom:2px;">
-                                <span style="color:#7f8c8d;">📈 Gains & Bonus</span>
-                                <span style="color:#27ae60; font-weight:bold;">+${gains}€</span>
-                            </div>
-                            <div style="display:flex; justify-content: space-between; margin-bottom:2px;">
-                                <span style="color:#7f8c8d;">💸 Péages & Amendes</span>
-                                <span style="color:#e74c3c; font-weight:bold;">-${losses}€</span>
-                            </div>
-                            <div style="display:flex; justify-content: space-between;">
-                                <span style="color:#7f8c8d;">🌿 Bilan Carbone</span>
-                                <span style="color:${carb >= 0 ? '#27ae60' : '#e74c3c'}; font-weight:bold;">${carb > 0 ? '+' : ''}${carb}€</span>
-                            </div>
-                        </div>
-                    </div>`;
-                });
-            }
-            histContainer.innerHTML = html;
-        }
-    }, 
-
     async resetBankData() {
         if (confirm(`🚨 ATTENTION SYLVAIN ! Tu vas vider ton compte en banque, ton historique financier ET revendre toute ton entreprise pour zéro euro ! Es-tu sûr de vouloir déclarer faillite ?`)) {
             this.bankBalance = 0;
             this.bankHistory = [];
             this.bankStats = { gains: 0, losses: 0 };
-            this.sessionFinance = { gains: 0, losses: 0, carbon: 0 };
+            this.sessionFinance = { gains: 0, losses: 0, carbon: 0, details: {} };
             
-            this.companyState = { buildings: { terrain: 0, depot: 0, hub: 0 }, fleet: { vul: 0, porteur: 0, tracteur: 0, frigo: 0, convoi: 0 }, pendingIncome: 0 };
+            if (window.tycoon) {
+                window.tycoon.state = { warehouseLevel: 0, storedFreight: 0, companyCarbon: 0, companyQuota: 0, carbonModifier: 1.0, lastResetWeek: 0, buildings: {}, fleet: [], pendingIncome: 0, purchaseHistory: [] };
+                window.tycoon.saveState();
+            }
             
             await this.saveUserData();
             
             this.updateBankUI();
-            this.renderCompanyUI();
+            if (window.tycoon) window.tycoon.renderUI();
             
             if (window.ui) window.ui.showToast("💸 La Bourse et l'Entreprise ont été remises à zéro !");
         }
     },
+
 
     addBankTransaction(amount, reason) {
         if (amount === 0) return;
@@ -535,10 +325,10 @@ const app = {
         this.saveUserData(); 
         this.updateBankUI(); 
         
-        if(window.ui && window.ui.activeTab === 'company') {
-            this.renderCompanyUI();
+             if(window.ui && window.ui.activeTab === 'company') {
+            if(window.tycoon) window.tycoon.renderUI();
         }
-    },
+
 
     updateBankUI() {
         let badge = document.getElementById('bank-badge');
@@ -1293,20 +1083,7 @@ if (this.bankBalance < 0) {
         if(elDist) elDist.innerText = `📍 ${dist.toFixed(2)} km`; 
     },
 
-    triggerCompanyRandomEvents() {
-        let stats = this.getCompanyStats();
-        if (stats.usedSlots > 0 && Math.random() < 0.20) { 
-            if (Math.random() > 0.5) {
-                let bonus = Math.round(stats.incomePerMin * 5); 
-                this.addBankTransaction(bonus, "🏢 Fret exceptionnel (Entreprise)");
-                if(window.ui) { window.ui.showToast(`🏢 Ton entreprise a décroché un fret express : +${bonus} € !`); window.ui.playGamiSound('cash'); }
-            } else {
-                let malus = Math.round(stats.incomePerMin * 3); 
-                this.addBankTransaction(-malus, "🏢 Réparation d'urgence (Entreprise)");
-                if(window.ui) { window.ui.showToast(`⚠️ Crevaison sur un de tes camions d'entreprise ! Frais : -${malus} €`, 'anomaly'); window.ui.playGamiSound('crash'); }
-            }
-        }
-    },
+    
 
     toggleChrono(type) {
         let isTruck = type === 'trucks';
@@ -1435,42 +1212,7 @@ if (elapsed > 0 && elapsed % 900 === 0 && this.bankBalance < -500) {
 
                     this.updateCarbonGauge();
                     
-                                        // --- NOUVEAU SMART DISPATCH ---
-                    if (window.tycoon && window.tycoon.state.storedFreight > 0) {
-                        let currentDist = this.liveCarDistance;
-                        if (!this._lastDistDelivered) this._lastDistDelivered = currentDist;
-                        
-                        let traveled = currentDist - this._lastDistDelivered;
-                        if (traveled >= 0.1) {
-                            let status = window.tycoon.getFleetStatus();
-                            let totalDelivered = 0;
-                            let price = window.tycoon.getDynamicPrice();
-
-                            status.deliveringVehicles.forEach(veh => {
-                                let cap = window.tycoon.catalog.fleet[veh.type].capacity;
-                                let power = cap / 10; 
-                                let tons = power * traveled;
-                                
-                                let stockRestant = window.tycoon.state.storedFreight - totalDelivered;
-                                if (tons > stockRestant) tons = stockRestant;
-                                
-                                if (tons > 0) {
-                                    totalDelivered += tons;
-                                    veh.gains = (veh.gains || 0) + (tons * price);
-                                }
-                            });
-
-                            if (totalDelivered > 0) {
-                                let profit = parseFloat((totalDelivered * price).toFixed(2));
-                                this.addBankTransaction(profit, `Livraison Flotte (${totalDelivered.toFixed(1)}t)`);
-                                window.tycoon.state.storedFreight -= totalDelivered;
-                                window.tycoon.saveState();
-                            }
-
-                            this._lastDistDelivered = currentDist;
-                        }
-                    }
-                    // --- FIN DU SMART DISPATCH ---
+                                       
 
                 }
 // Les revenus passifs et l'usure de l'entreprise ne tournent que si le chrono Véhicules est actif
@@ -1624,31 +1366,7 @@ if (!isTruck && window.tycoon) {
 
                     if (window.market && amount > 0) window.market.recordDemand(key1);
 
-                    let isRushHour = (currentHour >= 7 && currentHour < 9) || (currentHour >= 17 && currentHour < 19);
-
-                    if (isNight) {
-                        baseVal *= (key1 === "Camions" || key1 === "Utilitaires") ? 0.5 : 5.0;
-                    } else if (isRushHour) {
-                        baseVal *= (key1 === "Voitures" || key1 === "Utilitaires") ? 0.5 : 2.0;
-                    }
-
-                    if (currentHour >= 5 && currentHour < 7) {
-                        baseVal *= 2.0;
-                        if(window.ui) window.ui.showToast(`🌅 Prime de l'Aube ! Gains doublés !`, 'success');
-                    }
-
-                    let currentAlt = window.gps && window.gps.currentPos ? (window.gps.currentPos.alt || 0) : 0;
-                    if (currentAlt > 800) {
-                        baseVal *= 1.10;
-                        if(window.ui) window.ui.showToast(`⛰️ Bonus d'Altitude (+10%) !`);
-                    }
-
-                    if (isExact) {
-                        baseVal *= gegeMultiplier;
-                        transactionName += ` (x${gegeMultiplier} IA)`;
-                    }
-
-                    let consecutive = 0;
+                                       let consecutive = 0;
                     let justHistory = history.filter(h => !h.isEvent);
                     let lastTs = nowTs;
                     for (let i = justHistory.length - 1; i >= 0; i--) {
@@ -1659,46 +1377,59 @@ if (!isTruck && window.tycoon) {
 
                     let speedKmh = window.gps ? window.gps.getSlidingSpeedKmh() : 0;
                     let isHighway = speedKmh > 80;
-                    let threshold = isHighway ? 10 : 4;
+                    let currentAlt = window.gps && window.gps.currentPos ? (window.gps.currentPos.alt || 0) : 0;
 
-                    if (consecutive >= threshold + 2) {
-                        baseVal = -(baseVal * 0.2);
-                        if (!this._congestNotified || this._congestNotified[key1] !== 'frais') {
-                            if (!this._congestNotified) this._congestNotified = {};
-                            this._congestNotified[key1] = 'frais';
-                            if(window.ui) { window.ui.showToast(`🚧 Frais de congestion ! Trop de ${key1} !`, "anomaly"); window.ui.playGamiSound('crash'); }
-                        }
-                    } else if (consecutive === threshold + 1) {
-                        baseVal = 0;
-                        if (!this._congestNotified || this._congestNotified[key1] !== 'sature') {
-                            if (!this._congestNotified) this._congestNotified = {};
-                            this._congestNotified[key1] = 'sature';
-                            if(window.ui) { window.ui.showToast(`⚠️ Marché saturé pour ${key1} (Gain 0€)`, "anomaly"); window.ui.playGamiSound('crash'); }
-                        }
-                    } else if (consecutive === threshold) {
-                        baseVal *= 0.5;
-                        if (!this._congestNotified || this._congestNotified[key1] !== 'baisse') {
-                            if (!this._congestNotified) this._congestNotified = {};
-                            this._congestNotified[key1] = 'baisse';
-                            if(window.ui) { window.ui.showToast(`📉 Alerte : Le marché baisse pour ${key1} !`); }
-                        }
-                    } else {
-                        if (this._congestNotified) this._congestNotified[key1] = null;
-                    }
+                    let marketData = window.market ? window.market.getFinalValue(key1, {
+                        hour: currentHour,
+                        alt: currentAlt,
+                        consecutive: consecutive,
+                        isHighway: isHighway,
+                        bankBalance: this.bankBalance,
+                        isExact: isExact,
+                        gegeMultiplier: gegeMultiplier
+                    }) : { netValue: baseVal, events: [], threshold: 4 };
 
-                    if (this.bankBalance <= -1000 && baseVal > 0) {
-                        const bigVehicles = ["Camions", "Engins agricoles", "Camping-cars", "Bus/Car"];
-                        if (bigVehicles.includes(key1)) {
-                            baseVal *= 0.7;
+                    baseVal = marketData.netValue;
+                    if (isExact) transactionName += ` (x${gegeMultiplier} IA)`;
+
+                    // Gégé affiche les notifications envoyées par le Marché
+                    marketData.events.forEach(ev => {
+                        if (ev === 'aube') {
+                            if(window.ui) window.ui.showToast(`🌅 Prime de l'Aube ! Gains doublés !`, 'success');
+                        } else if (ev === 'alt') {
+                            if(window.ui) window.ui.showToast(`⛰️ Bonus d'Altitude (+10%) !`);
+                        } else if (ev === 'congestion_frais') {
+                            if (!this._congestNotified || this._congestNotified[key1] !== 'frais') {
+                                this._congestNotified = this._congestNotified || {};
+                                this._congestNotified[key1] = 'frais';
+                                if(window.ui) { window.ui.showToast(`🚧 Frais de congestion ! Trop de ${key1} !`, "anomaly"); window.ui.playGamiSound('crash'); }
+                            }
+                        } else if (ev === 'congestion_sature') {
+                            if (!this._congestNotified || this._congestNotified[key1] !== 'sature') {
+                                this._congestNotified = this._congestNotified || {};
+                                this._congestNotified[key1] = 'sature';
+                                if(window.ui) { window.ui.showToast(`⚠️ Marché saturé pour ${key1} (Gain 0€)`, "anomaly"); window.ui.playGamiSound('crash'); }
+                            }
+                        } else if (ev === 'congestion_baisse') {
+                            if (!this._congestNotified || this._congestNotified[key1] !== 'baisse') {
+                                this._congestNotified = this._congestNotified || {};
+                                this._congestNotified[key1] = 'baisse';
+                                if(window.ui) { window.ui.showToast(`📉 Alerte : Le marché baisse pour ${key1} !`); }
+                            }
+                        } else if (ev === 'huissier') {
                             if (!this._huissierNotified || Date.now() - this._huissierNotified > 30000) {
                                 if(window.ui) window.ui.showToast("⚖️ Saisie partielle (30%) par l'huissier !");
                                 this._huissierNotified = Date.now();
                             }
                         }
+                    });
+
+                    if (!marketData.events.some(e => e.startsWith('congestion_'))) {
+                        if (this._congestNotified) this._congestNotified[key1] = null;
                     }
 
-                    baseVal = parseFloat(baseVal.toFixed(2));
                     this.addBankTransaction(baseVal, transactionName);
+
 
                     this.sessionPaveWeight = (this.sessionPaveWeight || 0) + randWeight;
                     if (this.sessionPaveWeight >= 100000) {
@@ -1736,7 +1467,8 @@ if (!isTruck && window.tycoon) {
                     }
 
                     this.showMoneyParticle(e, baseVal);
-                    if (baseVal > 0 && window.ui && consecutive < threshold) window.ui.playGamiSound('cash');
+                                    if (baseVal > 0 && window.ui && consecutive < marketData.threshold) window.ui.playGamiSound('cash');
+
 
                     if (this.activeSponsor && key1 === this.activeSponsor.type) {
                         this.activeSponsor.current += 1;
@@ -1747,15 +1479,12 @@ if (!isTruck && window.tycoon) {
                     }
                 } // fin if (!isTruck)
 
-                                       if (key1 === "Camions") {
-                    // La Loterie du Fret (Uniquement en mode Véhicules !)
+                                                                             if (key1 === "Camions") {
+                    // La Loterie du Fret (Transférée au Tycoon)
                     if (amount > 0 && window.tycoon && !isTruck) {
-                        if (Math.random() <= 0.15) {
-                            let randomTons = Math.floor(Math.random() * (25 - 5 + 1)) + 5;
-                            this.sessionFreightToAdd = (this.sessionFreightToAdd || 0) + randomTons;
-                            if (window.ui) window.ui.showToast(`📦 Jackpot fret ! +${randomTons}t en attente d'arrivée !`);
-                        }
+                        window.tycoon.rollFreightLottery();
                     }
+
 
                     if (!this._convoiTimes) this._convoiTimes = [];
 
@@ -2013,11 +1742,11 @@ if (!isTruck && window.tycoon) {
             this.brands.forEach(b => { this.truckCounters[b] = { fr: 0, etr: 0 }; }); 
             this.truckHistory = []; this.truckSeconds = 0; this.truckAccumulatedTime = 0; this.liveTruckDistance = 0;
                         this.sessionTruckPredictions = { total: 0, success: 0 };
-        } else {
-            this.sessionFreightToAdd = 0; // Vider le panier si annulation en mode Véhicule
-
+            } else {
+            if (window.tycoon) window.tycoon.resetPendingFreight();
 
             this.vehicleTypes.forEach(v => this.vehicleCounters[v] = 0); 
+
             this.carHistory = []; this.carSeconds = 0; this.carAccumulatedTime = 0; this.liveCarDistance = 0;
             this.sessionCarPredictions = { total: 0, success: 0 };
             
@@ -2075,15 +1804,11 @@ if (window.tycoon) window.tycoon.cashOut();
                 this.sessionFinance.carbon = this.checkCarbonFootprint(); 
             }
             
-                        // NOUVEAU : Déchargement du panier de fret ! (Uniquement en mode Véhicules)
-            if (!isTruck && window.tycoon && this.sessionFreightToAdd > 0) {
-                window.tycoon.state.storedFreight += this.sessionFreightToAdd;
-                let maxCap = window.tycoon.getWarehouseCapacity();
-                if (window.tycoon.state.storedFreight > maxCap) window.tycoon.state.storedFreight = maxCap;
-                window.tycoon.saveState();
-                if(window.ui) window.ui.showToast(`🏗️ Déchargement réussi : +${this.sessionFreightToAdd}t en stock !`);
-                this.sessionFreightToAdd = 0;
+                                   // Déchargement du panier de fret ! 
+            if (!isTruck && window.tycoon) {
+                window.tycoon.unloadPendingFreight();
             }
+
 
 
             if(window.ui) window.ui.showToast("⏳ Géocodage des adresses en cours...");
@@ -2256,43 +1981,19 @@ if (window.tycoon) window.tycoon.cashOut();
             let score = this.vehicleCounters[v] || 0;
             let displayName = nameMap[v] || v;
             
-                   // --- RÉCUPÉRATION DU MARCHÉ EN TEMPS RÉEL ---
+                             // --- RÉCUPÉRATION DU PRIX DYNAMIQUE VIA LE MARCHÉ ---
             let marketKey = v === "Camions" ? "Camions" : v;
-            let baseVal = window.market ? window.market.getValue(marketKey) : 1.00;
             let trend = window.market && window.market.state.values[marketKey] ? window.market.state.values[marketKey].trend : 0;
-
-            // 🌙 ☀️ APPLICATION DES MODIFICATEURS GLOBAUX (POUR L'AFFICHAGE)
-            let currentHour = new Date().getHours();
-            let isNight = (currentHour >= 21 || currentHour < 6);
-            let isRushHour = (currentHour >= 7 && currentHour < 9) || (currentHour >= 17 && currentHour < 19);
-
-            // Modificateurs horaires
-            if (isNight) {
-                baseVal *= (marketKey === "Camions" || marketKey === "Utilitaires") ? 0.5 : 5.0;
-            } else if (isRushHour) {
-                baseVal *= (marketKey === "Voitures" || marketKey === "Utilitaires") ? 0.5 : 2.0;
-            }
-
-            // Prime de l'aube
-            if (currentHour >= 5 && currentHour < 7) {
-                baseVal *= 2.0; 
-            }
-
-            // Bonus d'Altitude
+            
             let currentAlt = window.gps && window.gps.currentPos ? (window.gps.currentPos.alt || 0) : 0;
-            if (currentAlt > 800) {
-                baseVal *= 1.10; 
-            }
+            let marketData = window.market ? window.market.getFinalValue(marketKey, { 
+                hour: new Date().getHours(), 
+                alt: currentAlt, 
+                bankBalance: this.bankBalance 
+            }) : { netValue: 1.00 };
 
-            // Malus Huissier (Si découvert > 1000€)
-            if (this.bankBalance <= -1000 && baseVal > 0) {
-                const bigVehicles = ["Camions", "Engins agricoles", "Camping-cars", "Bus/Car"];
-                if (bigVehicles.includes(marketKey)) {
-                    baseVal *= 0.7; 
-                }
-            }
+            let currentPrice = marketData.netValue.toFixed(2);
 
-            let currentPrice = baseVal.toFixed(2);
             let trendIcon = trend > 0 ? "↗️" : (trend < 0 ? "↘️" : "➡️");
             let trendColor = trend > 0 ? "var(--success-color)" : (trend < 0 ? "var(--danger-color)" : "#7f8c8d");
 

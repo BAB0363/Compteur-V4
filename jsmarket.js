@@ -32,10 +32,64 @@ export const market = {
         localStorage.setItem('market_state', JSON.stringify(this.state));
     },
 
-    getValue(type) {
+       getValue(type) {
         if (type === "Poids Lourds") type = "Camions";
         return this.state.values[type] ? parseFloat(this.state.values[type].current.toFixed(2)) : 1.00;
     },
+
+    getFinalValue(type, context = {}) {
+        if (type === "Poids Lourds") type = "Camions";
+        let baseVal = this.state.values[type] ? this.state.values[type].current : 1.00;
+        
+        let { hour = new Date().getHours(), alt = 0, consecutive = 0, isHighway = false, bankBalance = 0, isExact = false, gegeMultiplier = 1 } = context;
+
+        let isNight = (hour >= 21 || hour < 6);
+        let isRushHour = (hour >= 7 && hour < 9) || (hour >= 17 && hour < 19);
+        let threshold = isHighway ? 10 : 4;
+        let events = []; 
+
+        if (isNight) {
+            baseVal *= (type === "Camions" || type === "Utilitaires") ? 0.5 : 5.0;
+        } else if (isRushHour) {
+            baseVal *= (type === "Voitures" || type === "Utilitaires") ? 0.5 : 2.0;
+        }
+
+        if (hour >= 5 && hour < 7) {
+            baseVal *= 2.0;
+            events.push('aube');
+        }
+
+        if (alt > 800) {
+            baseVal *= 1.10;
+            events.push('alt');
+        }
+
+        if (isExact) {
+            baseVal *= gegeMultiplier;
+        }
+
+        if (consecutive >= threshold + 2) {
+            baseVal = -(baseVal * 0.2);
+            events.push('congestion_frais');
+        } else if (consecutive === threshold + 1) {
+            baseVal = 0;
+            events.push('congestion_sature');
+        } else if (consecutive === threshold) {
+            baseVal *= 0.5;
+            events.push('congestion_baisse');
+        }
+
+        if (bankBalance <= -1000 && baseVal > 0) {
+            const bigVehicles = ["Camions", "Engins agricoles", "Camping-cars", "Bus/Car"];
+            if (bigVehicles.includes(type)) {
+                baseVal *= 0.7;
+                events.push('huissier');
+            }
+        }
+
+        return { netValue: parseFloat(baseVal.toFixed(2)), events, threshold };
+    },
+
  
 
         // Appelé à chaque clic : fait chuter le prix du véhicule compté, et monter la rareté des autres

@@ -43,9 +43,11 @@ export const tycoon = {
         }
     },
 
-    fuelPrice: 1.80,
+        fuelPrice: 1.80,
+    sessionFreightToAdd: 0,
 
     init() {
+
         this.loadState();
     },
 
@@ -363,8 +365,30 @@ export const tycoon = {
         this.saveState();
         this.renderUI();
     },
+    rollFreightLottery() {
+        if (Math.random() <= 0.15) {
+            let randomTons = Math.floor(Math.random() * (25 - 5 + 1)) + 5;
+            this.sessionFreightToAdd += randomTons;
+            if (window.ui) window.ui.showToast(`📦 Jackpot fret ! +${randomTons}t en attente d'arrivée !`);
+        }
+    },
 
-    tickDistance(km) {
+    unloadPendingFreight() {
+        if (this.sessionFreightToAdd > 0) {
+            this.state.storedFreight += this.sessionFreightToAdd;
+            let maxCap = this.getWarehouseCapacity();
+            if (this.state.storedFreight > maxCap) this.state.storedFreight = maxCap;
+            this.saveState();
+            if(window.ui) window.ui.showToast(`🏗️ Déchargement réussi : +${this.sessionFreightToAdd}t en stock !`);
+            this.sessionFreightToAdd = 0;
+        }
+    },
+
+    resetPendingFreight() {
+        this.sessionFreightToAdd = 0;
+    },
+
+        tickDistance(km) {
         if (!this.state.fleet || this.state.fleet.length === 0) return;
         
         // 🚨 MODIFICATION : Le Tycoon ne prend l'usure GPS que si le mode Véhicules est actif !
@@ -372,7 +396,38 @@ export const tycoon = {
 
         let needsSave = false;
 
+        // --- SMART DISPATCH ---
+        if (this.state.storedFreight > 0) {
+            let status = this.getFleetStatus();
+            let totalDelivered = 0;
+            let price = this.getDynamicPrice();
+
+            status.deliveringVehicles.forEach(veh => {
+                let vehCap = this.catalog.fleet[veh.type].capacity;
+                let power = vehCap / 10; 
+                let tons = power * km; 
+                
+                let stockRestant = this.state.storedFreight - totalDelivered;
+                if (tons > stockRestant) tons = stockRestant;
+                
+                if (tons > 0) {
+                    totalDelivered += tons;
+                    veh.gains = (veh.gains || 0) + (tons * price);
+                    needsSave = true;
+                }
+            });
+
+            if (totalDelivered > 0) {
+                let profit = parseFloat((totalDelivered * price).toFixed(2));
+                window.app.addBankTransaction(profit, `Livraison Flotte (${totalDelivered.toFixed(1)}t)`);
+                this.state.storedFreight -= totalDelivered;
+                needsSave = true;
+            }
+        }
+        // --- FIN DU SMART DISPATCH ---
+
         let cap = this.getWarehouseCapacity();
+
         let fillRate = cap > 0 ? (this.state.storedFreight / cap) : 0;
         let weightPenalty = 1 + fillRate; 
 
@@ -479,12 +534,26 @@ export const tycoon = {
                     }
                 }
 
-                // 2. Vérification de l'état APRÈS conso temporelle
+                            // 2. Vérification de l'état APRÈS conso temporelle
                 let isWarning = veh.fuel <= (def.fuelTank * 0.3) || veh.health <= 60 || veh.kmsSinceService >= (def.serviceInterval * 0.8);
                 if (!wasWarning && isWarning && window.ui) {
                     window.ui.showToast(`🟠 Alerte flotte : Ton ${def.name} passe en zone orange !`, "anomaly");
                 }
             });
+
+            // --- ÉVÉNEMENTS ALÉATOIRES DE L'ENTREPRISE ---
+            let stats = this.getStats();
+            if (stats.usedSlots > 0 && Math.random() < 0.05) { 
+                if (Math.random() > 0.5) {
+                    let bonus = Math.round(stats.incomePerMin * 5); 
+                    window.app.addBankTransaction(bonus, "🏢 Fret exceptionnel (Entreprise)");
+                    if(window.ui) { window.ui.showToast(`🏢 Ton entreprise a décroché un fret express : +${bonus} € !`); window.ui.playGamiSound('cash'); }
+                } else {
+                    let malus = Math.round(stats.incomePerMin * 3); 
+                    window.app.addBankTransaction(-malus, "🏢 Réparation d'urgence (Entreprise)");
+                    if(window.ui) { window.ui.showToast(`⚠️ Incident logistique ! Frais : -${malus} €`, 'anomaly'); window.ui.playGamiSound('crash'); }
+                }
+            }
             
             if (needsRender && window.ui && window.ui.activeTab === 'company') {
                 this.renderUI();
@@ -492,6 +561,7 @@ export const tycoon = {
             this.saveState();
         }
     },
+
 
     cashOut() {
         if (this.state.pendingIncome > 0) {
