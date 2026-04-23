@@ -190,8 +190,6 @@ body.dark-mode .text-blue { text-shadow: 0 0 8px rgba(0, 242, 255, 0.4); }
 .totals-row { text-align: center; font-size: 1.2em; margin-bottom: 12px; font-weight: bold; }
 .proportion-bar { display: flex; height: 24px; border-radius: 12px; overflow: hidden; background: var(--btn-bg); font-size: 0.75em; color: white; line-height: 24px; font-weight: bold; text-align: center; box-shadow: var(--inset-shadow); }
 
-
-
 #bar-fr, #bar-etr, #bar-voitures, #bar-camions, #bar-utilitaires, #bar-engins, #bar-bus, #bar-camping, #bar-motos, #bar-velos { transition: width 0.3s; overflow: hidden; width: 0%; }
 #bar-fr, #bar-voitures { background-color: var(--secondary-color); }
 #bar-etr, #bar-camions { background-color: var(--primary-color); }
@@ -349,10 +347,12 @@ body.dark-mode .btn-add-etr { background-color: #e67e22; }
     .km-stat-card { border-color: #ccc !important; }
 }
 
-
-
 .report-card-container { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 18px; }
-.report-card-item { back/* ==========================================
+.report-card-item { background-color: var(--card-bg); padding: 12px; border-radius: 10px; border: 1px solid var(--border-color); font-size: 0.9em; text-align: center; box-shadow: 0 2px 5px var(--shadow-dark);}
+.report-card-label { display: block; color: #7f8c8d; margin-bottom: 6px; font-weight: bold; text-transform: uppercase; font-size: 0.8em;}
+.report-card-value { font-size: 1.2em; font-weight: bold; color: var(--text-color); }
+
+/* ==========================================
    IA : Jauge, Podium & Bulletin (DESIGN PREMIUM)
    ========================================== */
 .prediction-box {
@@ -426,9 +426,6 @@ body.dark-mode .prediction-box {
     overflow: hidden;
     text-overflow: ellipsis;
 }
--color); padding: 12px; border-radius: 10px; border: 1px solid var(--border-color); font-size: 0.9em; text-align: center; box-shadow: 0 2px 5px var(--shadow-dark);}
-.report-card-label { display: block; color: #7f8c8d; margin-bottom: 6px; font-weight: bold; text-transform: uppercase; font-size: 0.8em;}
-.report-card-value { font-size: 1.2em; font-weight: bold; color: var(--text-color); }
 
 /* ==========================================
    LA BOURSE DE L'ASPHALTE (BANQUE & FX)
