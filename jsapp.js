@@ -3043,13 +3043,14 @@ if (window.tycoon) window.tycoon.cashOut();
         if (best.confidence < 40) elGauge.style.backgroundColor = '#e74c3c'; 
         else if (best.confidence < 70) elGauge.style.backgroundColor = '#f39c12'; 
         else elGauge.style.backgroundColor = '#27ae60'; 
-        let podiumHtml = '<div style="display: flex; justify-content: center; gap: 20px; font-size: 0.85em; margin-top: 5px; color: #bdc3c7;">';
+             let podiumHtml = '<div style="display: flex; flex-direction: column; justify-content: center; gap: 4px; font-size: 0.85em; color: #bdc3c7; height: 100%;">';
         for (let i = 1; i < 3; i++) {
             if (top3[i]) {
-                podiumHtml += `<span>#${i+1} ${this.formatCandidateName(top3[i].candidate, type)} <strong style="color:white;">${top3[i].confidence}%</strong></span>`;
+                podiumHtml += `<span>#${i+1} ${this.formatCandidateName(top3[i].candidate, type)} <strong style="color:var(--text-color);">${top3[i].confidence}%</strong></span>`;
             }
         }
         podiumHtml += '</div>';
+
         elPodium.innerHTML = podiumHtml;
 
 
