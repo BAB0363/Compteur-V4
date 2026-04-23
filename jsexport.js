@@ -1,4 +1,4 @@
-// jsexport.js - Gestionnaire de Sauvegardes de l'Empire
+// jsexport.js - Gestionnaire de Sauvegardes MASTER (Tous Profils & Modes)
 export const exportManager = {
     
     async triggerDownloadOrShare(dataString, fileName) {
@@ -10,11 +10,12 @@ export const exportManager = {
     },
 
     async exportSaveFile() {
-        if(window.ui) window.ui.showToast("📦 Préparation de la sauvegarde complète de l'Empire...");
+        if(window.ui) window.ui.showToast("📦 Préparation de la MASTER Sauvegarde...");
 
         let app = window.app;
-        let truckSessions = await app.idb.getAll('trucks');
-        let carSessions = await app.idb.getAll('cars');
+        
+        // 1. Récupération de TOUTES les sessions (IDB brut, sans aucun filtre)
+        let allRawSessions = await app.idb.getAllRaw();
 
         let enrichSession = (s) => {
             let items = s.history ? s.history.filter(h => !h.isEvent) : [];
@@ -42,27 +43,31 @@ export const exportManager = {
             return { ...s, totalCount: count, masseTotaleKg: sessionWeight, scoreParKm: vehPerKm, apparitionsParMinute: freqMin, rythmeParHeure: rythmeH, vitesseMoyenneKmh: avgSpeed, espacementMoyenSec: espaceTemps, detailsAuKm: detailAuKm };
         };
 
-        let allSessions = [...truckSessions.map(enrichSession), ...carSessions.map(enrichSession)];
+        let allSessions = allRawSessions.map(enrichSession);
         
-        let globalSummary = { 
-            profile: app.currentUser,
-            mode: app.currentMode,
-            bankBalance: app.bankBalance,
-            bankHistory: app.bankHistory,
-            bankStats: app.bankStats,
-            tycoonState: window.tycoon ? window.tycoon.state : null,
-            gamiState: window.gami ? window.gami.state : null,
-            marketState: window.market ? window.market.state : null,
-            totalSessions: allSessions.length, 
-            globalDonneesBrutesCamions: app.globalTruckCounters, 
-            globalDonneesBrutesVehicules: app.globalCarCounters,
-            analysesPermanentesCamions: app.globalAnaTrucks,
-            analysesPermanentesVehicules: app.globalAnaCars
-        };
+        // 2. Sauvegarde de TOUT le localStorage (Paramètres, Tycoon, Marché, Gami, Stats de TOUS les profils)
+        let localData = {};
+        for (let i = 0; i < localStorage.length; i++) {
+            let key = localStorage.key(i);
+            localData[key] = localStorage.getItem(key);
+        }
 
-        let exportData = { appVersion: "Compteur Trafic v6.3", exportDate: new Date().toISOString(), globalSummary: globalSummary, sessions: allSessions };
+        // 3. Sauvegarde de la Banque et Missions (IndexedDB userData) pour CHAQUE utilisateur
+        let allUserData = {};
+        for (let user of app.usersList) {
+            let data = await app.idb.getUserData(user);
+            if (data) allUserData[user] = data;
+        }
+
+        let exportData = { 
+            appVersion: "Compteur Trafic v7.0 (Master)", 
+            exportDate: new Date().toISOString(), 
+            localStorageBackup: localData, 
+            idbUserData: allUserData,
+            sessions: allSessions 
+        };
         const dataStr = JSON.stringify(exportData, null, 2);
-        await this.triggerDownloadOrShare(dataStr, `Empire_Save_${app.currentUser}_${new Date().toISOString().slice(0,10)}.json`);
+        await this.triggerDownloadOrShare(dataStr, `Master_Save_${new Date().toISOString().slice(0,10)}.json`);
     },
 
     importSaveFile(event) {
@@ -72,44 +77,75 @@ export const exportManager = {
             try {
                 const data = JSON.parse(e.target.result);
                 let app = window.app;
-                if (data.sessions && confirm(`⚠️ Attention : Tu vas écraser ta partie actuelle avec cette sauvegarde complète. Continuer ?`)) {
-                    
-                    if(window.ui) window.ui.showToast("📥 Restauration de l'Empire en cours...");
+                
+                // Détection : Rétrocompatibilité ou Master Save ?
+                let isMaster = data.localStorageBackup !== undefined;
 
-                    await app.idb.clear('trucks'); await app.idb.clear('cars');
+                if (data.sessions && confirm(`⚠️ Attention : Tu vas écraser TOUTE l'application avec cette sauvegarde. Continuer ?`)) {
+                    
+                    if(window.ui) window.ui.showToast("📥 Restauration globale en cours...");
+
+                    // 1. Restauration des sessions (On vide ABSOLUMENT TOUTE la base de données sessions)
+                    await new Promise(resolve => {
+                        let tx = app.idb.db.transaction('sessions', 'readwrite');
+                        tx.objectStore('sessions').clear();
+                        tx.oncomplete = resolve;
+                    });
+                    
                     for (let s of data.sessions) { 
                         if (!s.id) s.id = Date.now().toString() + Math.random().toString(); 
-                        s.user = app.currentUser; 
+                        if (!s.user) s.user = app.currentUser; // Sécurité pour les très vieilles sauvegardes
                         await app.idb.add(s); 
                     }
                     
-                    let sum = data.globalSummary;
-                    if (sum) {
-                        if (sum.globalDonneesBrutesCamions) app.storage.set('globalTruckCounters', sum.globalDonneesBrutesCamions);
-                        if (sum.globalDonneesBrutesVehicules) app.storage.set('globalCarCounters', sum.globalDonneesBrutesVehicules);
-                        if (sum.analysesPermanentesCamions) app.storage.set('globalAnaTrucks', sum.analysesPermanentesCamions);
-                        if (sum.analysesPermanentesVehicules) app.storage.set('globalAnaCars', sum.analysesPermanentesVehicules);
-                        
-                        if (sum.bankBalance !== undefined) app.bankBalance = parseFloat(sum.bankBalance);
-                        if (sum.bankHistory !== undefined) app.bankHistory = sum.bankHistory;
-                        if (sum.bankStats !== undefined) app.bankStats = sum.bankStats;
-                        
-                        if (sum.tycoonState && window.tycoon) {
-                            window.tycoon.state = sum.tycoonState;
-                            window.tycoon.saveState();
+                    if (isMaster) {
+                        // --- MODE MASTER SAVE ---
+                        // Restauration LocalStorage (on rase tout et on repeuple)
+                        localStorage.clear();
+                        for (let key in data.localStorageBackup) {
+                            localStorage.setItem(key, data.localStorageBackup[key]);
                         }
-                        if (sum.gamiState && window.gami) {
-                            window.gami.state = sum.gamiState;
-                            window.gami.saveState();
+                        // Restauration IndexedDB userData (Banque/Gami)
+                        if (data.idbUserData) {
+                            await new Promise(resolve => {
+                                let tx = app.idb.db.transaction('userData', 'readwrite');
+                                tx.objectStore('userData').clear();
+                                tx.oncomplete = resolve;
+                            });
+                            for (let user in data.idbUserData) {
+                                await app.idb.saveUserData(user, data.idbUserData[user]);
+                            }
                         }
-                        if (sum.marketState && window.market) {
-                            window.market.state = sum.marketState;
-                            window.market.saveState();
+                    } else {
+                        // --- MODE ANCIENNE SAVE (Rétrocompatibilité si tu charges un vieux fichier) ---
+                        let sum = data.globalSummary;
+                        if (sum) {
+                            if (sum.globalDonneesBrutesCamions) app.storage.set('globalTruckCounters', sum.globalDonneesBrutesCamions);
+                            if (sum.globalDonneesBrutesVehicules) app.storage.set('globalCarCounters', sum.globalDonneesBrutesVehicules);
+                            if (sum.analysesPermanentesCamions) app.storage.set('globalAnaTrucks', sum.analysesPermanentesCamions);
+                            if (sum.analysesPermanentesVehicules) app.storage.set('globalAnaCars', sum.analysesPermanentesVehicules);
+                            
+                            if (sum.bankBalance !== undefined) app.bankBalance = parseFloat(sum.bankBalance);
+                            if (sum.bankHistory !== undefined) app.bankHistory = sum.bankHistory;
+                            if (sum.bankStats !== undefined) app.bankStats = sum.bankStats;
+                            
+                            if (sum.tycoonState && window.tycoon) {
+                                window.tycoon.state = sum.tycoonState;
+                                window.tycoon.saveState();
+                            }
+                            if (sum.gamiState && window.gami) {
+                                window.gami.state = sum.gamiState;
+                                window.gami.saveState();
+                            }
+                            if (sum.marketState && window.market) {
+                                window.market.state = sum.marketState;
+                                window.market.saveState();
+                            }
+                            await app.saveUserData();
                         }
-                        await app.saveUserData();
                     }
                     
-                    alert("✅ Ton Empire, tes missions et ton historique ont été restaurés avec succès ! Redémarrage..."); 
+                    alert("✅ Master Sauvegarde restaurée avec succès ! Redémarrage..."); 
                     location.reload();
                 } else if(!data.sessions) { 
                     alert("❌ Format non reconnu."); 
