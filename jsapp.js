@@ -3167,20 +3167,7 @@ if (window.tycoon) window.tycoon.cashOut();
         `;
     },
 
-        let statusStr = statusArr.join(" + ");
 
-        grid.innerHTML = `
-            <div onclick="let d=document.getElementById('pricing-details'); d.style.display=d.style.display==='none'?'contents':'none';" style="grid-column: 1 / -1; color: #f1c40f; font-weight: bold; text-align: center; cursor: pointer; padding-bottom: 2px;">
-                ${statusStr} <span style="font-size:0.8em; color:#7f8c8d; margin-left: 5px;">▼</span>
-            </div>
-            <div id="pricing-details" style="display: none;">
-                <div style="grid-column: 1 / -1; border-bottom: 1px dashed var(--border-color); margin: 3px 0;"></div>
-                <div style="color: #7f8c8d;">05h - 07h</div> <div style="text-align: right;">Prime Aube x2</div>
-                <div style="color: #7f8c8d;">07h-09h / 17h-19h</div> <div style="text-align: right;">Heure de Pointe</div>
-                <div style="color: #7f8c8d;">21h - 06h</div> <div style="text-align: right;">Tarif de Nuit</div>
-            </div>
-        `;
-    },
 
 
     
