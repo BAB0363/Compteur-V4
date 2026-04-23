@@ -530,7 +530,8 @@ if (this.bankBalance < 0) {
         if (Date.now() < this.sponsorCooldownUntil) return; 
         if (Math.random() > 0.15) return; 
 
-        let types = ["Utilitaires", "Camions", "Camping-cars", "Bus/Car"];
+          let types = ["Voitures", "Utilitaires", "Camions"];
+
         let t = types[Math.floor(Math.random() * types.length)];
              let target = Math.floor(Math.random() * 8) + 3; 
         
@@ -2159,9 +2160,8 @@ if (window.tycoon) window.tycoon.cashOut();
         if (titleEl) titleEl.innerText = "📈 Répartition par heure (Tous confondus)";
         document.getElementById('modal-weekly-section').style.display = 'block';
 
-        document.getElementById('session-detail-modal').style.display = 'flex';
-        let btnPdf = document.getElementById('btn-export-pdf');
-        if(btnPdf) btnPdf.onclick = () => window.app.exportSessionPDF();
+                document.getElementById('session-detail-modal').style.display = 'flex';
+
 
         let anaData = type === 'trucks' ? this.globalAnaTrucks : this.globalAnaCars;
         let hoursSource = key === 'Total' ? anaData.hours : (anaData.byVeh[key]?.hours || {});
@@ -2764,9 +2764,8 @@ if (window.tycoon) window.tycoon.cashOut();
         let monthSection = document.getElementById('modal-monthly-section'); if (monthSection) monthSection.style.display = 'none';
         let roadSection = document.getElementById('modal-road-section'); if (roadSection) roadSection.style.display = 'none';
 
-        document.getElementById('session-detail-modal').style.display = 'flex';
-        let btnPdf = document.getElementById('btn-export-pdf');
-        if(btnPdf) btnPdf.onclick = () => window.app.exportSessionPDF();
+                document.getElementById('session-detail-modal').style.display = 'flex';
+
 
         let ctxD = document.getElementById('temporalDensityChart');
         if(ctxD) {
@@ -2792,25 +2791,7 @@ if (window.tycoon) window.tycoon.cashOut();
         }
     },
 
-    exportSessionPDF() {
-        if (typeof html2pdf === 'undefined') { if(window.ui) window.ui.showToast("⚠️ Outil PDF non chargé."); return; }
-        
-        let element = document.getElementById('pdf-export-content');
-        let btns = element.querySelectorAll('button');
-        btns.forEach(b => b.style.display = 'none');
-        
-        let opt = {
-            margin: 10, filename: `Bilan_Compteur_${new Date().toISOString().slice(0,10)}.pdf`,
-            image: { type: 'jpeg', quality: 0.98 },
-            html2canvas: { scale: 2, useCORS: true },
-            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-        };
-        
-        html2pdf().set(opt).from(element).save().then(() => {
-            btns.forEach(b => b.style.display = ''); 
-            if(window.ui) window.ui.showToast("📄 Export PDF réussi !");
-        });
-    },
+    
 
     async triggerDownloadOrShare(dataString, fileName) {
         const blob = new Blob([dataString], { type: "text/plain" });
@@ -3062,16 +3043,15 @@ if (window.tycoon) window.tycoon.cashOut();
         if (best.confidence < 40) elGauge.style.backgroundColor = '#e74c3c'; 
         else if (best.confidence < 70) elGauge.style.backgroundColor = '#f39c12'; 
         else elGauge.style.backgroundColor = '#27ae60'; 
-
-        let podiumHtml = '';
+        let podiumHtml = '<div style="display: flex; justify-content: center; gap: 20px; font-size: 0.85em; margin-top: 5px; color: #bdc3c7;">';
         for (let i = 1; i < 3; i++) {
             if (top3[i]) {
-                podiumHtml += `<span>#${i+1} ${this.formatCandidateName(top3[i].candidate, type)}<br><span class="pred-podium-score">${top3[i].confidence}%</span></span>`;
-            } else {
-                podiumHtml += `<span>-</span>`;
+                podiumHtml += `<span>#${i+1} ${this.formatCandidateName(top3[i].candidate, type)} <strong style="color:white;">${top3[i].confidence}%</strong></span>`;
             }
         }
+        podiumHtml += '</div>';
         elPodium.innerHTML = podiumHtml;
+
 
         if (type === 'trucks') {
             this.currentPredictionTruck = { class: best.candidate, confidence: best.confidence };
@@ -3134,30 +3114,34 @@ if (window.tycoon) window.tycoon.cashOut();
         }
     }, // <--- C'est CETTE virgule qui manquait pour séparer les fonctions !
     
-        updatePricingUI() {
+            updatePricingUI() {
         const grid = document.getElementById('pricing-grid');
         if (!grid) return;
         
         const hour = new Date().getHours();
-        let status = "";
+        let statusArr = [];
         
-        if (hour >= 5 && hour < 7) status = "🌅 Aube : Gains x2";
-        else if ((hour >= 7 && hour < 9) || (hour >= 17 && hour < 19)) status = "🚗 Pointe : PL x2 | VL /2";
-        else if (hour >= 21 || hour < 5) status = "🌙 Nuit : PL x5 | VL /2";
-        else status = "☀️ Journée : Tarifs Standards";
+        if (hour >= 5 && hour < 7) statusArr.push("🌅 Aube (x2)");
+        if ((hour >= 7 && hour < 9) || (hour >= 17 && hour < 19)) statusArr.push("🚗 Pointe (PL x2 | VL /2)");
+        if (hour >= 21 || hour < 6) statusArr.push("🌙 Nuit (PL x5 | VL /2)");
+        
+        if (statusArr.length === 0) statusArr.push("☀️ Journée (Tarifs Standards)");
+
+        let statusStr = statusArr.join(" + ");
 
         grid.innerHTML = `
             <div onclick="let d=document.getElementById('pricing-details'); d.style.display=d.style.display==='none'?'contents':'none';" style="grid-column: 1 / -1; color: #f1c40f; font-weight: bold; text-align: center; cursor: pointer; padding-bottom: 2px;">
-                ${status} <span style="font-size:0.8em; color:#7f8c8d; margin-left: 5px;">▼</span>
+                ${statusStr} <span style="font-size:0.8em; color:#7f8c8d; margin-left: 5px;">▼</span>
             </div>
             <div id="pricing-details" style="display: none;">
                 <div style="grid-column: 1 / -1; border-bottom: 1px dashed var(--border-color); margin: 3px 0;"></div>
                 <div style="color: #7f8c8d;">05h - 07h</div> <div style="text-align: right;">Prime Aube x2</div>
                 <div style="color: #7f8c8d;">07h-09h / 17h-19h</div> <div style="text-align: right;">Heure de Pointe</div>
-                <div style="color: #7f8c8d;">21h - 05h</div> <div style="text-align: right;">Tarif de Nuit</div>
+                <div style="color: #7f8c8d;">21h - 06h</div> <div style="text-align: right;">Tarif de Nuit</div>
             </div>
         `;
     },
+
 
     
     initClockAndPricing() {
