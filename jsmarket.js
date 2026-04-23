@@ -1,6 +1,6 @@
 // jsmarket.js - Bourse de l'Asphalte
 export const market = {
-    state: {
+        state: {
         values: {
             "Voitures": { current: 1.00, base: 1.00, min: 0.50, max: 2.00, trend: 0 },
             "Vélos": { current: 1.00, base: 1.00, min: 0.50, max: 2.00, trend: 0 },
@@ -11,8 +11,10 @@ export const market = {
             "Bus/Car": { current: 50.00, base: 50.00, min: 25.00, max: 100.00, trend: 0 },
             "Engins agricoles": { current: 200.00, base: 200.00, min: 100.00, max: 400.00, trend: 0 }
         },
-        lastUpdate: Date.now()
+        lastUpdate: Date.now(),
+        prixTonneCarbone: 100
     },
+
 
     init() {
         this.loadState();
@@ -53,16 +55,31 @@ export const market = {
         } else if (isRushHour) {
             baseVal *= (type === "Voitures" || type === "Utilitaires") ? 0.5 : 2.0;
         }
-
         if (hour >= 5 && hour < 7) {
             baseVal *= 2.0;
             events.push('aube');
+        }
+
+        let currentDay = new Date().getDay(); // 0 = Dimanche
+        if (type === "Camions") {
+            if (currentDay === 0) {
+                baseVal *= 4.0;
+                events.push('contrebande');
+                // 10% de chance de se faire attraper par la DREAL
+                if (Math.random() < 0.10) {
+                    events.push('dreal');
+                }
+            } else if (hour === 12 || hour === 13) {
+                baseVal *= 1.5;
+                events.push('gamelle');
+            }
         }
 
         if (alt > 800) {
             baseVal *= 1.10;
             events.push('alt');
         }
+
 
         if (isExact) {
             baseVal *= gegeMultiplier;
@@ -111,7 +128,7 @@ export const market = {
         this.saveState();
     },
 
-        fluctuateMarket() {
+                fluctuateMarket() {
         Object.keys(this.state.values).forEach(k => {
             let item = this.state.values[k];
             let randomVariation = 1 + ((Math.random() - 0.5) * 0.1); 
@@ -121,8 +138,13 @@ export const market = {
             item.trend = newValue > item.current ? 1 : (newValue < item.current ? -1 : 0);
             item.current = newValue;
         });
+
+        // NOUVEAU : Fluctuation du Cours du Carbone (entre 50 et 150 €/Tonne)
+        this.state.prixTonneCarbone = parseFloat((50 + Math.random() * 100).toFixed(2));
+
         this.saveState();
-        if(window.ui) window.ui.showToast("📈 Fluctuation de la Bourse de l'Asphalte !");
+        if(window.ui) window.ui.showToast("📈 Fluctuation de la Bourse et du Cours Carbone !");
+
         
         // 🚀 NOUVEAU : On force l'interface à redessiner les boutons avec les nouveaux prix
         if (window.app && window.app.currentMode === 'voiture') {

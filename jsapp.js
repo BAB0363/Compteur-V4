@@ -470,10 +470,12 @@ if (this.bankBalance < 0) {
             }
         }
         
-        if (text) {
-            text.innerText = `${this.formatCarbon(totalRealCo2)} / ${this.formatCarbon(quota)} autorisés`;
+             if (text) {
+            let prixTonne = (window.market && window.market.state.prixTonneCarbone) ? window.market.state.prixTonneCarbone : 100;
+            text.innerHTML = `${this.formatCarbon(totalRealCo2)} / ${this.formatCarbon(quota)} autorisés<br><span style="color:#3498db; font-size:0.9em;">📈 Cours Carbone : ${prixTonne} €/t</span>`;
             text.style.color = totalRealCo2 > quota ? '#e74c3c' : '#7f8c8d';
         }
+
     },
 
     checkCarbonFootprint() {
@@ -502,9 +504,11 @@ if (this.bankBalance < 0) {
             window.tycoon.addCarbon(totalRealCo2, quota);
         }
         // ----------------------------------------------------------
-
         let diff = quota - totalRealCo2; 
-             let euros = parseFloat((diff / 100).toFixed(2));
+        let prixTonne = (window.market && window.market.state.prixTonneCarbone) ? window.market.state.prixTonneCarbone : 100;
+        // diff est en grammes. On divise par 1 000 000 pour appliquer le prix à la Tonne.
+        let euros = parseFloat(((diff / 1000000) * prixTonne).toFixed(2));
+
 
 
 
@@ -1328,32 +1332,22 @@ if (!isTruck && window.tycoon) {
 
                     let conf = currPred.confidence || 50;
 
-                    if (isExact) {
+                                     if (isExact) {
                         ana.predictions.success++; sessionPreds.success++;
                         ana.predictionsByClass[currPred.class].success++;
 
-                        if (conf < 40) gegeMultiplier = 5;
-                        else if (conf <= 70) gegeMultiplier = 3;
-                        else gegeMultiplier = 2;
+                        if (conf < 40) gegeMultiplier = 1;
+                        else if (conf <= 70) gegeMultiplier = 2.5;
+                        else gegeMultiplier = 5;
 
                         if(window.ui) window.ui.showToast(`🎯 Prédiction exacte (${conf}%) ! Gains x${gegeMultiplier} !`, 'success');
                     } else {
                         if (conf > 70) {
-                            let globalClassStats = ana.predictionsByClass[currPred.class];
-                            let globalReliability = (globalClassStats && globalClassStats.total >= 5) ? (globalClassStats.success / globalClassStats.total) : 0;
-                            let sessionSuccessRate = sessionPreds.total > 0 ? (sessionPreds.success / sessionPreds.total) : 0.5;
-                            let isAiReliable = (globalReliability >= 0.85) && (sessionSuccessRate >= 0.60);
-
-                            if (isAiReliable) {
-                                this.addBankTransaction(-5, "Malus Gégé : Inattention (IA Fiable)");
-                                if(window.ui) window.ui.showToast(`📉 Inattention ! Gégé maîtrise ce véhicule (${conf}%), Amende : -5 € !`, 'anomaly');
-                            } else {
-                                let learningBonus = 15;
-                                this.addBankTransaction(learningBonus, "Bonus d'Apprentissage 🎓");
-                                if(window.ui) window.ui.showToast(`🎓 Bien vu ! Tu as corrigé Gégé (${conf}%), Bonus : +${learningBonus} € !`, 'success');
-                            }
+                            this.addBankTransaction(-15, "Malus Gégé (Correction IA sûre)");
+                            if(window.ui) window.ui.showToast(`📉 Gégé était sûr de lui (${conf}%) ! Amende : -15 € !`, 'anomaly');
                         }
                     }
+
 
                     if (isTruck) this.currentPredictionTruck = null;
                     else this.currentPredictionCar = null;
@@ -1394,12 +1388,19 @@ if (!isTruck && window.tycoon) {
                     baseVal = marketData.netValue;
                     if (isExact) transactionName += ` (x${gegeMultiplier} IA)`;
 
-                                        // Gégé affiche les notifications envoyées par le Marché
+                                                          // Gégé affiche les notifications envoyées par le Marché
                     marketData.events.forEach(ev => {
                         if (ev === 'alt') {
-
                             if(window.ui) window.ui.showToast(`⛰️ Bonus d'Altitude (+10%) !`);
+                        } else if (ev === 'gamelle') {
+                            if(window.ui) window.ui.showToast(`🍽️ Prime de la Gamelle (x1.5) ! Bon appétit !`, 'success');
+                        } else if (ev === 'contrebande') {
+                            if(window.ui) window.ui.showToast(`🤫 Tarif de Contrebande (Dimanche x4) !`, 'rare-combo');
+                        } else if (ev === 'dreal') {
+                            this.addBankTransaction(-200.00, "Amende de la DREAL 👮");
+                            if(window.ui) { window.ui.showToast(`👮 CONTRÔLE DREAL ! Amende de -200 € !`, "anomaly"); window.ui.playGamiSound('siren'); }
                         } else if (ev === 'congestion_frais') {
+
                             if (!this._congestNotified || this._congestNotified[key1] !== 'frais') {
                                 this._congestNotified = this._congestNotified || {};
                                 this._congestNotified[key1] = 'frais';
@@ -1629,22 +1630,15 @@ if (!isTruck && window.tycoon) {
             this.updatePrediction(mode);
             if (!isTruck) this.updateCarbonGauge();
 
-        } else if (amount < 0) {
+             } else if (amount < 0) {
             let lastIndex = history.map(h => !h.isEvent && (isTruck ? (h.brand === key1 && h.type === key2) : (h.type === key1))).lastIndexOf(true);
 
             if (lastIndex !== -1) {
-                if (!isTruck) {
-                    let penalty = Math.max(5, Math.abs(this.bankBalance * 0.1));
-                    this.addBankTransaction(-penalty, "Frais d'annulation");
-                    if(window.ui) {
-                        window.ui.showToast("📉 Frais d'annulation appliqués !", "anomaly");
-                        window.ui.playGamiSound('crash');
-                    }
-                }
                 this.deleteHistoryItem(mode, lastIndex);
                 return;
             }
         }
+
     },
 
 

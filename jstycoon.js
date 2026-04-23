@@ -51,13 +51,19 @@ export const tycoon = {
         this.loadState();
     },
 
-    loadState() {
+        loadState() {
         let user = window.app && window.app.currentUser ? window.app.currentUser : 'Sylvain';
         let saved = localStorage.getItem(`tycoon_state_${user}`);
         if (saved) {
             try { this.state = { ...this.state, ...JSON.parse(saved) }; }
             catch(e) { console.error("Erreur de lecture Tycoon"); }
         }
+        
+        // --- INFLATION À LA POMPE ---
+        // Génère un prix entre 1.40 et 2.50 à chaque rechargement de l'app !
+        this.state.fuelPrice = parseFloat((1.40 + Math.random() * 1.10).toFixed(2));
+        this.saveState();
+
         
         if (this.state.fleet) {
             this.state.fleet.forEach(v => {
@@ -306,13 +312,15 @@ export const tycoon = {
         }
     },
 
-    refuel(uid) {
+        refuel(uid) {
         let v = this.state.fleet.find(f => f.uid === uid);
         if (!v) return;
         let def = this.catalog.fleet[v.type];
         let needed = def.fuelTank - v.fuel; 
         if (needed <= 0) return;
-        let cost = needed * this.fuelPrice;
+        let currentFuelPrice = this.state.fuelPrice || 1.80;
+        let cost = needed * currentFuelPrice;
+
         
         if (window.app.bankBalance < cost) {
             if(window.ui) window.ui.showToast("❌ Pas assez d'argent pour l'essence !");
@@ -734,11 +742,12 @@ export const tycoon = {
                                 </div>
                             </div>
 
-                            <div style="display:flex; gap:6px;">
-                                <button style="flex:1; background:#27ae60; color:white; border:none; padding:8px; border-radius:4px; font-weight:bold; font-size:0.9em;" onclick="event.stopPropagation(); window.tycoon.refuel('${v.uid}')">⛽ Plein</button>
+                                                       <div style="display:flex; gap:6px;">
+                                <button style="flex:1; background:#27ae60; color:white; border:none; padding:8px; border-radius:4px; font-weight:bold; font-size:0.9em;" onclick="event.stopPropagation(); window.tycoon.refuel('${v.uid}')">⛽ Plein (${(this.state.fuelPrice || 1.80).toFixed(2)}€/L)</button>
                                 <button style="flex:1; background:#3498db; color:white; border:none; padding:8px; border-radius:4px; font-weight:bold; font-size:0.9em;" onclick="event.stopPropagation(); window.tycoon.repair('${v.uid}')">🔧 Révis.</button>
                                 <button style="flex:1; background:#8e44ad; color:white; border:none; padding:8px; border-radius:4px; font-weight:bold; font-size:0.9em;" onclick="event.stopPropagation(); window.tycoon.changeTires('${v.uid}')">🛞 Pneus</button>
                             </div>
+
                             <button style="margin-top:6px; background:var(--danger-color); color:white; border:none; border-radius:4px; padding:8px; font-weight:bold; cursor:pointer; width:100%; font-size:0.9em;" onclick="event.stopPropagation(); window.tycoon.sellVehicle('${v.uid}')">Revendre (${sellPrice.toLocaleString('fr-FR', {maximumFractionDigits:0})} €)</button>
                         </div>
                     </div>
