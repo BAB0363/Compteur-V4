@@ -49,10 +49,9 @@ export const market = {
         let isRushHour = (hour >= 7 && hour < 9) || (hour >= 17 && hour < 19);
         let threshold = isHighway ? 10 : 4;
         let events = []; 
-
         if (isNight) {
-            baseVal *= (type === "Camions" || type === "Utilitaires") ? 0.5 : 5.0;
-        } else if (isRushHour) {
+            baseVal *= (type === "Camions" || type === "Utilitaires") ? 0.5 : 2.5;
+   } else if (isRushHour) {
             baseVal *= (type === "Voitures" || type === "Utilitaires") ? 0.5 : 2.0;
         }
         if (hour >= 5 && hour < 7) {

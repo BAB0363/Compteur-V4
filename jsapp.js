@@ -3114,18 +3114,58 @@ if (window.tycoon) window.tycoon.cashOut();
         }
     }, // <--- C'est CETTE virgule qui manquait pour séparer les fonctions !
     
-            updatePricingUI() {
+                updatePricingUI() {
         const grid = document.getElementById('pricing-grid');
         if (!grid) return;
         
-        const hour = new Date().getHours();
+        const now = new Date();
+        const hour = now.getHours();
+        const day = now.getDay(); // 0 = Dimanche
         let statusArr = [];
         
-        if (hour >= 5 && hour < 7) statusArr.push("🌅 Aube (x2)");
-        if ((hour >= 7 && hour < 9) || (hour >= 17 && hour < 19)) statusArr.push("🚗 Pointe (PL x2 | VL /2)");
-        if (hour >= 21 || hour < 6) statusArr.push("🌙 Nuit (PL x5 | VL /2)");
+        // 1. Détermination des bonus/malus selon l'heure et le jour
+        if (hour >= 5 && hour < 7) {
+            statusArr.push("🌅 Aube (x2)");
+        }
         
-        if (statusArr.length === 0) statusArr.push("☀️ Journée (Tarifs Standards)");
+        if ((hour >= 7 && hour < 9) || (hour >= 17 && hour < 19)) {
+            statusArr.push("🚗 Pointe (PL x2 | VL&Util /2)");
+        }
+        
+        if (hour >= 21 || hour < 6) {
+            statusArr.push("🌙 Nuit (PL&Util /2 | Autres x2.5)"); 
+        }
+        
+        if (day !== 0 && (hour === 12 || hour === 13)) {
+            statusArr.push("🍱 Gamelle (PL x1.5)");
+        }
+
+        if (day === 0) {
+            statusArr.push("🏴‍☠️ Contrebande (PL x4 | ⚠️ DREAL)");
+        }
+        
+        // Affichage par défaut si aucun modificateur n'est actif
+        if (statusArr.length === 0) {
+            statusArr.push("☀️ Journée (Tarifs Standards)");
+        }
+
+        let statusStr = statusArr.join(" + ");
+
+        // 2. Injection du HTML dans la grille
+        grid.innerHTML = `
+            <div onclick="let d=document.getElementById('pricing-details'); d.style.display=d.style.display==='none'?'contents':'none';" style="grid-column: 1 / -1; color: #f1c40f; font-weight: bold; text-align: center; cursor: pointer; padding-bottom: 2px;">
+                ${statusStr} <span style="font-size:0.8em; color:#7f8c8d; margin-left: 5px;">▼</span>
+            </div>
+            <div id="pricing-details" style="display: none;">
+                <div style="grid-column: 1 / -1; border-bottom: 1px dashed var(--border-color); margin: 3px 0;"></div>
+                <div style="color: #7f8c8d;">05h - 07h</div> <div style="text-align: right;">Prime Aube x2</div>
+                <div style="color: #7f8c8d;">07h-09h / 17h-19h</div> <div style="text-align: right;">Heure de Pointe</div>
+                <div style="color: #7f8c8d;">21h - 06h</div> <div style="text-align: right;">Tarif de Nuit</div>
+                <div style="color: #7f8c8d;">12h - 14h</div> <div style="text-align: right;">Gamelle du Routier</div>
+                <div style="color: #7f8c8d;">Dimanche</div> <div style="text-align: right;">Contrebande (Risque DREAL)</div>
+            </div>
+        `;
+    },
 
         let statusStr = statusArr.join(" + ");
 
