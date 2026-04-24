@@ -96,7 +96,11 @@ export const tycoon = {
     },
 
     getFleetStatus() {
-        let availableFleet = this.state.fleet.filter(v => v.health > 20 && v.fuel > 0);
+      let availableFleet = this.state.fleet.filter(v => {
+    let def = this.catalog.fleet[v.type];
+    return v.health > 20 && (def.fuelTank === 0 || v.fuel > 0);
+});
+
         availableFleet.sort((a, b) => this.catalog.fleet[b.type].capacity - this.catalog.fleet[a.type].capacity);
 
         let remainingFreight = this.state.storedFreight;
@@ -706,9 +710,9 @@ export const tycoon = {
                 let badge = isDelivering ? '📦 LIVRAISON' : '☕ PASSIF';
                 let baseColor = isDelivering ? '#27ae60' : '#3498db';
                 
-                let isCritical = v.fuel <= (def.fuelTank * 0.1) || v.health <= 30 || (v.tires || 100) <= 10;
-                let isWarning = v.fuel <= (def.fuelTank * 0.3) || v.health <= 60 || v.kmsSinceService >= (def.serviceInterval * 0.8);
-                let color = isCritical ? "#e74c3c" : (isWarning ? "#f39c12" : baseColor);
+let isCritical = (def.fuelTank > 0 && v.fuel <= (def.fuelTank * 0.1)) || v.health <= 30 || (v.tires || 100) <= 10;
+let isWarning = (def.fuelTank > 0 && v.fuel <= (def.fuelTank * 0.3)) || v.health <= 60 || v.kmsSinceService >= (def.serviceInterval * 0.8);
+        let color = isCritical ? "#e74c3c" : (isWarning ? "#f39c12" : baseColor);
                 let statusTxt = isCritical ? "🔴 ACTION REQUISE" : (isWarning ? "🟠 SURVEILLANCE" : badge);
                 
                 let sellPrice = (def.price * 0.60) * (v.health / 100);
