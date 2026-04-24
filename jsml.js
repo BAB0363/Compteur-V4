@@ -22,9 +22,10 @@ export const ml = {
         this.updateUIStatus();
     },
 
-    initWorker() {
+        initWorker() {
         if (window.Worker) {
-            this.worker = new Worker('jsml-worker.js');
+            this.worker = new Worker('jsml-worker.js?v=50');
+
             this.worker.onmessage = async (e) => {
                 const { success } = e.data;
                 this.isTraining = false;

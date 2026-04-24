@@ -623,18 +623,19 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
     
-    <script type="module" src="jsml.js?v=44"></script>
-    <script type="module" src="jsgami.js?v=44"></script>
-<script type="module" src="jsmarket.js?v=45"></script>
-<script type="module" src="jstycoon.js?v=46"></script>
-<script type="module" src="jsexport.js?v=47"></script>
+      <script type="module" src="jsml.js?v=50"></script>
+    <script type="module" src="jsgami.js?v=50"></script>
+    <script type="module" src="jsmarket.js?v=50"></script>
+    <script type="module" src="jstycoon.js?v=50"></script>
+    <script type="module" src="jsexport.js?v=50"></script>
 
-    <script type="module" src="jsapp.js?v=45"></script>
+    <script type="module" src="jsapp.js?v=50"></script>
     
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('./sw.js?v=48')
+          navigator.serviceWorker.register('./sw.js?v=50')
+
             .then(registration => {
               console.log('Service Worker Compteur enregistré !', registration.scope);
             })
