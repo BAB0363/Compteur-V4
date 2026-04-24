@@ -2,7 +2,8 @@
 importScripts('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0/dist/tf.min.js');
 
 self.onmessage = async function(e) {
-    const { type, features, labels, numClasses } = e.data;
+    const { type, features, labels, numClasses, user, mode } = e.data;
+
     if (!features || features.length === 0) return self.postMessage({ success: false });
 
     try {
@@ -27,8 +28,11 @@ self.onmessage = async function(e) {
             classWeight[i] = Math.min(2.5, Math.max(0.7, weight)); // Équilibrage doux
         }
 
-        await model.fit(xs, ys, { epochs: 60, shuffle: true, classWeight: classWeight });
-        await model.save(`indexeddb://model-${type}`);
+                await model.fit(xs, ys, { epochs: 60, shuffle: true, classWeight: classWeight });
+        let safeUser = user || 'Default';
+        let safeMode = mode || 'voiture';
+        await model.save(`indexeddb://model-${type}_${safeUser}_${safeMode}`);
+
 
         xs.dispose(); ys.dispose();
         self.postMessage({ success: true, type });

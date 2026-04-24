@@ -113,14 +113,13 @@ export const gami = {
     },
 
     generateDailyQuests() {
-        const types = [
+                const types = [
             { id: "d_tot", title: "Le Marathonien", desc: "Compter des véhicules.", min: 150, max: 300, type: "total", moneyReward: 50 },
-            { id: "d_fr", title: "Flot National", desc: "Trouver des camions français.", min: 60, max: 120, type: "camion_fr", moneyReward: 75 },
-            { id: "d_etr", title: "Transit Europe", desc: "Trouver des camions étrangers.", min: 60, max: 120, type: "camion_etr", moneyReward: 75 },
             { id: "d_uti", title: "Logistique Urbaine", desc: "Compter des Utilitaires.", min: 80, max: 150, type: "utilitaire", moneyReward: 60 },
             { id: "d_ia", title: "L'Œil d'Acier", desc: "Valider des prédictions IA exactes.", min: 15, max: 25, type: "ia_exact", moneyReward: 100 },
             { id: "d_flux", title: "Flux Tendu", desc: "Atteindre une chaîne de régularité.", target: 30, type: "regularite", moneyReward: 150 }
         ];
+
         
         return types.sort(() => 0.5 - Math.random()).slice(0, 3).map(q => {
             let finalTarget = q.target ? q.target : this.getRandomInt(q.min, q.max);

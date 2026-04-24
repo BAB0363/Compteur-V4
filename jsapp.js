@@ -1882,12 +1882,13 @@ if (window.tycoon) window.tycoon.cashOut();
             localStorage.removeItem(`bankStats_${this.currentUser}`);
             localStorage.removeItem(`companyState_${this.currentUser}`); 
 
-            try {
+                    try {
                 if (typeof tf !== 'undefined') {
-                    tf.io.removeModel('indexeddb://model-trucks').catch(e => {});
-                    tf.io.removeModel('indexeddb://model-cars').catch(e => {});
+                    tf.io.removeModel(`indexeddb://model-trucks_${this.currentUser}_${this.currentMode}`).catch(e => {});
+                    tf.io.removeModel(`indexeddb://model-cars_${this.currentUser}_${this.currentMode}`).catch(e => {});
                 }
             } catch(e) {}
+
 
             if(window.ui) window.ui.showToast("💥 KABOOM ! Profil entièrement réinitialisé ! Redémarrage...");
             
@@ -3129,9 +3130,10 @@ if (window.tycoon) window.tycoon.cashOut();
             statusArr.push("🌅 Aube (x2)");
         }
         
-        if ((hour >= 7 && hour < 9) || (hour >= 17 && hour < 19)) {
-            statusArr.push("🚗 Pointe (PL x2 | VL&Util /2)");
+               if ((hour >= 7 && hour < 9) || (hour >= 17 && hour < 19)) {
+            statusArr.push("🚗 Pointe (PL x2 | VL, Util, Bus, Vélos /2)");
         }
+
         
         if (hour >= 21 || hour < 6) {
             statusArr.push("🌙 Nuit (PL&Util /2 | Autres x2.5)"); 

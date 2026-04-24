@@ -37,10 +37,13 @@ export const ml = {
         }
     },
 
-    async loadModels() {
-        try { this.modelTrucks = await tf.loadLayersModel('indexeddb://model-trucks'); } catch (e) { this.modelTrucks = null; }
-        try { this.modelCars = await tf.loadLayersModel('indexeddb://model-cars'); } catch (e) { this.modelCars = null; }
+       async loadModels() {
+        let user = window.app ? window.app.currentUser : 'Default';
+        let mode = window.app ? window.app.currentMode : 'voiture';
+        try { this.modelTrucks = await tf.loadLayersModel(`indexeddb://model-trucks_${user}_${mode}`); } catch (e) { this.modelTrucks = null; }
+        try { this.modelCars = await tf.loadLayersModel(`indexeddb://model-cars_${user}_${mode}`); } catch (e) { this.modelCars = null; }
     },
+
 
     updateUIStatus() {
         let elTrucks = document.getElementById('ai-status-trucks'), elCars = document.getElementById('ai-status-cars');
@@ -179,10 +182,12 @@ export const ml = {
             }
         }
 
-        this.isTraining = true;
-        this.worker.postMessage({ type, features, labels, numClasses: labelsList.length });
+                this.isTraining = true;
+        let user = window.app ? window.app.currentUser : 'Default';
+        let mode = window.app ? window.app.currentMode : 'voiture';
+        this.worker.postMessage({ type, features, labels, numClasses: labelsList.length, user: user, mode: mode });
         return true;
-    },
+
 
     async predictNext(type) {
         let model = type === 'trucks' ? this.modelTrucks : this.modelCars;

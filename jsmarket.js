@@ -51,9 +51,10 @@ export const market = {
         let events = []; 
         if (isNight) {
             baseVal *= (type === "Camions" || type === "Utilitaires") ? 0.5 : 2.5;
-   } else if (isRushHour) {
-            baseVal *= (type === "Voitures" || type === "Utilitaires") ? 0.5 : 2.0;
+         } else if (isRushHour) {
+            baseVal *= (type === "Voitures" || type === "Utilitaires" || type === "Bus/Car" || type === "Vélos") ? 0.5 : 2.0;
         }
+
         if (hour >= 5 && hour < 7) {
             baseVal *= 2.0;
             events.push('aube');

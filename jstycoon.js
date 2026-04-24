@@ -59,10 +59,14 @@ export const tycoon = {
             catch(e) { console.error("Erreur de lecture Tycoon"); }
         }
         
-        // --- INFLATION À LA POMPE ---
-        // Génère un prix entre 1.40 et 2.50 à chaque rechargement de l'app !
-        this.state.fuelPrice = parseFloat((1.40 + Math.random() * 1.10).toFixed(2));
-        this.saveState();
+              // --- INFLATION À LA POMPE (Journalière) ---
+        let todayStr = new Date().toDateString();
+        if (this.state.lastFuelDate !== todayStr || !this.state.fuelPrice) {
+            this.state.fuelPrice = parseFloat((1.40 + Math.random() * 1.10).toFixed(2));
+            this.state.lastFuelDate = todayStr;
+            this.saveState();
+        }
+
 
         
         if (this.state.fleet) {
@@ -470,11 +474,13 @@ export const tycoon = {
                 }
             }
 
-            // 2. On vérifie l'état APRÈS l'usure pour afficher l'alerte préventive 🟠
+                      // 2. On vérifie l'état APRÈS l'usure pour afficher l'alerte préventive 🟠
             let isWarning = veh.fuel <= (def.fuelTank * 0.3) || veh.health <= 60 || veh.kmsSinceService >= (def.serviceInterval * 0.8);
             if (!wasWarning && isWarning && window.ui) {
                 window.ui.showToast(`🟠 Alerte flotte : Ton ${def.name} passe en zone orange !`, "anomaly");
+                window.ui.playGamiSound('siren');
             }
+
 
             needsSave = true;
         });
@@ -543,10 +549,11 @@ export const tycoon = {
                 }
 
                             // 2. Vérification de l'état APRÈS conso temporelle
-                let isWarning = veh.fuel <= (def.fuelTank * 0.3) || veh.health <= 60 || veh.kmsSinceService >= (def.serviceInterval * 0.8);
-                if (!wasWarning && isWarning && window.ui) {
-                    window.ui.showToast(`🟠 Alerte flotte : Ton ${def.name} passe en zone orange !`, "anomaly");
-                }
+        let isWarning = veh.fuel <= (def.fuelTank * 0.3) || veh.health <= 60 || veh.kmsSinceService >= (def.serviceInterval * 0.8);
+            if (!wasWarning && isWarning && window.ui) {
+                window.ui.showToast(`🟠 Alerte flotte : Ton ${def.name} passe en zone orange !`, "anomaly");
+                window.ui.playGamiSound('siren');
+            }
             });
 
             // --- ÉVÉNEMENTS ALÉATOIRES DE L'ENTREPRISE ---
