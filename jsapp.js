@@ -1413,15 +1413,18 @@ if (!isTruck && window.tycoon) {
                     let isHighway = speedKmh > 80;
                     let currentAlt = window.gps && window.gps.currentPos ? (window.gps.currentPos.alt || 0) : 0;
 
-                    let marketData = window.market ? window.market.getFinalValue(key1, {
+                         let marketData = window.market ? window.market.getFinalValue(key1, {
                         hour: currentHour,
                         alt: currentAlt,
                         consecutive: consecutive,
                         isHighway: isHighway,
                         bankBalance: this.bankBalance,
                         isExact: isExact,
-                        gegeMultiplier: gegeMultiplier
+                        gegeMultiplier: gegeMultiplier,
+                        speed: speedKmh
                     }) : { netValue: baseVal, events: [], threshold: 4 };
+
+
 
                     baseVal = marketData.netValue;
                     if (isExact) transactionName += ` (x${gegeMultiplier} IA)`;
@@ -2041,11 +2044,14 @@ if (window.tycoon) window.tycoon.cashOut();
             let trend = window.market && window.market.state.values[marketKey] ? window.market.state.values[marketKey].trend : 0;
             
             let currentAlt = window.gps && window.gps.currentPos ? (window.gps.currentPos.alt || 0) : 0;
+            let speedKmh = window.gps ? window.gps.getSlidingSpeedKmh() : 0;
             let marketData = window.market ? window.market.getFinalValue(marketKey, { 
                 hour: new Date().getHours(), 
                 alt: currentAlt, 
-                bankBalance: this.bankBalance 
+                bankBalance: this.bankBalance,
+                speed: speedKmh
             }) : { netValue: 1.00 };
+
 
             let currentPrice = marketData.netValue.toFixed(2);
 
@@ -3195,7 +3201,7 @@ if (window.tycoon) window.tycoon.cashOut();
         }
     }, // <--- C'est CETTE virgule qui manquait pour séparer les fonctions !
     
-                updatePricingUI() {
+                    updatePricingUI() {
         const grid = document.getElementById('pricing-grid');
         if (!grid) return;
         
@@ -3204,16 +3210,23 @@ if (window.tycoon) window.tycoon.cashOut();
         const day = now.getDay(); // 0 = Dimanche
         let statusArr = [];
         
+        // --- NOUVEAU : Récupération de la vitesse ---
+        let speedKmh = window.gps ? window.gps.getSlidingSpeedKmh() : 0;
+        
         // 1. Détermination des bonus/malus selon l'heure et le jour
         if (hour >= 5 && hour < 7) {
             statusArr.push("🌅 Aube (x2)");
         }
         
-               if ((hour >= 7 && hour < 9) || (hour >= 17 && hour < 19)) {
-            statusArr.push("🚗 Pointe (PL x2 | VL, Util, Bus, Vélos /2)");
+        // --- NOUVEAU : Logique de contournement Heure de Pointe ---
+        if ((hour >= 7 && hour < 9) || (hour >= 17 && hour < 19)) {
+            if (speedKmh > 60) {
+                statusArr.push("🚗 Pointe <span style='color:var(--success-color); font-weight:normal;'>(Bypass >60km/h 🟢)</span>");
+            } else {
+                statusArr.push("🚗 Pointe (PL x2 | VL, Util... /2) 🔴");
+            }
         }
 
-        
         if (hour >= 21 || hour < 6) {
             statusArr.push("🌙 Nuit (PL&Util /2 | Autres x2.5)"); 
         }
@@ -3241,13 +3254,14 @@ if (window.tycoon) window.tycoon.cashOut();
             <div id="pricing-details" style="display: none;">
                 <div style="grid-column: 1 / -1; border-bottom: 1px dashed var(--border-color); margin: 3px 0;"></div>
                 <div style="color: #7f8c8d;">05h - 07h</div> <div style="text-align: right;">Prime Aube x2</div>
-                <div style="color: #7f8c8d;">07h-09h / 17h-19h</div> <div style="text-align: right;">Heure de Pointe</div>
+                <div style="color: #7f8c8d;">07h-09h / 17h-19h</div> <div style="text-align: right;">Pointe (Désactivé si > 60km/h)</div>
                 <div style="color: #7f8c8d;">21h - 06h</div> <div style="text-align: right;">Tarif de Nuit</div>
                 <div style="color: #7f8c8d;">12h - 14h</div> <div style="text-align: right;">Gamelle du Routier</div>
                 <div style="color: #7f8c8d;">Dimanche</div> <div style="text-align: right;">Contrebande (Risque DREAL)</div>
             </div>
         `;
     },
+
 
 
 

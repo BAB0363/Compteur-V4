@@ -39,17 +39,20 @@ export const market = {
         return this.state.values[type] ? parseFloat(this.state.values[type].current.toFixed(2)) : 1.00;
     },
 
-    getFinalValue(type, context = {}) {
+        getFinalValue(type, context = {}) {
         if (type === "Poids Lourds") type = "Camions";
         let baseVal = this.state.values[type] ? this.state.values[type].current : 1.00;
         
-        let { hour = new Date().getHours(), alt = 0, consecutive = 0, isHighway = false, bankBalance = 0, isExact = false, gegeMultiplier = 1 } = context;
+        let { hour = new Date().getHours(), alt = 0, consecutive = 0, isHighway = false, bankBalance = 0, isExact = false, gegeMultiplier = 1, speed = 0 } = context;
 
         let isNight = (hour >= 21 || hour < 6);
-        let isRushHour = (hour >= 7 && hour < 9) || (hour >= 17 && hour < 19);
+        let isRushHourTime = (hour >= 7 && hour < 9) || (hour >= 17 && hour < 19);
+        let isRushHour = isRushHourTime && speed <= 60;
+        
         let threshold = isHighway ? 10 : 4;
         let events = []; 
         if (isNight) {
+
             baseVal *= (type === "Camions" || type === "Utilitaires") ? 0.5 : 2.5;
          } else if (isRushHour) {
             baseVal *= (type === "Voitures" || type === "Utilitaires" || type === "Bus/Car" || type === "Vélos") ? 0.5 : 2.0;
