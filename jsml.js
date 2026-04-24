@@ -183,8 +183,14 @@ export const ml = {
             }
         }
 
-              this.worker.postMessage({ type, features, labels, numClasses: labelsList.length, user: user, mode: mode });
-        return true;
+              let currentUser = window.app ? window.app.currentUser : 'Default';
+let currentMode = window.app ? window.app.currentMode : 'voiture';
+
+this.isTraining = true; // On verrouille la porte pendant que Gégé réfléchit 🧠
+this.worker.postMessage({ type, features, labels, numClasses: labelsList.length, user: currentUser, mode: currentMode });
+
+return true;
+
     },
 
     async predictNext(type) {
