@@ -674,17 +674,18 @@ export const tycoon = {
                 let btnTxt = isMaxed ? "Max" : "Investir";
                 
                 buildList.innerHTML += `
-                    <div style="background:var(--card-bg); border-radius:6px; padding: 10px 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display:flex; justify-content:space-between; align-items:center; ${isMaxed ? 'opacity: 0.6;' : ''}">
-                        <div style="display:flex; flex-direction:column; gap:2px;">
-                            <span style="font-size:1em; color:var(--text-color);">${item.icon} <b>${item.name}</b></span>
-                            <span style="font-size:0.75em; color:#7f8c8d;">Places : ${count}/${item.maxLimit} | Capacité : +${item.slots}</span>
-                        </div>
-                        <div style="display:flex; flex-direction:column; align-items:flex-end;">
-                            <span style="font-size:0.85em; font-weight:bold; color:var(--text-color); margin-bottom:4px; ${isMaxed ? 'text-decoration: line-through;' : ''}">${currentPrice.toLocaleString('fr-FR')} €</span>
-                            <button style="background:var(--primary-color); color:white; border:none; padding:4px 10px; border-radius:4px; font-weight:bold; font-size:0.8em;" ${!canBuy ? 'disabled style="background:#bdc3c7;"' : ''} onclick="window.tycoon.buyBuilding('${k}')">${btnTxt}</button>
-                        </div>
-                    </div>
-                `;
+    <div style="background:var(--card-bg); border-radius:6px; padding: 10px 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display:flex; justify-content:space-between; align-items:center; ${isMaxed ? 'opacity: 0.6;' : ''}">
+        <div style="display:flex; flex-direction:column; gap:2px;">
+            <span style="font-size:1em; color:var(--text-color);">${item.icon} <b>${item.name}</b></span>
+            <span style="font-size:0.75em; color:#7f8c8d;">Places : ${count}/${item.maxLimit} | <b>Stock : +${item.storage}t</b></span>
+        </div>
+        <div style="display:flex; flex-direction:column; align-items:flex-end;">
+            <span style="font-size:0.85em; font-weight:bold; color:var(--text-color); margin-bottom:4px; ${isMaxed ? 'text-decoration: line-through;' : ''}">${currentPrice.toLocaleString('fr-FR')} €</span>
+            <button style="background:var(--primary-color); color:white; border:none; padding:4px 10px; border-radius:4px; font-weight:bold; font-size:0.8em;" ${!canBuy ? 'disabled style="background:#bdc3c7;"' : ''} onclick="window.tycoon.buyBuilding('${k}')">${btnTxt}</button>
+        </div>
+    </div>
+`;
+
             });
         }
 
