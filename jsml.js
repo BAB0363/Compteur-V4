@@ -183,14 +183,12 @@ export const ml = {
             }
         }
 
-               this.isTraining = true;
-        let user = window.app ? window.app.currentUser : 'Default';
-        let mode = window.app ? window.app.currentMode : 'voiture';
-        this.worker.postMessage({ type, features, labels, numClasses: labelsList.length, user: user, mode: mode });
+              this.worker.postMessage({ type, features, labels, numClasses: labelsList.length, user: user, mode: mode });
         return true;
-    }
+    },
 
     async predictNext(type) {
+
 
         let model = type === 'trucks' ? this.modelTrucks : this.modelCars;
         if (!model) return null;
