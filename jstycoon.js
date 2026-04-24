@@ -24,24 +24,27 @@ export const tycoon = {
         ]
     },
 
-    catalog: {
+        catalog: {
         buildings: {
-            relais: { id: 'relais', name: 'Relais Scooter', price: 4000, slots: 2, icon: '🛵', maxLimit: 5, targetVeh: 'scooter' },
-            hangar: { id: 'hangar', name: 'Hangar Urbain', price: 28000, slots: 3, icon: '🚐', maxLimit: 4, targetVeh: 'vul' },
-            quai: { id: 'quai', name: 'Quai Régional', price: 35000, slots: 5, icon: '🚚', maxLimit: 3, targetVeh: 'porteur' },
-            plateforme: { id: 'plateforme', name: 'Plateforme Logistique', price: 100000, slots: 10, icon: '🚛', maxLimit: 2, targetVeh: 'tracteur' },
-            terminal: { id: 'terminal', name: 'Terminal Frigo', price: 250000, slots: 5, icon: '❄️', maxLimit: 2, targetVeh: 'frigo' },
-            zone: { id: 'zone', name: 'Zone de Convoi', price: 500000, slots: 3, icon: '⚠️', maxLimit: 2, targetVeh: 'convoi' }
+            local_velo: { id: 'local_velo', name: 'Local Vélo', price: 1000, slots: 4, storage: 5, icon: '🚲', maxLimit: 5, targetVeh: 'velo' },
+            hub_cargo: { id: 'hub_cargo', name: 'Hub Cargo', price: 2500, slots: 3, storage: 15, icon: '🚴‍♂️', maxLimit: 5, targetVeh: 'cargo' },
+            relais_scooter: { id: 'relais_scooter', name: 'Relais Scooter', price: 4000, slots: 2, storage: 10, icon: '🛵', maxLimit: 5, targetVeh: 'scooter' },
+            hangar_urbain: { id: 'hangar_urbain', name: 'Hangar Urbain', price: 28000, slots: 3, storage: 100, icon: '🚐', maxLimit: 4, targetVeh: 'utilitaire' },
+            depot_periurbain: { id: 'depot_periurbain', name: 'Dépôt Périurbain', price: 50000, slots: 2, storage: 400, icon: '🚚', maxLimit: 4, targetVeh: 'petit_porteur' },
+            quai_regional: { id: 'quai_regional', name: 'Quai Régional', price: 80000, slots: 2, storage: 800, icon: '🚛', maxLimit: 3, targetVeh: 'porteur' },
+            plateforme: { id: 'plateforme', name: 'Plateforme Logistique', price: 150000, slots: 2, storage: 2500, icon: '🏢', maxLimit: 2, targetVeh: 'ensemble' }
         },
         fleet: {
-            scooter: { id: 'scooter', name: 'Scooter', price: 2500, income: 0.05, capacity: 0.05, icon: '🛵', buildingId: 'relais', tireLifeKm: 8000, fuelTank: 7, l100: 3, serviceInterval: 5000 },
-            vul: { id: 'vul', name: 'Fourgon', price: 18000, income: 0.20, capacity: 0.8, icon: '🚐', buildingId: 'hangar', tireLifeKm: 45000, fuelTank: 80, l100: 8, serviceInterval: 15000 },
-            porteur: { id: 'porteur', name: 'Porteur 19t', price: 55000, income: 0.60, capacity: 8, icon: '🚚', buildingId: 'quai', tireLifeKm: 150000, fuelTank: 300, l100: 22, serviceInterval: 30000 },
-            tracteur: { id: 'tracteur', name: 'Tracteur', price: 130000, income: 1.50, capacity: 24, icon: '🚛', buildingId: 'plateforme', tireLifeKm: 200000, fuelTank: 1000, l100: 32, serviceInterval: 50000 },
-            frigo: { id: 'frigo', name: 'Ensemble Frigo', price: 190000, income: 2.50, capacity: 24, icon: '❄️', buildingId: 'terminal', tireLifeKm: 180000, fuelTank: 1000, l100: 35, serviceInterval: 40000 },
-            convoi: { id: 'convoi', name: 'Convoi Except.', price: 400000, income: 5.00, capacity: 60, icon: '⚠️', buildingId: 'zone', tireLifeKm: 12000, fuelTank: 1500, l100: 55, serviceInterval: 10000 }
+            velo: { id: 'velo', name: 'Vélo', price: 500, income: 0.002, capacity: 0.02, deliveryKm: 5, icon: '🚲', buildingId: 'local_velo', tireLifeKm: 3000, fuelTank: 1, l100: 0, serviceInterval: 2000 },
+            cargo: { id: 'cargo', name: 'Vélo Cargo', price: 1500, income: 0.005, capacity: 0.10, deliveryKm: 10, icon: '🚴‍♂️', buildingId: 'hub_cargo', tireLifeKm: 5000, fuelTank: 1, l100: 0, serviceInterval: 3000 },
+            scooter: { id: 'scooter', name: 'Scooter', price: 2500, income: 0.008, capacity: 0.06, deliveryKm: 4, icon: '🛵', buildingId: 'relais_scooter', tireLifeKm: 8000, fuelTank: 7, l100: 3, serviceInterval: 5000 },
+            utilitaire: { id: 'utilitaire', name: 'Utilitaire', price: 18000, income: 0.010, capacity: 0.80, deliveryKm: 40, icon: '🚐', buildingId: 'hangar_urbain', tireLifeKm: 45000, fuelTank: 80, l100: 8, serviceInterval: 15000 },
+            petit_porteur: { id: 'petit_porteur', name: 'Petit Porteur', price: 35000, income: 0.025, capacity: 4.00, deliveryKm: 80, icon: '🚚', buildingId: 'depot_periurbain', tireLifeKm: 120000, fuelTank: 200, l100: 16, serviceInterval: 25000 },
+            porteur: { id: 'porteur', name: 'Porteur 19t', price: 55000, income: 0.040, capacity: 8.00, deliveryKm: 100, icon: '🚛', buildingId: 'quai_regional', tireLifeKm: 150000, fuelTank: 300, l100: 22, serviceInterval: 30000 },
+            ensemble: { id: 'ensemble', name: 'Ensemble Routier', price: 130000, income: 0.080, capacity: 24.00, deliveryKm: 200, icon: '🛣️', buildingId: 'plateforme', tireLifeKm: 200000, fuelTank: 1000, l100: 32, serviceInterval: 50000 }
         }
     },
+
 
         fuelPrice: 1.80,
     sessionFreightToAdd: 0,
@@ -113,10 +116,16 @@ export const tycoon = {
         return { deliveringVehicles, passiveVehicles };
     },
 
-    getWarehouseCapacity() {
-        let levelInfo = this.warehouseConfig.levels[this.state.warehouseLevel];
-        return levelInfo ? levelInfo.cap : 0;
+        getWarehouseCapacity() {
+        let totalStorage = 0;
+        Object.keys(this.state.buildings).forEach(id => {
+            if (this.catalog.buildings[id]) {
+                totalStorage += (this.state.buildings[id] || 0) * this.catalog.buildings[id].storage;
+            }
+        });
+        return totalStorage;
     },
+
 
     getWeekNumber() {
         let d = new Date();
@@ -159,37 +168,21 @@ export const tycoon = {
         this.saveState();
     },
 
-    getDynamicPrice() {
-        const basePrice = 2.50;
+        getDynamicPrice() {
+        const basePrice = 3.00; // Nouveau prix de base augmenté
         const cap = this.getWarehouseCapacity();
-        if (cap === 0) return 0;
+        if (cap === 0) return basePrice;
         const fillRate = this.state.storedFreight / cap;
         
         let price = basePrice;
         if (fillRate < 0.20) price = basePrice * 1.5;
         if (fillRate > 0.80) price = basePrice * 0.5;
         
-        let volumeBonus = 1 + (fillRate * 0.15);
-        price = price * volumeBonus;
-
-        let modifier = this.state.carbonModifier || 1.0;
-        return price * modifier;
+        return price * (this.state.carbonModifier || 1.0);
     },
 
-    upgradeWarehouse() {
-        const nextLevel = this.state.warehouseLevel + 1;
-        if (nextLevel >= this.warehouseConfig.levels.length) return;
-        const cost = this.warehouseConfig.levels[nextLevel].price;
-        if (window.app.bankBalance >= cost) {
-            window.app.addBankTransaction(-cost, `Extension Entrepôt : ${this.warehouseConfig.levels[nextLevel].name}`);
-            this.state.warehouseLevel = nextLevel;
-            this.saveState();
-            this.renderUI();
-            if(window.ui) window.ui.showToast("🏗️ Entrepôt agrandi !");
-        } else {
-            if(window.ui) window.ui.showToast("❌ Fonds insuffisants !");
-        }
-    },
+
+    
 
     getStats() {
         let maxSlots = 0;
@@ -419,10 +412,11 @@ export const tycoon = {
             let totalDelivered = 0;
             let price = this.getDynamicPrice();
 
-            status.deliveringVehicles.forEach(veh => {
-                let vehCap = this.catalog.fleet[veh.type].capacity;
-                let power = vehCap / 10; 
+                      status.deliveringVehicles.forEach(veh => {
+                let def = this.catalog.fleet[veh.type];
+                let power = def.capacity / (def.deliveryKm || 10); 
                 let tons = power * km; 
+
                 
                 let stockRestant = this.state.storedFreight - totalDelivered;
                 if (tons > stockRestant) tons = stockRestant;
@@ -642,12 +636,9 @@ export const tycoon = {
             document.getElementById('company-carb-status-text').style.color = statusCol;
         }
 
-        let btnUp = document.getElementById('btn-upgrade-warehouse');
-        if(btnUp) {
-            let next = this.warehouseConfig.levels[this.state.warehouseLevel + 1];
-            btnUp.innerText = next ? `Améliorer vers ${next.name} (${next.price.toLocaleString('fr-FR')}€)` : "Niveau Maximum";
-            btnUp.disabled = !next || window.app.bankBalance < next.price;
-        }
+         let btnUp = document.getElementById('btn-upgrade-warehouse');
+        if(btnUp) btnUp.style.display = 'none'; // On cache l'ancien bouton
+
         
         let elSlotsUsed = document.getElementById('company-slots-used');
         let elSlotsMax = document.getElementById('company-slots-max');
