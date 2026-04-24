@@ -50,9 +50,13 @@
                 <span class="badge-separator">|</span> <span id="display-clock" style="font-family: monospace; font-weight: bold; color: #f1c40f;">00:00</span>
             </div>
 
-            <div id="bank-badge" class="profile-badge bank-positive" style="display: none; cursor: pointer;" onclick="window.app.openBankModal()" title="Ouvrir la Bourse de l'Asphalte">
-                🏦 <span id="display-bank">0 €</span>
+                   <div id="bank-badge" class="profile-badge bank-positive" style="display: none; cursor: pointer;" onclick="window.app.openBankModal()" title="Ouvrir la Bourse de l'Asphalte">
+                🏢 <span id="display-bank">0 €</span>
             </div>
+            <div id="session-bank-badge" class="profile-badge bank-positive" style="display: none; cursor: default;" title="Caisse de Bord (Session en cours)">
+                🛣️ <span id="display-session-bank">0 €</span>
+            </div>
+
         </div>
                       <div class="top-bar-btns">
             <button id="btn-open-gami" class="btn-gami-header" onclick="window.gami.updateUI(); document.getElementById('gami-overlay').style.display = 'flex';">🎁 Missions</button>

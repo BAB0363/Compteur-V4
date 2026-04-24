@@ -333,7 +333,8 @@ export const tycoon = {
             return;
         }
         
-        window.app.addBankTransaction(-cost, `Plein ${def.name}`);
+        window.app.addBankTransaction(-cost, `Plein ${def.name}`, true);
+;
         v.fuel = def.fuelTank;
         v.losses = (v.losses || 0) + cost;
         this.saveState();
@@ -351,7 +352,8 @@ export const tycoon = {
             return;
         }
         
-        window.app.addBankTransaction(-cost, `Pneus Neufs ${def.name}`);
+                window.app.addBankTransaction(-cost, `Pneus Neufs ${def.name}`, true);
+
         v.tires = 100;
         v.losses = (v.losses || 0) + cost;
         this.saveState();
@@ -372,7 +374,8 @@ export const tycoon = {
             return;
         }
         
-        window.app.addBankTransaction(-cost, `Révision ${def.name}`);
+                window.app.addBankTransaction(-cost, `Révision ${def.name}`, true);
+
         v.health = 100;
         v.kmsSinceService = 0; 
         v.losses = (v.losses || 0) + cost;
@@ -544,7 +547,8 @@ export const tycoon = {
                         let cost = isMajor ? (def.price * 0.05) : (def.price * 0.01);
                         veh.losses = (veh.losses || 0) + cost;
                         
-                        if (window.app) window.app.addBankTransaction(-cost, `🚨 Panne Imprévue (${def.name})`);
+                                if (window.app) window.app.addBankTransaction(-cost, `🚨 Panne Imprévue (${def.name})`, true);
+
                         if(window.ui) window.ui.showToast(`🚨 Panne ${isMajor ? 'MAJEURE' : 'mineure'} sur ton ${def.name} ! Frais : -${cost.toFixed(0)}€`, "anomaly");
                         needsRender = true;
                     }

@@ -38,7 +38,12 @@ const app = {
     bankBalance: 0,
     bankHistory: [],
     bankStats: { gains: 0, losses: 0 },
+    
+    // NOUVEAU : Le compte de la session
+    sessionBankBalance: 0,
+    sessionBankHistory: [],
     sessionFinance: { gains: 0, losses: 0, carbon: 0, details: {} }, 
+
     
     pendingSponsor: null,
     activeSponsor: null,
@@ -302,40 +307,48 @@ const app = {
     },
 
 
-    addBankTransaction(amount, reason) {
+    addBankTransaction(amount, reason, isDirectExpense = false) {
         if (amount === 0) return;
-        this.bankBalance += amount;
-        if (amount > 0) {
-            this.bankStats.gains += amount;
-            if (this.isCarRunning) this.sessionFinance.gains += amount;
-        } else {
-            this.bankStats.losses += Math.abs(amount);
-            if (this.isCarRunning) this.sessionFinance.losses += Math.abs(amount);
+        
+        let now = new Date();
+        let timestamp = Date.now();
+        let timeStr = now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        let isSessionRunning = (this.isCarRunning || this.isTruckRunning);
+
+        // Si c'est une dépense directe (carburant, achat) ou si aucun chrono ne tourne : Compte Entreprise
+        if (isDirectExpense || !isSessionRunning) {
+            this.bankBalance += amount;
+            if (amount > 0) this.bankStats.gains += amount;
+            else this.bankStats.losses += Math.abs(amount);
+
+            this.bankHistory.unshift({ timestamp, time: timeStr, amount, reason });
+            if (this.bankHistory.length > 50) this.bankHistory.pop();
+        } 
+        // Sinon : Tout va dans la Caisse de Bord (Session)
+        else {
+            this.sessionBankBalance += amount;
+            this.sessionBankHistory.unshift({ timestamp, time: timeStr, amount, reason });
+            
+            // On garde quand même les stats de sessionFinance pour le récap final
+            if (amount > 0) this.sessionFinance.gains += amount;
+            else this.sessionFinance.losses += Math.abs(amount);
         }
 
-                let now = new Date();
-        this.bankHistory.unshift({
-            timestamp: Date.now(),
-            time: now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-            amount: amount,
-            reason: reason
-        });
-
-
-        if (this.bankHistory.length > 50) this.bankHistory.pop();
         this.saveUserData(); 
         this.updateBankUI(); 
         
-                         if(window.ui && window.ui.activeTab === 'company') {
+        if(window.ui && window.ui.activeTab === 'company') {
             if(window.tycoon) window.tycoon.renderUI();
         }
-    }, // <--- VOILÀ LA FAMEUSE ACCOLADE MANQUANTE ! 🩹
+    },
 
 
-    updateBankUI() {
+        updateBankUI() {
 
         let badge = document.getElementById('bank-badge');
         let display = document.getElementById('display-bank');
+        let sessionBadge = document.getElementById('session-bank-badge');
+        let sessionDisplay = document.getElementById('display-session-bank');
         let banner = document.getElementById('huissier-banner');
         let sTitle = document.getElementById('sponsor-title');
 
@@ -344,8 +357,26 @@ const app = {
         badge.style.display = 'flex';
         display.innerText = this.bankBalance.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
 
-      // ✅ NOUVEAU CODE À INSÉRER
+        // Affichage du compte de session uniquement si le chrono tourne
+        if (sessionBadge && sessionDisplay) {
+            if (this.isCarRunning || this.isTruckRunning) {
+                sessionBadge.style.display = 'flex';
+                sessionDisplay.innerText = this.sessionBankBalance.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+                
+                if (this.sessionBankBalance < 0) {
+                    sessionBadge.classList.remove('bank-positive');
+                    sessionBadge.classList.add('bank-negative');
+                } else {
+                    sessionBadge.classList.remove('bank-negative');
+                    sessionBadge.classList.add('bank-positive');
+                }
+            } else {
+                sessionBadge.style.display = 'none';
+            }
+        }
+
 if (this.bankBalance < 0) {
+
     badge.classList.remove('bank-positive');
     badge.classList.add('bank-negative');
     
@@ -404,7 +435,8 @@ if (this.bankBalance < 0) {
                 window.ui.showToast("☠️ LIQUIDATION JUDICIAIRE ! La faillite est prononcée.", "anomaly");
                 window.ui.playGamiSound('siren');
             }
-            this.addBankTransaction(Math.abs(this.bankBalance), "Saisie Totale (Faillite)"); 
+                        this.addBankTransaction(Math.abs(this.bankBalance), "Saisie Totale (Faillite)", true); 
+
             
             this.companyState = { buildings: { terrain: 0, depot: 0, hub: 0 }, fleet: { vul: 0, porteur: 0, tracteur: 0, frigo: 0, convoi: 0 }, pendingIncome: 0 };
             await this.saveUserData(); 
@@ -575,7 +607,8 @@ if (this.bankBalance < 0) {
         this.activeSponsor = { ...this.pendingSponsor, current: 0 };
         this.pendingSponsor = null;
         
-        this.addBankTransaction(this.activeSponsor.advance, `Avance Sponsor (${this.activeSponsor.type})`);
+                this.addBankTransaction(this.activeSponsor.advance, `Avance Sponsor (${this.activeSponsor.type})`, true);
+
         if(window.ui) window.ui.playGamiSound('cash');
         
         document.getElementById('sponsor-title').innerText = `🤝 Contrat : ${this.activeSponsor.target} ${this.activeSponsor.type}`;
@@ -607,7 +640,8 @@ if (this.bankBalance < 0) {
         if (!this.activeSponsor || this.activeSponsor.current < this.activeSponsor.target) return;
         let bonusMultiplier = 1.05 + (Math.random() * 0.20); 
             let finalReward = parseFloat((this.activeSponsor.advance * bonusMultiplier).toFixed(2));
-        this.addBankTransaction(finalReward, `Bonus Fin de Contrat Sponsor (${this.activeSponsor.type})`);
+        this.addBankTransaction(finalReward, `Bonus Fin de Contrat Sponsor (${this.activeSponsor.type})`, true);
+
         if(window.gami) window.gami.updateProgress('sponsor', 1); // 🎯 QUÊTE SPONSOR
         if(window.ui) { window.ui.showToast(`🎉 Contrat validé ! Bénéfice encaissé : +${finalReward} € !`); window.ui.playGamiSound('cash'); }
         
@@ -629,7 +663,8 @@ if (this.bankBalance < 0) {
                 let fivePercent = this.bankBalance * 0.05;
                 if (fivePercent > penalty) penalty = parseFloat(fivePercent.toFixed(2));
                 
-                this.addBankTransaction(-penalty, `Rupture Contrat Sponsor (${this.activeSponsor.type})`);
+                       this.addBankTransaction(-penalty, `Rupture Contrat Sponsor (${this.activeSponsor.type})`, true);
+
                 this.storage.set('sponsorCooldownActiveSec', 1800); // 30 min de punition
 
                 if(window.ui) { window.ui.showToast(`📉 Contrat raté ! Pénalité : -${penalty} €`, "anomaly"); window.ui.playGamiSound('crash'); }
@@ -1211,7 +1246,8 @@ if (this.bankBalance < 0) {
              // ✅ NOUVEAU CODE À INSÉRER
 if (elapsed > 0 && elapsed % 900 === 0 && this.bankBalance < -500) {
     let agios = 5; // Agios fixes de 5€
-    this.addBankTransaction(-agios, "Frais bancaires (Forfait)");
+    this.addBankTransaction(-agios, "Frais bancaires (Forfait)", true);
+
     if(window.ui) {
         window.ui.showToast(`📉 Frais de découvert : - ${agios} €`, "anomaly");
         window.ui.playGamiSound('crash');
@@ -1754,13 +1790,19 @@ if (!isTruck && window.tycoon) {
             this.sponsorCooldownUntil = 0; 
             this.sessionFinance = { gains: 0, losses: 0, carbon: 0, details: {} }; 
             
+            // Remise à zéro du compte de session
+            this.sessionBankBalance = 0;
+            this.sessionBankHistory = [];
+            
             this.sessionPaveWeight = 0;
             this.consecutiveLightVehicles = 0;
             
             this.resetSponsorUI();
         }
         
+        this.updateBankUI(); // Actualise l'affichage pour cacher le badge de session
         this.storage.set(isTruck ? 'truckCounters' : 'vehicleCounters', isTruck ? this.truckCounters : this.vehicleCounters); 
+
         this.storage.set(isTruck ? 'truckHistory' : 'carHistory', []); 
         this.storage.set(isTruck ? 'truckChronoSec' : 'carChronoSec', 0); 
         this.storage.set(isTruck ? 'truckAccumulatedTime' : 'carAccumulatedTime', 0); 
@@ -1794,17 +1836,32 @@ if (window.tycoon) window.tycoon.cashOut();
             this.resetSessionData(type); 
             return; 
         }
-        
-               if (confirm("⏹️ Trajet terminé ! Veux-tu enregistrer cette session ?")) { 
+                if (confirm("⏹️ Trajet terminé ! Veux-tu enregistrer cette session ?")) { 
             if (!isTruck) {
                 this.checkSponsorOnStop(); 
+                
+                // On simule que le chrono tourne encore une fraction de seconde 
+                // pour que l'argent du Bilan Carbone aille bien dans la Caisse de Bord
+                this.isCarRunning = true;
                 this.sessionFinance.carbon = this.checkCarbonFootprint(); 
+                this.isCarRunning = false;
+                
+                // --- 💰 TRANSFERT VERS L'ENTREPRISE ---
+                let finalSessionBalance = parseFloat(this.sessionBankBalance.toFixed(2));
+                if (finalSessionBalance !== 0) {
+                    // On fait un virement unique sur le compte principal (true = forcé sur l'entreprise)
+                    this.addBankTransaction(finalSessionBalance, `Virement Session (${this.formatTime(seconds)})`, true);
+                }
+                
+                // On clone l'historique de la session pour l'imprimer sur le ticket de caisse
+                this.sessionFinance.history = [...this.sessionBankHistory];
             }
             
                                    // Déchargement du panier de fret ! 
             if (!isTruck && window.tycoon) {
                 window.tycoon.unloadPendingFreight();
             }
+
 
 
 
@@ -2720,23 +2777,44 @@ if (window.tycoon) window.tycoon.cashOut();
 
         let financeHtml = '';
         if (session.sessionFinance && type === 'cars') {
-            let balance = session.sessionFinance.gains - session.sessionFinance.losses;
-            let color = balance >= 0 ? '#27ae60' : '#e74c3c';
-            let sign = balance > 0 ? '+' : '';
+            let finalBalance = session.sessionFinance.gains - session.sessionFinance.losses;
+            let balanceColor = finalBalance >= 0 ? '#27ae60' : '#e74c3c';
+            let balanceSign = finalBalance > 0 ? '+' : '';
 
-            let carbonEuros = session.sessionFinance.carbon || 0;
-            let carbonColor = carbonEuros >= 0 ? '#27ae60' : '#e74c3c';
-            let carbonSign = carbonEuros > 0 ? '+' : '';
-            let carbonHtml = carbonEuros !== 0 ? `<div class="session-detail-row"><span class="session-detail-label" style="font-size:0.8em;">⚖️ Bilan Carbone</span><span class="session-detail-value" style="color:${carbonColor}; font-size:0.8em;">${carbonSign}${carbonEuros} €</span></div>` : '';
+            let receiptLines = '';
+            if (session.sessionFinance.history && session.sessionFinance.history.length > 0) {
+                // On remet l'historique dans l'ordre chronologique (du plus ancien au plus récent)
+                let histChronological = [...session.sessionFinance.history].reverse();
+                
+                histChronological.forEach(tx => {
+                    let txColor = tx.amount >= 0 ? '#27ae60' : '#e74c3c';
+                    let txSign = tx.amount > 0 ? '+' : '';
+                    receiptLines += `
+                        <div style="display: flex; justify-content: space-between; font-size: 0.8em; margin-bottom: 4px; border-bottom: 1px dotted rgba(0,0,0,0.1); padding-bottom: 2px;">
+                            <span style="color: #7f8c8d; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-right: 10px;">${tx.time} - ${tx.reason}</span>
+                            <span style="color: ${txColor}; font-weight: bold; white-space: nowrap;">${txSign}${tx.amount.toFixed(2)} €</span>
+                        </div>`;
+                });
+            } else {
+                receiptLines = '<div style="font-size: 0.8em; color: #7f8c8d; text-align: center;">Aucune transaction enregistrée.</div>';
+            }
 
             financeHtml = `
-                <div style="border-top: 2px dashed var(--border-color); margin: 10px 0;"></div>
-                <div class="session-detail-row"><span class="session-detail-label">Bilan Financier Session</span><span class="session-detail-value" style="color:${color}; font-weight:bold;">${sign}${balance} €</span></div>
-                <div class="session-detail-row"><span class="session-detail-label" style="font-size:0.8em;">Gains totaux</span><span class="session-detail-value" style="color:#27ae60; font-size:0.8em;">+${session.sessionFinance.gains} €</span></div>
-                <div class="session-detail-row"><span class="session-detail-label" style="font-size:0.8em;">Pertes / Frais</span><span class="session-detail-value" style="color:#e74c3c; font-size:0.8em;">-${session.sessionFinance.losses} €</span></div>
-                ${carbonHtml}
+                <div style="border-top: 2px dashed var(--border-color); margin: 15px 0;"></div>
+                <div style="background: var(--card-bg); padding: 12px; border-radius: 8px; border: 1px solid var(--border-color); box-shadow: inset 0 0 10px rgba(0,0,0,0.05);">
+                    <div style="text-align: center; font-weight: bold; margin-bottom: 12px; color: var(--text-color);">🧾 TICKET DE CAISSE (SESSION)</div>
+                    <div style="max-height: 180px; overflow-y: auto; padding-right: 5px; margin-bottom: 10px; font-family: monospace;">
+                        ${receiptLines}
+                    </div>
+                    <div style="border-top: 2px dashed var(--text-color); margin: 8px 0;"></div>
+                    <div style="display: flex; justify-content: space-between; font-size: 1.1em; margin-top: 8px;">
+                        <span style="font-weight: bold; color: var(--text-color);">NET VIRÉ À L'ENTREPRISE :</span>
+                        <span style="color:${balanceColor}; font-weight:bold;">${balanceSign}${finalBalance.toFixed(2)} €</span>
+                    </div>
+                </div>
             `;
         }
+
 
         let html = `
             <div class="session-detail-row"><span class="session-detail-label">Date</span><span class="session-detail-value">${session.date}</span></div>
