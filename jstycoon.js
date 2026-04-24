@@ -59,13 +59,15 @@ export const tycoon = {
             catch(e) { console.error("Erreur de lecture Tycoon"); }
         }
         
-              // --- INFLATION À LA POMPE (Journalière) ---
-        let todayStr = new Date().toDateString();
+                 // --- INFLATION À LA POMPE (Journalière) ---
+        let d = new Date();
+        let todayStr = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
         if (this.state.lastFuelDate !== todayStr || !this.state.fuelPrice) {
             this.state.fuelPrice = parseFloat((1.40 + Math.random() * 1.10).toFixed(2));
             this.state.lastFuelDate = todayStr;
             this.saveState();
         }
+
 
 
         
