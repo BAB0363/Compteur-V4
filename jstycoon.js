@@ -35,9 +35,9 @@ export const tycoon = {
             plateforme: { id: 'plateforme', name: 'Plateforme Logistique', price: 150000, slots: 2, storage: 2500, icon: '🏢', maxLimit: 2, targetVeh: 'ensemble' }
         },
         fleet: {
-            velo: { id: 'velo', name: 'Vélo', price: 500, income: 0.002, capacity: 0.02, deliveryKm: 5, icon: '🚲', buildingId: 'local_velo', tireLifeKm: 3000, fuelTank: 1, l100: 0, serviceInterval: 2000 },
-            cargo: { id: 'cargo', name: 'Vélo Cargo', price: 1500, income: 0.005, capacity: 0.10, deliveryKm: 10, icon: '🚴‍♂️', buildingId: 'hub_cargo', tireLifeKm: 5000, fuelTank: 1, l100: 0, serviceInterval: 3000 },
-            scooter: { id: 'scooter', name: 'Scooter', price: 2500, income: 0.008, capacity: 0.06, deliveryKm: 4, icon: '🛵', buildingId: 'relais_scooter', tireLifeKm: 8000, fuelTank: 7, l100: 3, serviceInterval: 5000 },
+                        velo: { id: 'velo', name: 'Vélo', price: 500, income: 0.002, capacity: 0.02, deliveryKm: 5, icon: '🚲', buildingId: 'local_velo', tireLifeKm: 3000, fuelTank: 0, l100: 0, serviceInterval: 2000 },
+            cargo: { id: 'cargo', name: 'Vélo Cargo', price: 1500, income: 0.005, capacity: 0.10, deliveryKm: 10, icon: '🚴‍♂️', buildingId: 'hub_cargo', tireLifeKm: 5000, fuelTank: 0, l100: 0, serviceInterval: 3000 },
+      scooter: { id: 'scooter', name: 'Scooter', price: 2500, income: 0.008, capacity: 0.06, deliveryKm: 4, icon: '🛵', buildingId: 'relais_scooter', tireLifeKm: 8000, fuelTank: 7, l100: 3, serviceInterval: 5000 },
             utilitaire: { id: 'utilitaire', name: 'Utilitaire', price: 18000, income: 0.010, capacity: 0.80, deliveryKm: 40, icon: '🚐', buildingId: 'hangar_urbain', tireLifeKm: 45000, fuelTank: 80, l100: 8, serviceInterval: 15000 },
             petit_porteur: { id: 'petit_porteur', name: 'Petit Porteur', price: 35000, income: 0.025, capacity: 4.00, deliveryKm: 80, icon: '🚚', buildingId: 'depot_periurbain', tireLifeKm: 120000, fuelTank: 200, l100: 16, serviceInterval: 25000 },
             porteur: { id: 'porteur', name: 'Porteur 19t', price: 55000, income: 0.040, capacity: 8.00, deliveryKm: 100, icon: '🚛', buildingId: 'quai_regional', tireLifeKm: 150000, fuelTank: 300, l100: 22, serviceInterval: 30000 },
@@ -315,6 +315,8 @@ export const tycoon = {
         let v = this.state.fleet.find(f => f.uid === uid);
         if (!v) return;
         let def = this.catalog.fleet[v.type];
+        if (def.fuelTank === 0) return; // Pas de réservoir, pas de plein !
+
         let needed = def.fuelTank - v.fuel; 
         if (needed <= 0) return;
         let currentFuelPrice = this.state.fuelPrice || 1.80;
@@ -726,7 +728,8 @@ export const tycoon = {
                         
                         <div class="details" style="display:none; margin-top:12px; border-top:1px solid var(--border-color); padding-top:12px;">
                             <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; font-size:0.85em; margin-bottom: 12px; color:var(--text-color);">
-                                <div>⛽ <b>${v.fuel.toFixed(1)} / ${def.fuelTank} L</b></div>
+                             <div>${def.l100 > 0 ? `⛽ <b>${v.fuel.toFixed(1)} / ${def.fuelTank} L</b>` : `🍃 <b>Énergie : Musculaire</b>`}</div>
+
                                 <div>🔧 État : <b>${Math.round(v.health)}%</b></div>
                                 <div>🛞 Pneus : <b>${Math.round(v.tires || 100)}%</b></div>
                                 <div>🛣️ Révis. : <b>${Math.max(0, Math.round(def.serviceInterval - v.kmsSinceService))} km</b></div>
@@ -748,8 +751,8 @@ export const tycoon = {
                             </div>
 
                                                        <div style="display:flex; gap:6px;">
-                                <button style="flex:1; background:#27ae60; color:white; border:none; padding:8px; border-radius:4px; font-weight:bold; font-size:0.9em;" onclick="event.stopPropagation(); window.tycoon.refuel('${v.uid}')">⛽ Plein (${(this.state.fuelPrice || 1.80).toFixed(2)}€/L)</button>
-                                <button style="flex:1; background:#3498db; color:white; border:none; padding:8px; border-radius:4px; font-weight:bold; font-size:0.9em;" onclick="event.stopPropagation(); window.tycoon.repair('${v.uid}')">🔧 Révis.</button>
+                         ${def.l100 > 0 ? `<button style="flex:1; background:#27ae60; color:white; border:none; padding:8px; border-radius:4px; font-weight:bold; font-size:0.9em;" onclick="event.stopPropagation(); window.tycoon.refuel('${v.uid}')">⛽ Plein (${(this.state.fuelPrice || 1.80).toFixed(2)}€/L)</button>` : ''}
+    <button style="flex:1; background:#3498db; color:white; border:none; padding:8px; border-radius:4px; font-weight:bold; font-size:0.9em;" onclick="event.stopPropagation(); window.tycoon.repair('${v.uid}')">🔧 Révis.</button>
                                 <button style="flex:1; background:#8e44ad; color:white; border:none; padding:8px; border-radius:4px; font-weight:bold; font-size:0.9em;" onclick="event.stopPropagation(); window.tycoon.changeTires('${v.uid}')">🛞 Pneus</button>
                             </div>
 
