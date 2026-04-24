@@ -1,8 +1,9 @@
-import { ui } from './jsui.js?v=46';
-import { gps } from './jsgps.js?v=46';
-import { ml } from './jsml.js?v=46';
-import { market } from './jsmarket.js?v=46';
-import { tycoon } from './jstycoon.js?v=46';
+import { ui } from './jsui.js?v=50';
+import { gps } from './jsgps.js?v=50';
+import { ml } from './jsml.js?v=50';
+import { market } from './jsmarket.js?v=50';
+import { tycoon } from './jstycoon.js?v=50';
+
 
 window.ui = ui; window.gps = gps; window.ml = ml; window.market = market; window.tycoon = tycoon;
 
