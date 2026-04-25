@@ -3273,14 +3273,10 @@ if (window.tycoon) window.tycoon.cashOut();
                 </div>
             `;
         }
+    }, // <--- C'EST ELLE LA COUPABLE ! L'accolade qui ferme la fonction !
 
-
-
-
-
-
-    
     initClockAndPricing() {
+
         if (this.clockInterval) clearInterval(this.clockInterval);
         this.updatePricingUI(); // Premier appel immédiat
         
