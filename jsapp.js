@@ -2124,11 +2124,13 @@ if (!isTruck && window.tycoon) {
                 });
                 
                 statsArr.sort((a,b) => b.ratio - a.ratio);
-                statsArr.forEach(st => { html += `<div class="km-stat-card"><span class="km-stat-title">${st.name}</span><span class="km-stat-value">${st.ratioStr} /km</span><span class="km-stat-extra">⏱️ ${st.freq}</span></div>`; });
+                   statsArr.forEach(st => { html += `<div class="km-stat-card"><span class="km-stat-title">${st.name}</span><span class="km-stat-value">${st.ratioStr} /km</span><span class="km-stat-extra">⏱️ ${st.freq}</span></div>`; });
                 tContainer.innerHTML = html;
              } else { tContainer.innerHTML = '<span style="color:#7f8c8d; font-size: 0.9em; grid-column: 1 / -1;">Roule un peu pour voir les stats... 🚚💨</span>'; }
+        } // 🟢 L'ACCOLADE MANQUANTE EST ICI !
 
         let cContainer = document.getElementById('car-km-list');
+
 
         if (cContainer) {
             if (this.liveCarDistance > 0) {
