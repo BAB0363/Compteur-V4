@@ -644,11 +644,20 @@ export const tycoon = {
 
 
     cashOut() {
+        let earned = 0;
         if (this.state.pendingIncome > 0) {
-            let earned = parseFloat(this.state.pendingIncome.toFixed(2));
+            earned = parseFloat(this.state.pendingIncome.toFixed(2));
             if (earned > 0) {
-                if (window.app && !window.app.isTruckRunning) window.app.sessionFinance.gains += earned;
-                window.app.addBankTransaction(earned, "🏢 Bénéfices Flotte (Passif)");
+                // On force l'inscription sur le ticket de session si le mode voiture est actif
+                if (window.app && !window.app.isTruckRunning) {
+                    let wasRunning = window.app.isCarRunning;
+                    window.app.isCarRunning = true; 
+                    window.app.addBankTransaction(earned, "🏢 Bénéfices Flotte (Passif)");
+                    window.app.isCarRunning = wasRunning;
+                } else {
+                    window.app.addBankTransaction(earned, "🏢 Bénéfices Flotte (Passif)");
+                }
+
                 if (window.ui) {
                     window.ui.playGamiSound('cash');
                     window.ui.showToast(`🏢 Tes chauffeurs ont généré +${earned} € !`);
@@ -659,7 +668,29 @@ export const tycoon = {
             let displayPending = document.getElementById('company-pending-income');
             if (displayPending) displayPending.innerText = '0.00 €';
         }
+        return earned;
     },
+
+    unloadPendingFreight() {
+        let totalUnloaded = 0;
+        let totalAmount = 0;
+        Object.keys(this.pendingDeliveries).forEach(bId => {
+            let amount = this.pendingDeliveries[bId];
+            if (amount > 0) {
+                this.state.stocks[bId] = (this.state.stocks[bId] || 0) + amount;
+                totalAmount += amount;
+                totalUnloaded++;
+            }
+        });
+        
+        if (totalUnloaded > 0) {
+            this.saveState();
+            if(window.ui) window.ui.showToast(`🏗️ Déchargement réussi dans ${totalUnloaded} entrepôt(s) !`);
+            this.pendingDeliveries = {};
+        }
+        return totalAmount;
+    },
+
 
     renderUI() {
         let stats = this.getStats();

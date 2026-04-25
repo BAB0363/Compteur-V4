@@ -120,7 +120,13 @@ const app = {
                     store.delete(s.id);
                 }
             });
-            return new Promise(res => tx.oncomplete = res);
+          let freightHtml = '';
+        if (session.sessionFinance && session.sessionFinance.freightGained > 0) {
+            let fg = session.sessionFinance.freightGained;
+            let unit = fg < 1 ? (fg * 1000).toFixed(0) + " kg" : fg.toFixed(1) + " t";
+            freightHtml = `<div class="session-detail-row"><span class="session-detail-label" style="color:#2980b9;">📦 Fret Récolté (Loterie)</span><span class="session-detail-value" style="color:#2980b9; font-weight:bold;">+ ${unit}</span></div>`;
+        }
+       return new Promise(res => tx.oncomplete = res);
         },
 
         async cleanupFinance(start, end) {
@@ -1830,8 +1836,6 @@ if (!isTruck && window.tycoon) {
 
         if (isRunning) this.toggleChrono(type); 
         
-            // 🏢 ENCAISSEMENT DES REVENUS DE L'ENTREPRISE A L'ARRET
-if (window.tycoon) window.tycoon.cashOut();
 
 
 
@@ -1843,27 +1847,25 @@ if (window.tycoon) window.tycoon.cashOut();
             if (!isTruck) {
                 this.checkSponsorOnStop(); 
                 
-                // On simule que le chrono tourne encore une fraction de seconde 
-                // pour que l'argent du Bilan Carbone aille bien dans la Caisse de Bord
+                // On simule que le chrono tourne pour injecter tout ça dans la caisse de bord
                 this.isCarRunning = true;
                 this.sessionFinance.carbon = this.checkCarbonFootprint(); 
+                if (window.tycoon) {
+                    this.sessionFinance.passiveIncome = window.tycoon.cashOut();
+                    this.sessionFinance.freightGained = window.tycoon.unloadPendingFreight();
+                }
                 this.isCarRunning = false;
                 
                 // --- 💰 TRANSFERT VERS L'ENTREPRISE ---
                 let finalSessionBalance = parseFloat(this.sessionBankBalance.toFixed(2));
                 if (finalSessionBalance !== 0) {
-                    // On fait un virement unique sur le compte principal (true = forcé sur l'entreprise)
                     this.addBankTransaction(finalSessionBalance, `Virement Session (${this.formatTime(seconds)})`, true);
                 }
                 
-                // On clone l'historique de la session pour l'imprimer sur le ticket de caisse
                 this.sessionFinance.history = [...this.sessionBankHistory];
             }
+
             
-                                   // Déchargement du panier de fret ! 
-            if (!isTruck && window.tycoon) {
-                window.tycoon.unloadPendingFreight();
-            }
 
 
 
@@ -2782,6 +2784,7 @@ if (window.tycoon) window.tycoon.cashOut();
         }
 
         let financeHtml = '';
+
         if (session.sessionFinance && type === 'cars') {
             let finalBalance = session.sessionFinance.gains - session.sessionFinance.losses;
             let balanceColor = finalBalance >= 0 ? '#27ae60' : '#e74c3c';
@@ -2847,7 +2850,9 @@ if (window.tycoon) window.tycoon.cashOut();
             <div class="session-detail-row"><span class="session-detail-label">Rythme</span><span class="session-detail-value">${speed} /h</span></div>
             <div class="session-detail-row"><span class="session-detail-label">Moyenne</span><span class="session-detail-value">${avgKm} /km</span></div>
             <div class="session-detail-row"><span class="session-detail-label">Espacement Moyen</span><span class="session-detail-value">${espTemps} / ${espDist}</span></div>
+            ${freightHtml}
             ${financeHtml}
+
             <div style="border-top: 2px dashed var(--border-color); margin: 10px 0;"></div>
             <div class="session-detail-row"><span class="session-detail-label">🔮 Réussite Prédictions</span><span class="session-detail-value" style="color:#8e44ad; font-weight:bold;">${predTxt}</span></div>
         `;
