@@ -62,10 +62,11 @@ export const market = {
             baseVal *= (type === "Voitures" || type === "Utilitaires" || type === "Bus/Car" || type === "Vélos") ? 0.5 : 2.0;
         }
 
-        if (hour >= 5 && hour < 7 && !isWeekend) {
-            baseVal *= 2.0;
-            events.push('aube');
-        }
+if (hour >= 5 && hour < 7) {
+    baseVal *= 2.0;
+    events.push('aube');
+}
+
 
         if (type === "Camions") {
 

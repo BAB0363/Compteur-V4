@@ -169,9 +169,11 @@ export const tycoon = {
                 if(window.ui) window.ui.showToast("⚖️ Bilan Hebdo : Neutre.");
             }
             
-            this.state.companyCarbon = 0; 
+                        this.state.companyCarbon = 0; 
             this.state.companyQuota = 0;
+            this.state.carbonSavedByBikes = 0;
             this.state.lastResetWeek = currentWeek;
+
             this.saveState();
         }
     },
@@ -577,7 +579,9 @@ export const tycoon = {
                         // Ajout 1.2 : Bonus Carbone Passif
                         if (veh.type === 'velo' || veh.type === 'cargo') {
                             this.addCarbon(-0.02, 0);
+                            this.state.carbonSavedByBikes = (this.state.carbonSavedByBikes || 0) + 0.02;
                         }
+
                     });
                 }
 
@@ -733,6 +737,18 @@ export const tycoon = {
             if (mod < 1.0) { statusTxt = "Statut : Malus Carbone 🚨"; statusCol = "#e74c3c"; }
             document.getElementById('company-carb-status-text').innerText = statusTxt;
             document.getElementById('company-carb-status-text').style.color = statusCol;
+        let bikeSavingsEl = document.getElementById('company-bike-savings');
+        if (bikeSavingsEl) {
+            let saved = this.state.carbonSavedByBikes || 0;
+            if (saved > 0) {
+                bikeSavingsEl.style.display = 'block';
+                let savedStr = window.app ? window.app.formatCarbon(saved) : (saved / 1000).toFixed(2) + " kg";
+                bikeSavingsEl.innerHTML = `🚲 Effort des cyclistes : - ${savedStr} CO2 cette semaine`;
+            } else {
+                bikeSavingsEl.style.display = 'none';
+            }
+        }
+
         }
 
          let btnUp = document.getElementById('btn-upgrade-warehouse');

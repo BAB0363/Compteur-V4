@@ -109,7 +109,7 @@ const app = {
             return `🚨 ATTENTION SYLVAIN !\n\nTu vas ${targets[scope]}.\nCette action est irréversible. On valide ? 🚦`;
         },
 
-        async cleanupSessions(start, end) {
+ async cleanupSessions(start, end) {
             let tx = window.app.idb.db.transaction('sessions', 'readwrite');
             let store = tx.objectStore('sessions');
             let all = await window.app.idb.getAllRaw();
@@ -120,6 +120,8 @@ const app = {
                     store.delete(s.id);
                 }
             });
+            return new Promise(res => tx.oncomplete = res);
+        },
           let freightHtml = '';
         if (session.sessionFinance && session.sessionFinance.freightGained > 0) {
             let fg = session.sessionFinance.freightGained;
@@ -2132,7 +2134,7 @@ if (!isTruck && window.tycoon) {
                 statsArr.forEach(st => { html += `<div class="km-stat-card"><span class="km-stat-title">${st.name}</span><span class="km-stat-value">${st.ratioStr} /km</span><span class="km-stat-extra">⏱️ ${st.freq}</span></div>`; });
                 tContainer.innerHTML = html;
             } else { tContainer.innerHTML = '<span style="color:#7f8c8d; font-size: 0.9em; grid-column: 1 / -1;">Roule un peu pour voir les stats... 🚚💨</span>'; }
-        }
+        let html = `
 
         let cContainer = document.getElementById('car-km-list');
         if (cContainer) {
@@ -2834,7 +2836,12 @@ if (!isTruck && window.tycoon) {
                 </div>
             `;
         }
-
+let freightHtml = '';
+        if (session.sessionFinance && session.sessionFinance.freightGained > 0) {
+            let fg = session.sessionFinance.freightGained;
+            let unit = fg < 1 ? (fg * 1000).toFixed(0) + " kg" : fg.toFixed(1) + " t";
+            freightHtml = `<div class="session-detail-row"><span class="session-detail-label" style="color:#2980b9;">📦 Fret Récolté (Loterie)</span><span class="session-detail-value" style="color:#2980b9; font-weight:bold;">+ ${unit}</span></div>`;
+        }
 
 
         let html = `
@@ -3230,7 +3237,8 @@ if (!isTruck && window.tycoon) {
         let statusArr = [];
         let speedKmh = window.gps ? window.gps.getSlidingSpeedKmh() : 0;
         
-        if (hour >= 5 && hour < 7 && !isWeekend) {
+if (hour >= 5 && hour < 7) {
+
             statusArr.push("🌅 Aube (x2)");
         }
         
@@ -3269,7 +3277,8 @@ if (!isTruck && window.tycoon) {
                 </div>
                 <div id="pricing-details" style="display: none;">
                     <div style="grid-column: 1 / -1; border-bottom: 1px dashed var(--border-color); margin: 3px 0;"></div>
-                    <div style="color: #7f8c8d;">05h - 07h (Lun-Ven)</div> <div style="text-align: right;">Prime Aube x2</div>
+<div style="color: #7f8c8d;">05h - 07h (Tous les jours)</div> <div style="text-align: right;">Prime Aube x2</div>
+
                     <div style="color: #7f8c8d;">Pointe (Lun-Ven)</div> <div style="text-align: right;">07-09h / 17-19h (Bypass si > 60km/h)</div>
                     <div style="color: #7f8c8d;">21h - 06h (Lun-Ven)</div> <div style="text-align: right;">Tarif de Nuit</div>
                     <div style="color: #7f8c8d;">12h - 14h (Lun-Ven)</div> <div style="text-align: right;">Gamelle du Routier</div>
