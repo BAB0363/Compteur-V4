@@ -684,7 +684,8 @@ export const tycoon = {
         
         if(document.getElementById('company-carb-total')) {
             let totalStr = window.app ? window.app.formatCarbon(carbTotal) : (carbTotal / 1000).toFixed(1) + " kg";
-            let quotaStr = this.getWarehouseCapacity().app ? window.app.formatCarbon(carbQuota) : (carbQuota / 1000).toFixed(1) + " kg";
+            let quotaStr = window.app ? window.app.formatCarbon(carbQuota) : (carbQuota / 1000).toFixed(1) + " kg";
+
             document.getElementById('company-carb-total').innerText = totalStr + " / " + quotaStr;
         }
 

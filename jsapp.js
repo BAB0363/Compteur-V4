@@ -3253,7 +3253,8 @@ if (window.tycoon) window.tycoon.cashOut();
             statusArr.push("☀️ Tarifs Standards (Continu)");
         }
 
-        let        let statusStr = statusArr.join(" + ");
+        let statusStr = statusArr.join(" + ");
+
 
         if(grid) {
             grid.innerHTML = `
