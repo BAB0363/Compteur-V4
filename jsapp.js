@@ -120,18 +120,11 @@ const app = {
                     store.delete(s.id);
                 }
             });
-            return new Promise(res => tx.oncomplete = res);
-        },
-          let freightHtml = '';
-        if (session.sessionFinance && session.sessionFinance.freightGained > 0) {
-            let fg = session.sessionFinance.freightGained;
-            let unit = fg < 1 ? (fg * 1000).toFixed(0) + " kg" : fg.toFixed(1) + " t";
-            freightHtml = `<div class="session-detail-row"><span class="session-detail-label" style="color:#2980b9;">📦 Fret Récolté (Loterie)</span><span class="session-detail-value" style="color:#2980b9; font-weight:bold;">+ ${unit}</span></div>`;
-        }
-       return new Promise(res => tx.oncomplete = res);
+                        return new Promise(res => tx.oncomplete = res);
         },
 
         async cleanupFinance(start, end) {
+
             let keptHistory = [];
             window.app.bankHistory.forEach(tx => {
                 if (!tx.timestamp || tx.timestamp < start || tx.timestamp > end) {
@@ -2133,10 +2126,10 @@ if (!isTruck && window.tycoon) {
                 statsArr.sort((a,b) => b.ratio - a.ratio);
                 statsArr.forEach(st => { html += `<div class="km-stat-card"><span class="km-stat-title">${st.name}</span><span class="km-stat-value">${st.ratioStr} /km</span><span class="km-stat-extra">⏱️ ${st.freq}</span></div>`; });
                 tContainer.innerHTML = html;
-            } else { tContainer.innerHTML = '<span style="color:#7f8c8d; font-size: 0.9em; grid-column: 1 / -1;">Roule un peu pour voir les stats... 🚚💨</span>'; }
-        let html = `
+             } else { tContainer.innerHTML = '<span style="color:#7f8c8d; font-size: 0.9em; grid-column: 1 / -1;">Roule un peu pour voir les stats... 🚚💨</span>'; }
 
         let cContainer = document.getElementById('car-km-list');
+
         if (cContainer) {
             if (this.liveCarDistance > 0) {
                 let carCount = this.carHistory.filter(h => !h.isEvent).length;
