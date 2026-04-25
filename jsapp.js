@@ -1223,26 +1223,30 @@ if (this.bankBalance < 0) {
                     }
 
 
+                    // --- NOUVEAU SYSTÈME DE PÉAGES ÉVOLUTIFS ---
                     if (elapsed > 0 && elapsed % 300 === 0) { 
                         let currentHour = new Date().getHours();
                         let isNight = (currentHour >= 21 || currentHour < 6);
-                        let isRushHour = (currentHour >= 7 && currentHour < 9) || (currentHour >= 17 && currentHour < 19);
-            
-                        let baseToll = isRushHour ? 20 : (isNight ? 5 : 10);
-                        let stepToll = isRushHour ? 20 : (isNight ? 5 : 10);
-                        let maxToll = isRushHour ? 200 : (isNight ? 50 : 100);
-            
-                        let inflationMultiplier = Math.floor(elapsed / 900);
-                        let currentToll = baseToll + (inflationMultiplier * stepToll);
+                        
+                        let baseToll = isNight ? 5 : 10;
+                        let maxToll = isNight ? 100 : 200;
+                        
+                        // Calcul de l'escalier : double toutes les 15 min (900 sec)
+                        let multiplier = Math.pow(2, Math.floor(elapsed / 900));
+                        let currentToll = baseToll * multiplier;
+                        
+                        // Application du plafond
                         if (currentToll > maxToll) currentToll = maxToll;
             
-                        let tollName = "Péage" + (isRushHour ? " (Heure de pointe) 🚗🚗🚗" : (isNight ? " de nuit 🌙" : " ☀️"));
+                        let tollName = "Péage" + (isNight ? " de nuit 🌙" : " de jour ☀️");
                         this.addBankTransaction(-currentToll, tollName);
+                        
                         if(window.ui) {
                             window.ui.showToast(`💸 ${tollName} : - ${currentToll} €`, "anomaly");
                             window.ui.playGamiSound('siren');
                         }
                     }
+
 
              // ✅ NOUVEAU CODE À INSÉRER
 if (elapsed > 0 && elapsed % 900 === 0 && this.bankBalance < -500) {
@@ -1851,6 +1855,17 @@ if (!isTruck && window.tycoon) {
                 }
                 this.isCarRunning = false;
                 
+                        // --- AJOUT DE LA LIGNE GROUPÉE DES LIVRAISONS ---
+                if (this.sessionFinance.deliveryProfit > 0) {
+                    let timeStr = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                    this.sessionBankHistory.unshift({ 
+                        timestamp: Date.now(), 
+                        time: timeStr, 
+                        amount: this.sessionFinance.deliveryProfit, 
+                        reason: "🚚 Livraisons Flotte (Total de la session)" 
+                    });
+                }
+
                 // --- 💰 TRANSFERT VERS L'ENTREPRISE ---
                 let finalSessionBalance = parseFloat(this.sessionBankBalance.toFixed(2));
                 if (finalSessionBalance !== 0) {
@@ -1858,6 +1873,7 @@ if (!isTruck && window.tycoon) {
                 }
                 
                 this.sessionFinance.history = [...this.sessionBankHistory];
+
             }
 
             
@@ -2831,12 +2847,23 @@ if (!isTruck && window.tycoon) {
                 </div>
             `;
         }
-let freightHtml = '';
-        if (session.sessionFinance && session.sessionFinance.freightGained > 0) {
-            let fg = session.sessionFinance.freightGained;
-            let unit = fg < 1 ? (fg * 1000).toFixed(0) + " kg" : fg.toFixed(1) + " t";
-            freightHtml = `<div class="session-detail-row"><span class="session-detail-label" style="color:#2980b9;">📦 Fret Récolté (Loterie)</span><span class="session-detail-value" style="color:#2980b9; font-weight:bold;">+ ${unit}</span></div>`;
+        let freightHtml = '';
+        if (session.sessionFinance) {
+            if (session.sessionFinance.freightGained > 0) {
+                let fg = session.sessionFinance.freightGained;
+                let unit = fg < 1 ? (fg * 1000).toFixed(0) + " kg" : fg.toFixed(1) + " t";
+                freightHtml += `<div class="session-detail-row"><span class="session-detail-label" style="color:#2980b9;">📦 Fret Récolté (Loterie)</span><span class="session-detail-value" style="color:#2980b9; font-weight:bold;">+ ${unit}</span></div>`;
+            }
+            if (session.sessionFinance.deliveryTons > 0) {
+                let dt = session.sessionFinance.deliveryTons;
+                let unit = dt < 1 ? (dt * 1000).toFixed(0) + " kg" : dt.toFixed(1) + " t";
+                freightHtml += `<div class="session-detail-row"><span class="session-detail-label" style="color:#27ae60;">🚚 Fret Livré (Flotte)</span><span class="session-detail-value" style="color:#27ae60; font-weight:bold;">- ${unit}</span></div>`;
+            }
+            if (session.sessionFinance.passiveIncome > 0) {
+                freightHtml += `<div class="session-detail-row"><span class="session-detail-label" style="color:#8e44ad;">🏢 Revenu Passif</span><span class="session-detail-value" style="color:#8e44ad; font-weight:bold;">+ ${session.sessionFinance.passiveIncome.toFixed(2)} €</span></div>`;
+            }
         }
+
 
 
         let html = `

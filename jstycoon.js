@@ -491,9 +491,19 @@ export const tycoon = {
 
             if (totalDelivered > 0) {
                 let profit = parseFloat((totalDelivered * price).toFixed(2));
-                window.app.addBankTransaction(profit, `Livraison Flotte (Dépôts)`);
+                if (window.app && window.app.isCarRunning) {
+                    // Accumulation silencieuse pour la session
+                    window.app.sessionFinance.deliveryProfit = (window.app.sessionFinance.deliveryProfit || 0) + profit;
+                    window.app.sessionFinance.deliveryTons = (window.app.sessionFinance.deliveryTons || 0) + totalDelivered;
+                    window.app.sessionBankBalance += profit;
+                    window.app.sessionFinance.gains += profit;
+                    window.app.updateBankUI();
+                } else {
+                    window.app.addBankTransaction(profit, `Livraison Flotte (Dépôts)`);
+                }
                 needsSave = true;
             }
+
         }
         // --- FIN DU SMART DISPATCH ---
 
@@ -737,17 +747,20 @@ export const tycoon = {
             if (mod < 1.0) { statusTxt = "Statut : Malus Carbone 🚨"; statusCol = "#e74c3c"; }
             document.getElementById('company-carb-status-text').innerText = statusTxt;
             document.getElementById('company-carb-status-text').style.color = statusCol;
+        // --- AFFICHAGE ÉCONOMIE CARBONE VÉLOS ---
         let bikeSavingsEl = document.getElementById('company-bike-savings');
         if (bikeSavingsEl) {
             let saved = this.state.carbonSavedByBikes || 0;
             if (saved > 0) {
                 bikeSavingsEl.style.display = 'block';
-                let savedStr = window.app ? window.app.formatCarbon(saved) : (saved / 1000).toFixed(2) + " kg";
+                // Conversion propre pour l'affichage
+                let savedStr = window.app ? window.app.formatCarbon(saved) : (saved).toFixed(0) + " g";
                 bikeSavingsEl.innerHTML = `🚲 Effort des cyclistes : - ${savedStr} CO2 cette semaine`;
             } else {
                 bikeSavingsEl.style.display = 'none';
             }
         }
+
 
         }
 
