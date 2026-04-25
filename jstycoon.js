@@ -747,19 +747,23 @@ export const tycoon = {
             if (mod < 1.0) { statusTxt = "Statut : Malus Carbone 🚨"; statusCol = "#e74c3c"; }
             document.getElementById('company-carb-status-text').innerText = statusTxt;
             document.getElementById('company-carb-status-text').style.color = statusCol;
-        // --- AFFICHAGE ÉCONOMIE CARBONE VÉLOS ---
+        // --- AFFICHAGE ÉCONOMIE CARBONE VÉLOS (CORRIGÉ) ---
         let bikeSavingsEl = document.getElementById('company-bike-savings');
         if (bikeSavingsEl) {
-            let saved = this.state.carbonSavedByBikes || 0;
-            if (saved > 0) {
+            let savedKg = this.state.carbonSavedByBikes || 0;
+            // On vérifie si tu as au moins un vélo dans ta flotte pour toujours afficher la ligne !
+            let hasBikes = this.state.fleet.some(v => v.type === 'velo' || v.type === 'cargo');
+            
+            if (hasBikes || savedKg > 0) {
                 bikeSavingsEl.style.display = 'block';
-                // Conversion propre pour l'affichage
-                let savedStr = window.app ? window.app.formatCarbon(saved) : (saved).toFixed(0) + " g";
-                bikeSavingsEl.innerHTML = `🚲 Effort des cyclistes : - ${savedStr} CO2 cette semaine`;
+                // On multiplie par 1000 car formatCarbon attend des grammes, pas des kilos !
+                let savedStr = window.app ? window.app.formatCarbon(savedKg * 1000) : (savedKg * 1000).toFixed(0) + " g";
+                bikeSavingsEl.innerHTML = `🚲 Effort cyclistes : - ${savedStr} CO2 cette semaine`;
             } else {
                 bikeSavingsEl.style.display = 'none';
             }
         }
+
 
 
         }
