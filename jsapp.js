@@ -3253,11 +3253,11 @@ if (window.tycoon) window.tycoon.cashOut();
             statusArr.push("☀️ Tarifs Standards (Continu)");
         }
 
-        let statusStr = statusArr.join(" + ");
+        let        let statusStr = statusArr.join(" + ");
 
-        let grid = document.getElementById('pricing-grid');
         if(grid) {
             grid.innerHTML = `
+
                 <div onclick="let d=document.getElementById('pricing-details'); d.style.display=d.style.display==='none'?'contents':'none';" style="grid-column: 1 / -1; color: #f1c40f; font-weight: bold; text-align: center; cursor: pointer; padding-bottom: 2px;">
                     ${statusStr} <span style="font-size:0.8em; color:#7f8c8d; margin-left: 5px;">▼</span>
                 </div>

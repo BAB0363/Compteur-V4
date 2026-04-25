@@ -62,13 +62,13 @@ export const market = {
             baseVal *= (type === "Voitures" || type === "Utilitaires" || type === "Bus/Car" || type === "Vélos") ? 0.5 : 2.0;
         }
 
-        if (hour >= 5 && hour < 7) {
+        if (hour >= 5 && hour < 7 && !isWeekend) {
             baseVal *= 2.0;
             events.push('aube');
         }
 
-        let currentDay = new Date().getDay(); // 0 = Dimanche
         if (type === "Camions") {
+
             if (currentDay === 0) {
                 baseVal *= 4.0;
                 events.push('contrebande');

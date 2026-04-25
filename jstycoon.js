@@ -450,14 +450,10 @@ export const tycoon = {
         }
     },
 
-    resetPendingFreight() {
+        resetPendingFreight() {
         this.pendingDeliveries = {};
     },
 
-
-    resetPendingFreight() {
-        this.sessionFreightToAdd = 0;
-    },
 
         tickDistance(km) {
         if (!this.state.fleet || this.state.fleet.length === 0) return;
