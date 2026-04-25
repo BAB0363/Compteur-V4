@@ -473,21 +473,30 @@ export const tycoon = {
             let price = this.getDynamicPrice();
 
             status.deliveringVehicles.forEach(veh => {
-                let def = this.catalog.fleet[veh.type];
-                let bId = def.buildingId;
-                let power = def.capacity / (def.deliveryKm || 10); 
-                let tons = power * km; 
+    let def = this.catalog.fleet[veh.type];
+    let bId = def.buildingId;
+    let power = def.capacity / (def.deliveryKm || 10); 
+    let tons = power * km; 
 
-                let stockRestant = this.state.stocks[bId] || 0;
-                if (tons > stockRestant) tons = stockRestant;
-                
-                if (tons > 0) {
-                    this.state.stocks[bId] -= tons;
-                    totalDelivered += tons;
-                    veh.gains = (veh.gains || 0) + (tons * price);
-                    needsSave = true;
-                }
-            });
+    let stockRestant = this.state.stocks[bId] || 0;
+    if (tons > stockRestant) tons = stockRestant;
+    
+    if (tons > 0) {
+        this.state.stocks[bId] -= tons;
+        totalDelivered += tons;
+        veh.gains = (veh.gains || 0) + (tons * price);
+        needsSave = true;
+
+        // 👇 NOUVEAU : Bonus Carbone Actif (2 kg par km) 👇
+        if (veh.type === 'velo' || veh.type === 'cargo') {
+            let savedCarbonKg = 2 * km; // 2 kg sauvés par kilomètre
+            this.addCarbon(-(savedCarbonKg * 1000), 0); // Le bilan global attend des grammes !
+            this.state.carbonSavedByBikes = (this.state.carbonSavedByBikes || 0) + savedCarbonKg; // Stocké en kg pour l'affichage
+        }
+        // 👆 FIN DE L'AJOUT 👆
+    }
+});
+
 
             if (totalDelivered > 0) {
                 let profit = parseFloat((totalDelivered * price).toFixed(2));
