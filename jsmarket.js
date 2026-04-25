@@ -45,9 +45,13 @@ export const market = {
         
         let { hour = new Date().getHours(), alt = 0, consecutive = 0, isHighway = false, bankBalance = 0, isExact = false, gegeMultiplier = 1, speed = 0 } = context;
 
-        let isNight = (hour >= 21 || hour < 6);
-        let isRushHourTime = (hour >= 7 && hour < 9) || (hour >= 17 && hour < 19);
+        let currentDay = new Date().getDay(); 
+        let isWeekend = (currentDay === 0 || currentDay === 6);
+
+        let isNight = !isWeekend && (hour >= 21 || hour < 6);
+        let isRushHourTime = !isWeekend && ((hour >= 7 && hour < 9) || (hour >= 17 && hour < 19));
         let isRushHour = isRushHourTime && speed <= 60;
+
         
         let threshold = isHighway ? 10 : 4;
         let events = []; 

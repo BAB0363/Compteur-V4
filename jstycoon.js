@@ -9,10 +9,12 @@ export const tycoon = {
         lastResetWeek: 0,
         buildings: {}, 
 
+                stocks: {},
         fleet: [], 
         pendingIncome: 0,
         purchaseHistory: []
      }, 
+
 
     warehouseConfig: {
         levels: [
@@ -46,8 +48,9 @@ export const tycoon = {
     },
 
 
-        fuelPrice: 1.80,
-    sessionFreightToAdd: 0,
+            fuelPrice: 1.80,
+    pendingDeliveries: {},
+
 
     init() {
 
@@ -61,6 +64,8 @@ export const tycoon = {
             try { this.state = { ...this.state, ...JSON.parse(saved) }; }
             catch(e) { console.error("Erreur de lecture Tycoon"); }
         }
+        if (!this.state.stocks) this.state.stocks = {};
+
         
                  // --- INFLATION À LA POMPE (Journalière) ---
         let d = new Date();
@@ -103,19 +108,24 @@ export const tycoon = {
 
         availableFleet.sort((a, b) => this.catalog.fleet[b.type].capacity - this.catalog.fleet[a.type].capacity);
 
-        let remainingFreight = this.state.storedFreight;
+               let remainingStocks = { ...(this.state.stocks || {}) };
         let deliveringVehicles = [];
         let passiveVehicles = [];
 
         availableFleet.forEach(veh => {
-            let cap = this.catalog.fleet[veh.type].capacity;
-            if (remainingFreight > 0) {
+            let def = this.catalog.fleet[veh.type];
+            let bId = def.buildingId;
+            let cap = def.capacity;
+            
+            if ((remainingStocks[bId] || 0) > 0) {
                 deliveringVehicles.push(veh);
-                remainingFreight -= cap; 
+                remainingStocks[bId] -= cap; 
+                if (remainingStocks[bId] < 0) remainingStocks[bId] = 0;
             } else {
                 passiveVehicles.push(veh);
             }
         });
+
 
         return { deliveringVehicles, passiveVehicles };
     },
@@ -172,11 +182,18 @@ export const tycoon = {
         this.saveState();
     },
 
-        getDynamicPrice() {
-        const basePrice = 3.00; // Nouveau prix de base augmenté
+    getDynamicPrice() {
+        const basePrice = 3.00; 
         const cap = this.getWarehouseCapacity();
         if (cap === 0) return basePrice;
-        const fillRate = this.state.storedFreight / cap;
+        
+        let totalCurrentStock = 0;
+        Object.keys(this.state.stocks || {}).forEach(bId => {
+            totalCurrentStock += this.state.stocks[bId];
+        });
+
+        const fillRate = totalCurrentStock / cap;
+
         
         let price = basePrice;
         if (fillRate < 0.20) price = basePrice * 1.5;
@@ -381,24 +398,62 @@ export const tycoon = {
         this.saveState();
         this.renderUI();
     },
-    rollFreightLottery() {
-        if (Math.random() <= 0.15) {
-            let randomTons = Math.floor(Math.random() * (25 - 5 + 1)) + 5;
-            this.sessionFreightToAdd += randomTons;
-            if (window.ui) window.ui.showToast(`📦 Jackpot fret ! +${randomTons}t en attente d'arrivée !`);
+        rollFreightLottery() {
+        // 1. Lister les bâtiments possédés qui ont encore de la place
+        let availableBuildings = [];
+        Object.keys(this.state.buildings).forEach(bId => {
+            let count = this.state.buildings[bId] || 0;
+            if (count > 0) {
+                let maxCap = count * this.catalog.buildings[bId].storage;
+                let currentStock = (this.state.stocks[bId] || 0) + (this.pendingDeliveries[bId] || 0);
+                if (currentStock < maxCap) {
+                    availableBuildings.push({ id: bId, spaceLeft: maxCap - currentStock });
+                }
+            }
+        });
+
+        // 2. Aucun bâtiment dispo ou tout est plein ? On annule.
+        if (availableBuildings.length === 0) return; 
+
+        // 3. Tirage au sort (15% de chance)
+        if (Math.random() <= 0.15) { 
+            let target = availableBuildings[Math.floor(Math.random() * availableBuildings.length)];
+            
+            // 4. Gain adapté : Des Kilos pour les petits, des Tonnes pour les gros
+            let isSmall = target.id === 'local_velo' || target.id === 'hub_cargo' || target.id === 'relais_scooter';
+            let gain = isSmall ? (Math.floor(Math.random() * 50) + 10) / 1000 : Math.floor(Math.random() * 20) + 5; 
+
+            if (gain > target.spaceLeft) gain = target.spaceLeft; // On ne déborde pas
+            
+            this.pendingDeliveries[target.id] = (this.pendingDeliveries[target.id] || 0) + gain;
+            
+            let bName = this.catalog.buildings[target.id].name;
+            let unit = gain < 1 ? (gain * 1000).toFixed(0) + "kg" : gain.toFixed(1) + "t";
+            if (window.ui) window.ui.showToast(`📦 Jackpot fret ! +${unit} pour : ${bName} !`);
         }
     },
 
     unloadPendingFreight() {
-        if (this.sessionFreightToAdd > 0) {
-            this.state.storedFreight += this.sessionFreightToAdd;
-            let maxCap = this.getWarehouseCapacity();
-            if (this.state.storedFreight > maxCap) this.state.storedFreight = maxCap;
+        let totalUnloaded = 0;
+        Object.keys(this.pendingDeliveries).forEach(bId => {
+            let amount = this.pendingDeliveries[bId];
+            if (amount > 0) {
+                this.state.stocks[bId] = (this.state.stocks[bId] || 0) + amount;
+                totalUnloaded++;
+            }
+        });
+        
+        if (totalUnloaded > 0) {
             this.saveState();
-            if(window.ui) window.ui.showToast(`🏗️ Déchargement réussi : +${this.sessionFreightToAdd}t en stock !`);
-            this.sessionFreightToAdd = 0;
+            if(window.ui) window.ui.showToast(`🏗️ Déchargement réussi dans ${totalUnloaded} entrepôt(s) !`);
+            this.pendingDeliveries = {};
         }
     },
+
+    resetPendingFreight() {
+        this.pendingDeliveries = {};
+    },
+
 
     resetPendingFreight() {
         this.sessionFreightToAdd = 0;
@@ -412,22 +467,24 @@ export const tycoon = {
 
         let needsSave = false;
 
-        // --- SMART DISPATCH ---
-        if (this.state.storedFreight > 0) {
+        // --- SMART DISPATCH PAR BÂTIMENT ---
+        let hasAnyStock = Object.values(this.state.stocks || {}).some(val => val > 0);
+        if (hasAnyStock) {
             let status = this.getFleetStatus();
             let totalDelivered = 0;
             let price = this.getDynamicPrice();
 
-                      status.deliveringVehicles.forEach(veh => {
+            status.deliveringVehicles.forEach(veh => {
                 let def = this.catalog.fleet[veh.type];
+                let bId = def.buildingId;
                 let power = def.capacity / (def.deliveryKm || 10); 
                 let tons = power * km; 
 
-                
-                let stockRestant = this.state.storedFreight - totalDelivered;
+                let stockRestant = this.state.stocks[bId] || 0;
                 if (tons > stockRestant) tons = stockRestant;
                 
                 if (tons > 0) {
+                    this.state.stocks[bId] -= tons;
                     totalDelivered += tons;
                     veh.gains = (veh.gains || 0) + (tons * price);
                     needsSave = true;
@@ -436,12 +493,12 @@ export const tycoon = {
 
             if (totalDelivered > 0) {
                 let profit = parseFloat((totalDelivered * price).toFixed(2));
-                window.app.addBankTransaction(profit, `Livraison Flotte (${totalDelivered.toFixed(1)}t)`);
-                this.state.storedFreight -= totalDelivered;
+                window.app.addBankTransaction(profit, `Livraison Flotte (Dépôts)`);
                 needsSave = true;
             }
         }
         // --- FIN DU SMART DISPATCH ---
+
 
         let cap = this.getWarehouseCapacity();
 
@@ -512,16 +569,22 @@ export const tycoon = {
             if ((this.state.buildings.zone || 0) > 0) bonusMultiplier *= 1.10;
             let carbonMod = this.state.carbonModifier || 1.0;
 
-            if (window.app && window.app.bankBalance >= 0) {
-                status.passiveVehicles.forEach(veh => {
-                    let def = this.catalog.fleet[veh.type];
-                    if (!def) return;
-                    
-                    if (veh.fuel > 0 && veh.health > 20) {
-                        veh.gains = (veh.gains || 0) + ((def.income / 60) * bonusMultiplier * carbonMod);
-                    }
-                });
-            }
+                            if (window.app && window.app.bankBalance >= 0) {
+                    status.passiveVehicles.forEach(veh => {
+                        let def = this.catalog.fleet[veh.type];
+                        if (!def) return;
+                        
+                        if ((def.fuelTank === 0 || veh.fuel > 0) && veh.health > 20) {
+                            veh.gains = (veh.gains || 0) + ((def.income / 60) * bonusMultiplier * carbonMod);
+                        }
+
+                        // Ajout 1.2 : Bonus Carbone Passif
+                        if (veh.type === 'velo' || veh.type === 'cargo') {
+                            this.addCarbon(-0.02, 0);
+                        }
+                    });
+                }
+
         }
 
         if (secondsElapsed > 0 && secondsElapsed % 60 === 0) {
@@ -607,11 +670,13 @@ export const tycoon = {
         let status = this.getFleetStatus();
         
         let cap = this.getWarehouseCapacity();
-        let levelInfo = this.warehouseConfig.levels[this.state.warehouseLevel];
-        let fillPct = cap > 0 ? (this.state.storedFreight / cap) * 100 : 0;
+        let totalCurrentStock = 0;
+        Object.keys(this.state.stocks || {}).forEach(bId => totalCurrentStock += this.state.stocks[bId]);
+        let fillPct = cap > 0 ? (totalCurrentStock / cap) * 100 : 0;
 
-        if(document.getElementById('warehouse-name')) document.getElementById('warehouse-name').innerText = levelInfo ? levelInfo.name : "Aucun";
-        if(document.getElementById('warehouse-tons')) document.getElementById('warehouse-tons').innerText = this.state.storedFreight.toFixed(1) + " t";
+        if(document.getElementById('warehouse-name')) document.getElementById('warehouse-name').innerText = "Stock Global (Tous Dépôts)";
+        if(document.getElementById('warehouse-tons')) document.getElementById('warehouse-tons').innerText = totalCurrentStock.toFixed(1) + " t";
+
         if(document.getElementById('warehouse-cap')) document.getElementById('warehouse-cap').innerText = "Capacité max : " + cap + " t";
         if(document.getElementById('warehouse-bar')) document.getElementById('warehouse-bar').style.width = Math.min(100, fillPct) + "%";
 
@@ -623,7 +688,7 @@ export const tycoon = {
         
         if(document.getElementById('company-carb-total')) {
             let totalStr = window.app ? window.app.formatCarbon(carbTotal) : (carbTotal / 1000).toFixed(1) + " kg";
-            let quotaStr = window.app ? window.app.formatCarbon(carbQuota) : (carbQuota / 1000).toFixed(1) + " kg";
+            let quotaStr = this.getWarehouseCapacity().app ? window.app.formatCarbon(carbQuota) : (carbQuota / 1000).toFixed(1) + " kg";
             document.getElementById('company-carb-total').innerText = totalStr + " / " + quotaStr;
         }
 
@@ -679,18 +744,37 @@ export const tycoon = {
                 let canBuy = window.app && window.app.bankBalance >= currentPrice && !isMaxed;
                 let btnTxt = isMaxed ? "Max" : "Investir";
                 
+                                let currentStock = this.state.stocks[k] || 0;
+                let maxStock = count * item.storage;
+                // Si c'est petit (< 1t), on affiche en kilos pour faire plus réaliste !
+                let stockStr = currentStock < 1 && currentStock > 0 ? (currentStock * 1000).toFixed(0) + " kg" : currentStock.toFixed(1) + " t";
+                let pct = maxStock > 0 ? (currentStock / maxStock) * 100 : 0;
+
                 buildList.innerHTML += `
-    <div style="background:var(--card-bg); border-radius:6px; padding: 10px 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display:flex; justify-content:space-between; align-items:center; ${isMaxed ? 'opacity: 0.6;' : ''}">
-        <div style="display:flex; flex-direction:column; gap:2px;">
-            <span style="font-size:1em; color:var(--text-color);">${item.icon} <b>${item.name}</b></span>
-            <span style="font-size:0.75em; color:#7f8c8d;">Places : ${count}/${item.maxLimit} | <b>Stock : +${item.storage}t</b></span>
+    <div style="background:var(--card-bg); border-radius:6px; padding: 10px 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display:flex; flex-direction:column; gap:8px; ${isMaxed ? 'opacity: 0.85;' : ''}">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div style="display:flex; flex-direction:column; gap:2px;">
+                <span style="font-size:1em; color:var(--text-color);">${item.icon} <b>${item.name}</b></span>
+                <span style="font-size:0.75em; color:#7f8c8d;">Places dispo : ${count}/${item.maxLimit}</span>
+            </div>
+            <div style="display:flex; flex-direction:column; align-items:flex-end;">
+                <span style="font-size:0.85em; font-weight:bold; color:var(--text-color); margin-bottom:4px; ${isMaxed ? 'text-decoration: line-through;' : ''}">${currentPrice.toLocaleString('fr-FR')} €</span>
+                <button style="background:var(--primary-color); color:white; border:none; padding:4px 10px; border-radius:4px; font-weight:bold; font-size:0.8em;" ${!canBuy ? 'disabled style="background:#bdc3c7;"' : ''} onclick="window.tycoon.buyBuilding('${k}')">${btnTxt}</button>
+            </div>
         </div>
-        <div style="display:flex; flex-direction:column; align-items:flex-end;">
-            <span style="font-size:0.85em; font-weight:bold; color:var(--text-color); margin-bottom:4px; ${isMaxed ? 'text-decoration: line-through;' : ''}">${currentPrice.toLocaleString('fr-FR')} €</span>
-            <button style="background:var(--primary-color); color:white; border:none; padding:4px 10px; border-radius:4px; font-weight:bold; font-size:0.8em;" ${!canBuy ? 'disabled style="background:#bdc3c7;"' : ''} onclick="window.tycoon.buyBuilding('${k}')">${btnTxt}</button>
-        </div>
+        ${count > 0 ? `
+        <div style="background: rgba(0,0,0,0.05); border-radius: 4px; padding: 5px; font-size: 0.75em;">
+            <div style="display:flex; justify-content:space-between; margin-bottom: 3px;">
+                <span style="color:var(--text-color); font-weight:bold;">📦 Stock : ${stockStr} / ${maxStock} t</span>
+                <span style="color:#7f8c8d;">${pct.toFixed(0)}%</span>
+            </div>
+            <div style="height: 6px; background: var(--border-color); border-radius: 3px; overflow: hidden;">
+                <div style="height: 100%; width: ${Math.min(100, pct)}%; background: ${pct > 90 ? '#e74c3c' : (pct > 75 ? '#f39c12' : '#27ae60')};"></div>
+            </div>
+        </div>` : ''}
     </div>
 `;
+
 
             });
         }
@@ -784,11 +868,45 @@ let isWarning = (def.fuelTank > 0 && v.fuel <= (def.fuelTank * 0.3)) || v.health
                         </div>
                         <div style="display:flex; flex-direction:column; align-items:flex-end;">
                             <span style="font-size:0.85em; font-weight:bold; color:var(--text-color); margin-bottom:4px;">${item.price.toLocaleString('fr-FR')} €</span>
-                            <button style="background:var(--primary-color); color:white; border:none; padding:4px 10px; border-radius:4px; font-weight:bold; font-size:0.8em;" ${!canBuy ? 'disabled style="background:#bdc3c7;"' : ''} onclick="window.tycoon.buyVehicle('${k}')">${btnTxt}</button>
+                                                    <button style="background:var(--primary-color); color:white; border:none; padding:4px 10px; border-radius:4px; font-weight:bold; font-size:0.8em;" ${!canBuy ? 'disabled style="background:#bdc3c7;"' : ''} onclick="window.tycoon.buyVehicle('${k}')">${btnTxt}</button>
                         </div>
                     </div>
                 `;
             });
+        }
+
+        // --- AFFICHAGE DES BORDEREAUX DE L'ENTREPRISE ---
+        let financeList = document.getElementById('company-financial-history');
+        if(financeList && window.app) {
+            financeList.innerHTML = '';
+            
+            let tycoonHistory = window.app.bankHistory.filter(tx => 
+                tx.reason.includes('Achat') || 
+                tx.reason.includes('Revente') || 
+                tx.reason.includes('Plein') || 
+                tx.reason.includes('Pneus') || 
+                tx.reason.includes('Révis') || 
+                tx.reason.includes('Flotte') ||
+                tx.reason.includes('Immo') ||
+                tx.reason.includes('Crevaison') ||
+                tx.reason.includes('Panne') ||
+                tx.reason.includes('Entreprise')
+            ).slice(0, 15); 
+
+            if (tycoonHistory.length === 0) {
+                financeList.innerHTML = '<span style="color:#7f8c8d; font-size:0.9em; text-align:center;">Aucune transaction mécanique ou immobilière.</span>';
+            } else {
+                tycoonHistory.forEach(tx => {
+                    let color = tx.amount > 0 ? '#27ae60' : '#e74c3c';
+                    let sign = tx.amount > 0 ? '+' : '';
+                    financeList.innerHTML += `
+                        <div style="display: flex; justify-content: space-between; font-size: 0.85em; border-bottom: 1px dotted rgba(0,0,0,0.1); padding-bottom: 4px; margin-bottom: 4px;">
+                            <span style="color: #7f8c8d; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-right: 10px;">${tx.time} - ${tx.reason}</span>
+                            <span style="color: ${color}; font-weight: bold; white-space: nowrap;">${sign}${tx.amount.toFixed(2)} €</span>
+                        </div>
+                    `;
+                });
+            }
         }
     }
 };

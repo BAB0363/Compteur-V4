@@ -2787,39 +2787,51 @@ if (window.tycoon) window.tycoon.cashOut();
             let balanceColor = finalBalance >= 0 ? '#27ae60' : '#e74c3c';
             let balanceSign = finalBalance > 0 ? '+' : '';
 
-            let receiptLines = '';
+            let gainsLines = '';
+            let lossesLines = '';
+
             if (session.sessionFinance.history && session.sessionFinance.history.length > 0) {
-                // On remet l'historique dans l'ordre chronologique (du plus ancien au plus récent)
                 let histChronological = [...session.sessionFinance.history].reverse();
                 
                 histChronological.forEach(tx => {
-                    let txColor = tx.amount >= 0 ? '#27ae60' : '#e74c3c';
-                    let txSign = tx.amount > 0 ? '+' : '';
-                    receiptLines += `
-                        <div style="display: flex; justify-content: space-between; font-size: 0.8em; margin-bottom: 4px; border-bottom: 1px dotted rgba(0,0,0,0.1); padding-bottom: 2px;">
+                    let line = `
+                        <div style="display: flex; justify-content: space-between; font-size: 0.85em; margin-bottom: 4px; border-bottom: 1px dotted rgba(0,0,0,0.1); padding-bottom: 2px;">
                             <span style="color: #7f8c8d; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-right: 10px;">${tx.time} - ${tx.reason}</span>
-                            <span style="color: ${txColor}; font-weight: bold; white-space: nowrap;">${txSign}${tx.amount.toFixed(2)} €</span>
+                            <span style="font-weight: bold; white-space: nowrap;">${tx.amount > 0 ? '+' : ''}${tx.amount.toFixed(2)} €</span>
                         </div>`;
+                    
+                    if (tx.amount >= 0) gainsLines += line;
+                    else lossesLines += line;
                 });
-            } else {
-                receiptLines = '<div style="font-size: 0.8em; color: #7f8c8d; text-align: center;">Aucune transaction enregistrée.</div>';
             }
+
+            if(!gainsLines) gainsLines = '<div style="font-size:0.8em; color:#7f8c8d; text-align:center;">Aucun gain.</div>';
+            if(!lossesLines) lossesLines = '<div style="font-size:0.8em; color:#7f8c8d; text-align:center;">Aucune perte.</div>';
 
             financeHtml = `
                 <div style="border-top: 2px dashed var(--border-color); margin: 15px 0;"></div>
                 <div style="background: var(--card-bg); padding: 12px; border-radius: 8px; border: 1px solid var(--border-color); box-shadow: inset 0 0 10px rgba(0,0,0,0.05);">
-                    <div style="text-align: center; font-weight: bold; margin-bottom: 12px; color: var(--text-color);">🧾 TICKET DE CAISSE (SESSION)</div>
-                    <div style="max-height: 180px; overflow-y: auto; padding-right: 5px; margin-bottom: 10px; font-family: monospace;">
-                        ${receiptLines}
-                    </div>
+                    <div style="text-align: center; font-weight: bold; margin-bottom: 12px; color: var(--text-color);">🧾 TICKET DE CAISSE</div>
+                    
+                    <details style="margin-bottom: 10px; cursor: pointer;">
+                        <summary style="font-weight: bold; color: #27ae60; padding: 5px; background: rgba(39, 174, 96, 0.1); border-radius: 4px;">🟢 Détails Gains (+${session.sessionFinance.gains.toFixed(2)} €)</summary>
+                        <div style="padding: 10px 5px; max-height: 150px; overflow-y: auto;">${gainsLines}</div>
+                    </details>
+                    
+                    <details style="margin-bottom: 10px; cursor: pointer;">
+                        <summary style="font-weight: bold; color: #e74c3c; padding: 5px; background: rgba(231, 76, 60, 0.1); border-radius: 4px;">🔴 Détails Pertes (-${session.sessionFinance.losses.toFixed(2)} €)</summary>
+                        <div style="padding: 10px 5px; max-height: 150px; overflow-y: auto;">${lossesLines}</div>
+                    </details>
+
                     <div style="border-top: 2px dashed var(--text-color); margin: 8px 0;"></div>
                     <div style="display: flex; justify-content: space-between; font-size: 1.1em; margin-top: 8px;">
-                        <span style="font-weight: bold; color: var(--text-color);">NET VIRÉ À L'ENTREPRISE :</span>
+                        <span style="font-weight: bold; color: var(--text-color);">NET VIRÉ :</span>
                         <span style="color:${balanceColor}; font-weight:bold;">${balanceSign}${finalBalance.toFixed(2)} €</span>
                     </div>
                 </div>
             `;
         }
+
 
 
         let html = `
@@ -3205,21 +3217,19 @@ if (window.tycoon) window.tycoon.cashOut();
         const grid = document.getElementById('pricing-grid');
         if (!grid) return;
         
-        const now = new Date();
+                const now = new Date();
         const hour = now.getHours();
-        const day = now.getDay(); // 0 = Dimanche
-        let statusArr = [];
+        const day = now.getDay(); 
+        let isWeekend = (day === 0 || day === 6);
         
-        // --- NOUVEAU : Récupération de la vitesse ---
+        let statusArr = [];
         let speedKmh = window.gps ? window.gps.getSlidingSpeedKmh() : 0;
         
-        // 1. Détermination des bonus/malus selon l'heure et le jour
-        if (hour >= 5 && hour < 7) {
+        if (hour >= 5 && hour < 7 && !isWeekend) {
             statusArr.push("🌅 Aube (x2)");
         }
         
-        // --- NOUVEAU : Logique de contournement Heure de Pointe ---
-        if ((hour >= 7 && hour < 9) || (hour >= 17 && hour < 19)) {
+        if (!isWeekend && ((hour >= 7 && hour < 9) || (hour >= 17 && hour < 19))) {
             if (speedKmh > 60) {
                 statusArr.push("🚗 Pointe <span style='color:var(--success-color); font-weight:normal;'>(Bypass >60km/h 🟢)</span>");
             } else {
@@ -3227,11 +3237,11 @@ if (window.tycoon) window.tycoon.cashOut();
             }
         }
 
-        if (hour >= 21 || hour < 6) {
+        if (!isWeekend && (hour >= 21 || hour < 6)) {
             statusArr.push("🌙 Nuit (PL&Util /2 | Autres x2.5)"); 
         }
         
-        if (day !== 0 && (hour === 12 || hour === 13)) {
+        if (!isWeekend && (hour === 12 || hour === 13)) {
             statusArr.push("🍱 Gamelle (PL x1.5)");
         }
 
@@ -3239,28 +3249,30 @@ if (window.tycoon) window.tycoon.cashOut();
             statusArr.push("🏴‍☠️ Contrebande (PL x4 | ⚠️ DREAL)");
         }
         
-        // Affichage par défaut si aucun modificateur n'est actif
         if (statusArr.length === 0) {
-            statusArr.push("☀️ Journée (Tarifs Standards)");
+            statusArr.push("☀️ Tarifs Standards (Continu)");
         }
 
         let statusStr = statusArr.join(" + ");
 
-        // 2. Injection du HTML dans la grille
-        grid.innerHTML = `
-            <div onclick="let d=document.getElementById('pricing-details'); d.style.display=d.style.display==='none'?'contents':'none';" style="grid-column: 1 / -1; color: #f1c40f; font-weight: bold; text-align: center; cursor: pointer; padding-bottom: 2px;">
-                ${statusStr} <span style="font-size:0.8em; color:#7f8c8d; margin-left: 5px;">▼</span>
-            </div>
-            <div id="pricing-details" style="display: none;">
-                <div style="grid-column: 1 / -1; border-bottom: 1px dashed var(--border-color); margin: 3px 0;"></div>
-                <div style="color: #7f8c8d;">05h - 07h</div> <div style="text-align: right;">Prime Aube x2</div>
-                <div style="color: #7f8c8d;">07h-09h / 17h-19h</div> <div style="text-align: right;">Pointe (Désactivé si > 60km/h)</div>
-                <div style="color: #7f8c8d;">21h - 06h</div> <div style="text-align: right;">Tarif de Nuit</div>
-                <div style="color: #7f8c8d;">12h - 14h</div> <div style="text-align: right;">Gamelle du Routier</div>
-                <div style="color: #7f8c8d;">Dimanche</div> <div style="text-align: right;">Contrebande (Risque DREAL)</div>
-            </div>
-        `;
-    },
+        let grid = document.getElementById('pricing-grid');
+        if(grid) {
+            grid.innerHTML = `
+                <div onclick="let d=document.getElementById('pricing-details'); d.style.display=d.style.display==='none'?'contents':'none';" style="grid-column: 1 / -1; color: #f1c40f; font-weight: bold; text-align: center; cursor: pointer; padding-bottom: 2px;">
+                    ${statusStr} <span style="font-size:0.8em; color:#7f8c8d; margin-left: 5px;">▼</span>
+                </div>
+                <div id="pricing-details" style="display: none;">
+                    <div style="grid-column: 1 / -1; border-bottom: 1px dashed var(--border-color); margin: 3px 0;"></div>
+                    <div style="color: #7f8c8d;">05h - 07h (Lun-Ven)</div> <div style="text-align: right;">Prime Aube x2</div>
+                    <div style="color: #7f8c8d;">Pointe (Lun-Ven)</div> <div style="text-align: right;">07-09h / 17-19h (Bypass si > 60km/h)</div>
+                    <div style="color: #7f8c8d;">21h - 06h (Lun-Ven)</div> <div style="text-align: right;">Tarif de Nuit</div>
+                    <div style="color: #7f8c8d;">12h - 14h (Lun-Ven)</div> <div style="text-align: right;">Gamelle du Routier</div>
+                    <div style="color: #7f8c8d;">Dimanche</div> <div style="text-align: right;">Contrebande (Risque DREAL)</div>
+                    <div style="color: #7f8c8d;">Samedi & Dimanche</div> <div style="text-align: right;">Tarif Standard continu</div>
+                </div>
+            `;
+        }
+
 
 
 
