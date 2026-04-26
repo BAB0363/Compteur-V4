@@ -1527,11 +1527,13 @@ if (!isTruck && window.tycoon) {
                     }
                 } // fin if (!isTruck)
 
-                                                                             if (key1 === "Camions") {
-                    // La Loterie du Fret (Transférée au Tycoon)
-                    if (amount > 0 && window.tycoon && !isTruck) {
-                        window.tycoon.rollFreightLottery();
-                    }
+                // La Loterie du Fret (Désormais pour Camions ET Utilitaires !)
+                if ((key1 === "Camions" || key1 === "Utilitaires") && amount > 0 && window.tycoon && !isTruck) {
+                    window.tycoon.rollFreightLottery(key1);
+                }
+                
+                if (key1 === "Camions") {
+
 
 
                     if (!this._convoiTimes) this._convoiTimes = [];

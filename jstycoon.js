@@ -400,40 +400,65 @@ export const tycoon = {
         this.saveState();
         this.renderUI();
     },
-        rollFreightLottery() {
-        // 1. Lister les bâtiments possédés qui ont encore de la place
-        let availableBuildings = [];
+    rollFreightLottery(triggerVehicle) {
+        // 1. Lister les bâtiments qui ont de la place en DEUX listes séparées
+        let petitsBatiments = [];
+        let grosBatiments = [];
+
         Object.keys(this.state.buildings).forEach(bId => {
             let count = this.state.buildings[bId] || 0;
             if (count > 0) {
                 let maxCap = count * this.catalog.buildings[bId].storage;
                 let currentStock = (this.state.stocks[bId] || 0) + (this.pendingDeliveries[bId] || 0);
-                if (currentStock < maxCap) {
-                    availableBuildings.push({ id: bId, spaceLeft: maxCap - currentStock });
+                let spaceLeft = maxCap - currentStock;
+
+                if (spaceLeft > 0) {
+                    let isSmall = bId === 'local_velo' || bId === 'hub_cargo' || bId === 'relais_scooter';
+                    if (isSmall) {
+                        petitsBatiments.push({ id: bId, spaceLeft: spaceLeft });
+                    } else {
+                        grosBatiments.push({ id: bId, spaceLeft: spaceLeft });
+                    }
                 }
             }
         });
 
-        // 2. Aucun bâtiment dispo ou tout est plein ? On annule.
-        if (availableBuildings.length === 0) return; 
-
-        // 3. Tirage au sort (15% de chance)
-        if (Math.random() <= 0.15) { 
-            let target = availableBuildings[Math.floor(Math.random() * availableBuildings.length)];
+        // 2. Fonction utilitaire de livraison (pour ne pas répéter le code)
+        const deliver = (list, minGain, maxGain) => {
+            if (list.length === 0) return; // Si aucun bâtiment dispo dans cette liste, on annule.
             
-            // 4. Gain adapté : Des Kilos pour les petits, des Tonnes pour les gros
-            let isSmall = target.id === 'local_velo' || target.id === 'hub_cargo' || target.id === 'relais_scooter';
-            let gain = isSmall ? (Math.floor(Math.random() * 401) + 100) / 1000 : Math.floor(Math.random() * 20) + 5;
-
+            let target = list[Math.floor(Math.random() * list.length)];
+            let gain = minGain + Math.random() * (maxGain - minGain); // Gain aléatoire entre min et max
+            
             if (gain > target.spaceLeft) gain = target.spaceLeft; // On ne déborde pas
             
             this.pendingDeliveries[target.id] = (this.pendingDeliveries[target.id] || 0) + gain;
             
             let bName = this.catalog.buildings[target.id].name;
             let unit = gain < 1 ? (gain * 1000).toFixed(0) + "kg" : gain.toFixed(1) + "t";
-            if (window.ui) window.ui.showToast(`📦 Jackpot fret ! +${unit} pour : ${bName} !`);
+            if (window.ui) window.ui.showToast(`📦 Fret reçu ! +${unit} pour : ${bName} !`);
+        };
+
+        // 3. Les Loteries selon le véhicule !
+        if (triggerVehicle === "Utilitaires") {
+            // Règle 1 : L'utilitaire a 25% de chance de livrer un petit bâtiment (50 à 250 kg)
+            if (Math.random() <= 0.25) {
+                deliver(petitsBatiments, 0.050, 0.250);
+            }
+        } 
+        else if (triggerVehicle === "Camions") {
+            // Règle 2 : Le Poids Lourd a 25% de chance de livrer un gros bâtiment (5 à 24 tonnes)
+            if (Math.random() <= 0.25) {
+                deliver(grosBatiments, 5.0, 24.0);
+            }
+            
+            // Règle 3 : Le Poids Lourd a un 2ème dé ! 10% de chance de faire un largage bonus aux petits (500 à 1000 kg)
+            if (Math.random() <= 0.10) {
+                deliver(petitsBatiments, 0.500, 1.000);
+            }
         }
     },
+
 
     unloadPendingFreight() {
         let totalUnloaded = 0;
