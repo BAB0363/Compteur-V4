@@ -16,7 +16,23 @@
 </head>
 <body>
 
+    <div id="startup-mode-modal" class="modal-overlay" style="display: flex; z-index: 10000; background: rgba(11, 14, 20, 0.95); backdrop-filter: blur(5px);">
+        <div class="modal-content" style="text-align: center; border: 2px solid #3498db; max-width: 400px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+            <h3 style="color: #3498db; margin-bottom: 10px; font-size: 1.5em;">👋 Prêt à bouffer du bitume ?</h3>
+            <p style="color: var(--text-color); margin-bottom: 20px; font-size: 1.1em;">Salut <span id="startup-username-display" style="color: #f1c40f; font-weight: bold;">Sylvain</span> ! Tu prends quoi aujourd'hui ?</p>
+            
+            <div style="display: flex; flex-direction: column; gap: 15px;">
+                <button class="share-btn btn-full" style="background: linear-gradient(135deg, #3498db, #2980b9); padding: 15px; font-size: 1.2em; border: none; box-shadow: 0 4px 15px rgba(52,152,219,0.4);" onclick="window.app.startWithMode('voiture')">
+                    🚗 Mode Voiture        </button>
+                <button class="share-btn btn-full" style="background: linear-gradient(135deg, #e67e22, #d35400); padding: 15px; font-size: 1.2em; border: none; box-shadow: 0 4px 15px rgba(230,126,34,0.4);" onclick="window.app.startWithMode('camion')">
+                    🚛 Mode Camions
+                </button>
+            </div>
+        </div>
+    </div>
+
     <div id="gami-overlay" class="no-print">
+
               <div id="gami-modal">
             <div class="gami-header">
                 <h2 class="gami-title">📋 Missions & Quêtes</h2>

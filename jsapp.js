@@ -982,7 +982,7 @@ if (this.bankBalance < 0) {
         if (window.ui) window.ui.showToast(`👤 Utilisateur changé : ${newUser}`);
     },
 
-    async changeMode(newMode) {
+        async changeMode(newMode) {
         if (this.isTruckRunning) this.toggleChrono('trucks');
         if (this.isCarRunning) this.toggleChrono('cars');
 
@@ -992,7 +992,29 @@ if (this.bankBalance < 0) {
         if (window.ui) window.ui.showToast(`🔄 Mode changé : ${newMode === 'voiture' ? '🚘 Voiture' : '🚛 Camion'}`);
     },
 
+    // 🚀 NOUVEAU : Fonction appelée par la modale de démarrage
+    async startWithMode(selectedMode) {
+        let modal = document.getElementById('startup-mode-modal');
+        if (modal) modal.style.display = 'none'; // On cache la modale d'accueil
+
+        if (this.currentMode !== selectedMode) {
+            // Si tu as cliqué sur un autre mode que celui en mémoire, on le charge
+            await this.changeMode(selectedMode);
+        } else {
+            // Sinon, on force juste le rafraîchissement pour éviter le bug d'affichage !
+            if (this.currentMode === 'voiture') {
+                this.renderCars();
+            } else {
+                this.renderTrucks();
+            }
+            this.renderKmStats();
+        }
+        
+        if (window.ui) window.ui.playGamiSound('levelUp'); // Petit jingle sympa de départ
+    },
+
     async init(isProfileSwitch = false) {
+
         if (!isProfileSwitch) { await this.idb.init(); await this.migrateData(); }
         if (window.ml) await window.ml.init();
 
@@ -3346,11 +3368,21 @@ const startApp = async () => {
     if(window.tycoon) window.tycoon.init();
     
     app.initClockAndPricing(); // ⏱️ Lancement de l'horloge et de la grille !
+
+    // 🙋‍♂️ NOUVEAU : On met à jour le nom du joueur dans la modale de démarrage
+    let startupUserEl = document.getElementById('startup-username-display');
+    if (startupUserEl) {
+        startupUserEl.innerText = app.currentUser;
+    }
+
+    // 🐛 CORRECTION : On force un rendu initial complet pour ne plus avoir à faire le "premier clic"
+    if (app.currentMode === 'voiture') {
+        app.renderCars();
+    } else {
+        app.renderTrucks();
+    }
+    app.renderKmStats();
 };
-
-
-
-
 
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', startApp);
