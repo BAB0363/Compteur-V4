@@ -3271,20 +3271,37 @@ if (!isTruck && window.tycoon) {
         }
     }, // <--- C'est CETTE virgule qui manquait pour séparer les fonctions !
     
-                    updatePricingUI() {
+    updatePricingUI() {
         const grid = document.getElementById('pricing-grid');
         if (!grid) return;
         
-                const now = new Date();
+        const now = new Date();
         const hour = now.getHours();
         const day = now.getDay(); 
+        const month = now.getMonth();
         let isWeekend = (day === 0 || day === 6);
         
         let statusArr = [];
         let speedKmh = window.gps ? window.gps.getSlidingSpeedKmh() : 0;
         
-if (hour >= 5 && hour < 7) {
+        // 📅 Affichage du thème du jour (Noms de code Gégé)
+        const dayThemes = {
+            1: "💼 Le Débarquement des Pros",
+            3: "🎒 La Récréation",
+            5: "🏃 L'Exode",
+            6: "🛒 La Fièvre Acheteuse",
+            0: "⛪ La Balade du Dimanche"
+        };
+        
+        if (dayThemes[day]) statusArr.push(dayThemes[day]);
+        else statusArr.push("☀️ Routine de l'Asphalte");
 
+        // 🏴‍☠️ Nouvelle détection Contrebande (Samedi 22h au Dimanche 22h)
+        let isContrebande = (day === 6 && hour >= 22) || (day === 0 && hour < 22);
+        if (isContrebande) statusArr.push("🏴‍☠️ Contrebande (PL x4)");
+
+        // ⏱️ Tranches horaires classiques
+        if (hour >= 5 && hour < 7) {
             statusArr.push("🌅 Aube (x2)");
         }
         
@@ -3304,36 +3321,26 @@ if (hour >= 5 && hour < 7) {
             statusArr.push("🍱 Gamelle (PL x1.5)");
         }
 
-        if (day === 0) {
-            statusArr.push("🏴‍☠️ Contrebande (PL x4 | ⚠️ DREAL)");
-        }
-        
-        if (statusArr.length === 0) {
-            statusArr.push("☀️ Tarifs Standards (Continu)");
-        }
-
-        let statusStr = statusArr.join(" + ");
-
+        let statusStr = statusArr.join(" | ");
 
         if(grid) {
             grid.innerHTML = `
-
                 <div onclick="let d=document.getElementById('pricing-details'); d.style.display=d.style.display==='none'?'contents':'none';" style="grid-column: 1 / -1; color: #f1c40f; font-weight: bold; text-align: center; cursor: pointer; padding-bottom: 2px;">
                     ${statusStr} <span style="font-size:0.8em; color:#7f8c8d; margin-left: 5px;">▼</span>
                 </div>
                 <div id="pricing-details" style="display: none;">
                     <div style="grid-column: 1 / -1; border-bottom: 1px dashed var(--border-color); margin: 3px 0;"></div>
-<div style="color: #7f8c8d;">05h - 07h (Tous les jours)</div> <div style="text-align: right;">Prime Aube x2</div>
-
-                    <div style="color: #7f8c8d;">Pointe (Lun-Ven)</div> <div style="text-align: right;">07-09h / 17-19h (Bypass si > 60km/h)</div>
-                    <div style="color: #7f8c8d;">21h - 06h (Lun-Ven)</div> <div style="text-align: right;">Tarif de Nuit</div>
-                    <div style="color: #7f8c8d;">12h - 14h (Lun-Ven)</div> <div style="text-align: right;">Gamelle du Routier</div>
-                    <div style="color: #7f8c8d;">Dimanche</div> <div style="text-align: right;">Contrebande (Risque DREAL)</div>
-                    <div style="color: #7f8c8d;">Samedi & Dimanche</div> <div style="text-align: right;">Tarif Standard continu</div>
+                    <div style="color: #7f8c8d;">Saison Actuelle</div> <div style="text-align: right; color:#27ae60;">Multiplicateurs actifs 📈</div>
+                    <div style="color: #7f8c8d;">Lundi</div> <div style="text-align: right;">Pros (Util x0.5, Voit x0.8)</div>
+                    <div style="color: #7f8c8d;">Mercredi</div> <div style="text-align: right;">Enfants (Vélos x0.5, Bus x0.5)</div>
+                    <div style="color: #7f8c8d;">Vendredi</div> <div style="text-align: right;">Départs (Voitures x0.8, Moto x0.8)</div>
+                    <div style="color: #7f8c8d;">Samedi</div> <div style="text-align: right;">Courses (Voitures x0.5, Vélos x0.5)</div>
+                    <div style="color: #7f8c8d;">Contrebande</div> <div style="text-align: right; font-weight:bold;">Sam. 22h - Dim. 22h</div>
                 </div>
             `;
         }
-    }, // <--- C'EST ELLE LA COUPABLE ! L'accolade qui ferme la fonction !
+    },
+
 
     initClockAndPricing() {
 

@@ -39,44 +39,74 @@ export const market = {
         return this.state.values[type] ? parseFloat(this.state.values[type].current.toFixed(2)) : 1.00;
     },
 
-        getFinalValue(type, context = {}) {
+    getFinalValue(type, context = {}) {
         if (type === "Poids Lourds") type = "Camions";
         let baseVal = this.state.values[type] ? this.state.values[type].current : 1.00;
         
         let { hour = new Date().getHours(), alt = 0, consecutive = 0, isHighway = false, bankBalance = 0, isExact = false, gegeMultiplier = 1, speed = 0 } = context;
 
-        let currentDay = new Date().getDay(); 
+        let now = new Date();
+        let currentDay = now.getDay(); 
+        let currentMonth = now.getMonth(); 
         let isWeekend = (currentDay === 0 || currentDay === 6);
+        let threshold = isHighway ? 10 : 4;
+        let events = []; 
 
+        // 1. 📅 MODIFICATEURS MENSUELS (Saisons)
+        const monthlyMods = {
+            0: { "Voitures": 0.7, "Motos": 2.0, "Vélos": 2.0 }, // Janvier
+            1: { "Voitures": 0.7, "Motos": 2.0, "Vélos": 2.0 }, // Février
+            2: { "Utilitaires": 0.7, "Engins agricoles": 0.8, "Bus/Car": 1.5 }, // Mars
+            3: { "Utilitaires": 0.7, "Engins agricoles": 0.8, "Bus/Car": 1.5 }, // Avril
+            4: { "Camping-cars": 0.7, "Motos": 0.7, "Camions": 1.5 }, // Mai
+            5: { "Camping-cars": 0.7, "Motos": 0.7, "Camions": 1.5 }, // Juin
+            6: { "Voitures": 0.5, "Camping-cars": 0.5, "Camions": 2.5 }, // Juillet
+            7: { "Voitures": 0.5, "Camping-cars": 0.5, "Camions": 2.5 }, // Août
+            8: { "Bus/Car": 0.6, "Utilitaires": 0.8, "Camping-cars": 2.0 }, // Septembre
+            9: { "Bus/Car": 0.6, "Utilitaires": 0.8, "Camping-cars": 2.0 }, // Octobre
+            10: { "Camions": 0.6, "Utilitaires": 0.6, "Vélos": 2.0 }, // Novembre
+            11: { "Camions": 0.6, "Utilitaires": 0.6, "Vélos": 2.0 }  // Décembre
+        };
+        if (monthlyMods[currentMonth] && monthlyMods[currentMonth][type]) {
+            baseVal *= monthlyMods[currentMonth][type];
+        }
+
+        // 2. 🗓️ MODIFICATEURS JOURNALIERS (Noms de code de Gégé)
+        const dailyMods = {
+            1: { "Utilitaires": 0.5, "Voitures": 0.8, "Camping-cars": 1.5, "Motos": 1.5 }, // Lundi
+            3: { "Bus/Car": 0.5, "Vélos": 0.5, "Engins agricoles": 1.5 }, // Mercredi
+            5: { "Voitures": 0.8, "Motos": 0.8, "Engins agricoles": 1.5 }, // Vendredi
+            6: { "Voitures": 0.5, "Vélos": 0.5, "Camions": 2.0, "Utilitaires": 1.5 }, // Samedi
+            0: { "Camping-cars": 0.5, "Motos": 0.5, "Engins agricoles": 2.0 } // Dimanche
+        };
+        if (dailyMods[currentDay] && dailyMods[currentDay][type]) {
+            baseVal *= dailyMods[currentDay][type];
+        }
+
+        // 3. 🏴‍☠️ NOUVELLE CONTREBANDE (Samedi 22h au Dimanche 22h)
+        let isContrebande = (currentDay === 6 && hour >= 22) || (currentDay === 0 && hour < 22);
+        
+        // ⏱️ MODIFICATEURS HORAIRES CLASSIQUES
         let isNight = !isWeekend && (hour >= 21 || hour < 6);
         let isRushHourTime = !isWeekend && ((hour >= 7 && hour < 9) || (hour >= 17 && hour < 19));
         let isRushHour = isRushHourTime && speed <= 60;
 
-        
-        let threshold = isHighway ? 10 : 4;
-        let events = []; 
         if (isNight) {
-
             baseVal *= (type === "Camions" || type === "Utilitaires") ? 0.5 : 2.5;
-         } else if (isRushHour) {
+        } else if (isRushHour) {
             baseVal *= (type === "Voitures" || type === "Utilitaires" || type === "Bus/Car" || type === "Vélos") ? 0.5 : 2.0;
         }
 
-if (hour >= 5 && hour < 7) {
-    baseVal *= 2.0;
-    events.push('aube');
-}
-
+        if (hour >= 5 && hour < 7) {
+            baseVal *= 2.0;
+            events.push('aube');
+        }
 
         if (type === "Camions") {
-
-            if (currentDay === 0) {
+            if (isContrebande) {
                 baseVal *= 4.0;
                 events.push('contrebande');
-                // 10% de chance de se faire attraper par la DREAL
-                if (Math.random() < 0.10) {
-                    events.push('dreal');
-                }
+                if (Math.random() < 0.15) events.push('dreal');
             } else if (hour === 12 || hour === 13) {
                 baseVal *= 1.5;
                 events.push('gamelle');
@@ -87,7 +117,6 @@ if (hour >= 5 && hour < 7) {
             baseVal *= 1.10;
             events.push('alt');
         }
-
 
         if (isExact) {
             baseVal *= gegeMultiplier;
@@ -114,6 +143,7 @@ if (hour >= 5 && hour < 7) {
 
         return { netValue: parseFloat(baseVal.toFixed(2)), events, threshold };
     },
+
 
  
 
