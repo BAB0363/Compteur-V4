@@ -423,7 +423,7 @@ export const tycoon = {
             
             // 4. Gain adapté : Des Kilos pour les petits, des Tonnes pour les gros
             let isSmall = target.id === 'local_velo' || target.id === 'hub_cargo' || target.id === 'relais_scooter';
-            let gain = isSmall ? (Math.floor(Math.random() * 50) + 10) / 1000 : Math.floor(Math.random() * 20) + 5; 
+            let gain = isSmall ? (Math.floor(Math.random() * 401) + 100) / 1000 : Math.floor(Math.random() * 20) + 5;
 
             if (gain > target.spaceLeft) gain = target.spaceLeft; // On ne déborde pas
             
