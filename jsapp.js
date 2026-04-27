@@ -2102,12 +2102,12 @@ if (!isTruck && window.tycoon) {
             let trendIcon = trend > 0 ? "↗️" : (trend < 0 ? "↘️" : "➡️");
             let trendColor = trend > 0 ? "var(--success-color)" : (trend < 0 ? "var(--danger-color)" : "#7f8c8d");
 
-            container.innerHTML += `
-                <div class="vehicle-card">
+                        container.innerHTML += `
+                <div class="vehicle-card" style="min-width: 0;">
                     <div class="vehicle-name" style="display:flex; justify-content:space-between; align-items:center; padding: 2px 4px; border-bottom: 1px dashed var(--border-color); margin-bottom: 4px;">
-                        <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${icons[v] || "🚘"} ${displayName}</span>
-                        <div style="display:flex; align-items:center;">
-                            <span style="font-size:0.9em; color:${trendColor}; font-weight:bold; letter-spacing:0.5px;">${currentPrice}€ ${trendIcon}</span>
+                        <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; margin-right: 4px;">${icons[v] || "🚘"} ${displayName}</span>
+                        <div style="display:flex; align-items:center; flex-shrink: 0;">
+                            <span style="font-size:0.85em; color:${trendColor}; font-weight:bold; letter-spacing:0;">${currentPrice}€ ${trendIcon}</span>
                             ${badgeHtml}
                         </div>
                     </div>
@@ -2117,6 +2117,7 @@ if (!isTruck && window.tycoon) {
                         <button class="btn-add btn-add-fr" onclick="window.app.updateCounter('cars', '${v}', null, 1, event)">+</button>
                     </div>
                 </div>`;
+
         });
 
 
@@ -3336,20 +3337,23 @@ if (!isTruck && window.tycoon) {
 
         if(grid) {
             grid.innerHTML = `
-                <div onclick="let d=document.getElementById('pricing-details'); d.style.display=d.style.display==='none'?'contents':'none';" style="grid-column: 1 / -1; color: #f1c40f; font-weight: bold; text-align: center; cursor: pointer; padding-bottom: 2px;">
-                    ${statusStr} <span style="font-size:0.8em; color:#7f8c8d; margin-left: 5px;">▼</span>
+                <div onclick="let d=document.getElementById('pricing-details'); d.style.display=d.style.display==='none'?'block':'none';" style="color: #f1c40f; font-weight: bold; cursor: pointer; line-height: 1.2;">
+                    ${statusStr} <span style="font-size:0.8em; color:#7f8c8d; margin-left: 2px;">▼</span>
                 </div>
-                <div id="pricing-details" style="display: none;">
-                    <div style="grid-column: 1 / -1; border-bottom: 1px dashed var(--border-color); margin: 3px 0;"></div>
-                    <div style="color: #7f8c8d;">Saison Actuelle</div> <div style="text-align: right; color:#27ae60;">Multiplicateurs actifs 📈</div>
-                    <div style="color: #7f8c8d;">Lundi</div> <div style="text-align: right;">Pros (Util x0.5, Voit x0.8)</div>
-                    <div style="color: #7f8c8d;">Mercredi</div> <div style="text-align: right;">Enfants (Vélos x0.5, Bus x0.5)</div>
-                    <div style="color: #7f8c8d;">Vendredi</div> <div style="text-align: right;">Départs (Voitures x0.8, Moto x0.8)</div>
-                    <div style="color: #7f8c8d;">Samedi</div> <div style="text-align: right;">Courses (Voitures x0.5, Vélos x0.5)</div>
-                    <div style="color: #7f8c8d;">Contrebande</div> <div style="text-align: right; font-weight:bold;">Sam. 22h - Dim. 22h</div>
+                <div id="pricing-details" style="display: none; text-align: left; margin-top: 5px;">
+                    <div style="border-bottom: 1px dashed var(--border-color); margin: 4px 0;"></div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
+                        <div style="color: #7f8c8d;">Saison Actuelle</div> <div style="text-align: right; color:#27ae60;">Multiplicateurs actifs 📈</div>
+                        <div style="color: #7f8c8d;">Lundi</div> <div style="text-align: right;">Pros (Util x0.5, Voit x0.8)</div>
+                        <div style="color: #7f8c8d;">Mercredi</div> <div style="text-align: right;">Enfants (Vélos x0.5, Bus x0.5)</div>
+                        <div style="color: #7f8c8d;">Vendredi</div> <div style="text-align: right;">Départs (Voitures x0.8, Moto x0.8)</div>
+                        <div style="color: #7f8c8d;">Samedi</div> <div style="text-align: right;">Courses (Voitures x0.5, Vélos x0.5)</div>
+                        <div style="color: #7f8c8d;">Contrebande</div> <div style="text-align: right; font-weight:bold;">Sam. 22h - Dim. 22h</div>
+                    </div>
                 </div>
             `;
         }
+
     },
 
 
