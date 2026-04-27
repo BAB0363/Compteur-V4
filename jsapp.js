@@ -2072,7 +2072,7 @@ if (!isTruck && window.tycoon) {
             }
         });
 
-            this.vehicleTypes.forEach(v => {
+                    this.vehicleTypes.forEach(v => {
             let score = this.vehicleCounters[v] || 0;
             let displayName = nameMap[v] || v;
             
@@ -2087,10 +2087,17 @@ if (!isTruck && window.tycoon) {
                 alt: currentAlt, 
                 bankBalance: this.bankBalance,
                 speed: speedKmh
-            }) : { netValue: 1.00 };
+            }) : { netValue: 1.00, multiplier: 1.00 };
 
 
             let currentPrice = marketData.netValue.toFixed(2);
+            let mult = marketData.multiplier || 1.0;
+
+            let badgeHtml = '';
+            if (mult !== 1.0) {
+                let badgeBg = mult > 1.0 ? 'var(--success-color)' : 'var(--danger-color)';
+                badgeHtml = `<span style="background:${badgeBg}; color:white; padding:1px 5px; border-radius:4px; margin-left:6px; font-size:0.85em; box-shadow: 0 1px 3px rgba(0,0,0,0.3);">x${mult}</span>`;
+            }
 
             let trendIcon = trend > 0 ? "↗️" : (trend < 0 ? "↘️" : "➡️");
             let trendColor = trend > 0 ? "var(--success-color)" : (trend < 0 ? "var(--danger-color)" : "#7f8c8d");
@@ -2099,7 +2106,10 @@ if (!isTruck && window.tycoon) {
                 <div class="vehicle-card">
                     <div class="vehicle-name" style="display:flex; justify-content:space-between; align-items:center; padding: 2px 4px; border-bottom: 1px dashed var(--border-color); margin-bottom: 4px;">
                         <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${icons[v] || "🚘"} ${displayName}</span>
-                        <span style="font-size:0.9em; color:${trendColor}; font-weight:bold; letter-spacing:0.5px;">${currentPrice}€ ${trendIcon}</span>
+                        <div style="display:flex; align-items:center;">
+                            <span style="font-size:0.9em; color:${trendColor}; font-weight:bold; letter-spacing:0.5px;">${currentPrice}€ ${trendIcon}</span>
+                            ${badgeHtml}
+                        </div>
                     </div>
                     <div class="vehicle-controls">
                         <button class="btn-corr" onclick="window.app.updateCounter('cars', '${v}', null, -1, event)">-</button>
@@ -2108,6 +2118,7 @@ if (!isTruck && window.tycoon) {
                     </div>
                 </div>`;
         });
+
 
     },
 

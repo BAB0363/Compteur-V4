@@ -39,9 +39,10 @@ export const market = {
         return this.state.values[type] ? parseFloat(this.state.values[type].current.toFixed(2)) : 1.00;
     },
 
-    getFinalValue(type, context = {}) {
+        getFinalValue(type, context = {}) {
         if (type === "Poids Lourds") type = "Camions";
-        let baseVal = this.state.values[type] ? this.state.values[type].current : 1.00;
+        let initialBaseVal = this.state.values[type] ? this.state.values[type].current : 1.00;
+        let baseVal = initialBaseVal;
         
         let { hour = new Date().getHours(), alt = 0, consecutive = 0, isHighway = false, bankBalance = 0, isExact = false, gegeMultiplier = 1, speed = 0 } = context;
 
@@ -141,8 +142,16 @@ export const market = {
             }
         }
 
-        return { netValue: parseFloat(baseVal.toFixed(2)), events, threshold };
+        let totalMultiplier = initialBaseVal > 0 ? (baseVal / initialBaseVal) : 1;
+
+        return { 
+            netValue: parseFloat(baseVal.toFixed(2)), 
+            events, 
+            threshold,
+            multiplier: parseFloat(totalMultiplier.toFixed(2))
+        };
     },
+
 
 
  
