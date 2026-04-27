@@ -523,9 +523,10 @@ export const tycoon = {
 });
 
 
-            if (totalDelivered > 0) {
-                let profit = parseFloat((totalDelivered * price).toFixed(2));
+                 if (totalDelivered > 0) {
+                let profit = totalDelivered * price; // On garde les micro-centimes !
                 if (window.app && window.app.isCarRunning) {
+
                     // Accumulation silencieuse pour la session
                     window.app.sessionFinance.deliveryProfit = (window.app.sessionFinance.deliveryProfit || 0) + profit;
                     window.app.sessionFinance.deliveryTons = (window.app.sessionFinance.deliveryTons || 0) + totalDelivered;
