@@ -40,7 +40,6 @@ export const ui = {
         }
     },
 
-        // 🧠 On ajoute "async" pour pouvoir consulter l'historique en base de données
     async updateGegeBrain(features, top3) {
         let panel = document.getElementById('gege-brain-panel');
         
@@ -55,11 +54,11 @@ export const ui = {
         const currentGridLat = Math.round((window.gps.currentPos.lat || 46) * 100) / 100;
         const currentGridLon = Math.round((window.gps.currentPos.lon || 2) * 100) / 100;
 
-        // 🎓 1. Récupération de l'expérience HISTORIQUE totale (Sessions sauvegardées + Session active)
+        // 🎓 1. Récupération de l'expérience HISTORIQUE totale par type
         let totalHistoricalExp = 0;
+        let expByType = {}; 
         
         try {
-            // On récupère toutes les sessions passées pour ce mode
             const sessions = await window.app.idb.getAll(type);
             sessions.forEach(s => {
                 if (s.history) {
@@ -67,25 +66,31 @@ export const ui = {
                         if (!h.isEvent && h.lat && h.lon) {
                             let hLat = Math.round(h.lat * 100) / 100;
                             let hLon = Math.round(h.lon * 100) / 100;
-                            // On vérifie si le véhicule était dans la même "case" GPS
-                            if (hLat === currentGridLat && hLon === currentGridLon) totalHistoricalExp++;
+                            if (hLat === currentGridLat && hLon === currentGridLon) {
+                                totalHistoricalExp++;
+                                let vType = type === 'trucks' ? (h.brand || 'Inconnu') : (h.type || 'Inconnu');
+                                expByType[vType] = (expByType[vType] || 0) + 1;
+                            }
                         }
                     });
                 }
             });
         } catch (e) { console.error("Gégé n'a pas pu lire l'historique IDB", e); }
 
-        // On ajoute les véhicules de la session en cours qui ne sont pas encore sauvegardés
         let activeHist = type === 'trucks' ? window.app.truckHistory : window.app.carHistory;
         let justVehicles = activeHist.filter(h => !h.isEvent);
         
         justVehicles.forEach(h => {
             let hLat = Math.round((h.lat || 46) * 100) / 100;
             let hLon = Math.round((h.lon || 2) * 100) / 100;
-            if (hLat === currentGridLat && hLon === currentGridLon) totalHistoricalExp++;
+            if (hLat === currentGridLat && hLon === currentGridLon) {
+                totalHistoricalExp++;
+                let vType = type === 'trucks' ? (h.brand || 'Inconnu') : (h.type || 'Inconnu');
+                expByType[vType] = (expByType[vType] || 0) + 1;
+            }
         });
 
-        // 💭 2. Mémoire à court terme (les 3 derniers véhicules)
+        // 💭 2. Mémoire à court terme
         let mem = justVehicles.slice(-3).map(v => {
             let name = type === 'trucks' ? v.brand : v.type;
             return name === "Camions" ? "PL" : name.substring(0,4);
@@ -95,6 +100,16 @@ export const ui = {
         let html = `<b style="color:white;">🧠 Code de Gégé (Debug)</b><hr style="border-color:rgba(0,242,255,0.3); margin:5px 0;">`;
         html += `📍 Case GPS : ${currentGridLat} | ${currentGridLon}<br>`;
         html += `🎓 Exp. totale : <span style="color:#f1c40f;">${totalHistoricalExp} vus ici</span><br>`;
+
+        // Affichage de la répartition par type
+        if (totalHistoricalExp > 0) {
+            let sortedTypes = Object.entries(expByType).sort((a, b) => b[1] - a[1]);
+            sortedTypes.forEach(([vType, count]) => {
+                let cleanName = vType === "Camions" ? "PL" : vType;
+                html += `<span style="color:#bdc3c7; margin-left: 10px; font-size: 0.9em;">- ${cleanName} : ${count}</span><br>`;
+            });
+        }
+
         html += `💭 Mémoire 3V : [${mem}]<br>`;
         html += `📈 Flux trafic : ${(features[9] * 100).toFixed(0)}%<br>`;
         html += `<hr style="border-color:rgba(0,242,255,0.3); margin:5px 0;">`;
@@ -107,6 +122,7 @@ export const ui = {
         
         panel.innerHTML = html;
     },
+
 
 
     playBeep(isAdding) {
