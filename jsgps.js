@@ -2,8 +2,13 @@
 export const gps = {
     currentPos: { lat: null, lon: null, alt: null },
     currentSpeed: 0,
-    speedHistory: [], // Historique sur 120s
     lastTrackedPos: null,
+    
+    // 🚀 VARIABLES DU FILTRE DE KALMAN
+    kalmanSpeed: 0,
+    kalmanError: 10,
+    q: 2.0, // Bruit du processus (réactivité)
+    r: 5.0, // Bruit de la mesure (confiance GPS)
     
     // Variables pour le verrou "Autoroute" (Bouchons)
     highwayLock: false,
@@ -28,44 +33,25 @@ export const gps = {
         return null;
     },
 
-
-    // Vitesse lissée avec Médiane + Verrou Autoroute
+    // Vitesse lissée (Kalman) + Verrou Autoroute
     getSlidingSpeedKmh() {
-        let now = Date.now();
-        // On nettoie l'historique pour ne garder que les 120 dernières secondes
-        this.speedHistory = this.speedHistory.filter(item => now - item.time <= 120000);
-        
-        if (this.speedHistory.length === 0) return 0;
-        
-        // Calcul de la médiane
-        let speeds = this.speedHistory.map(item => item.speed).sort((a, b) => a - b);
-        let medianSpeed = speeds[Math.floor(speeds.length / 2)];
-
-        // Logique de Verrouillage Autoroute (Bouchons)
-        if (medianSpeed >= 100) {
+        if (this.kalmanSpeed >= 100) {
             this.highwayLock = true;
-            // On met à jour le point d'ancrage tant qu'on roule vite
             if (this.currentPos.lat) {
                 this.lastHighwayLat = this.currentPos.lat;
                 this.lastHighwayLon = this.currentPos.lon;
             }
         } else if (this.highwayLock) {
-            // Si la vitesse chute, on calcule la distance parcourue depuis la chute
             if (this.lastHighwayLat && this.currentPos.lat) {
                 let distSinceDrop = parseFloat(this.calculateDistance(this.lastHighwayLat, this.lastHighwayLon, this.currentPos.lat, this.currentPos.lon));
-                
-                // Si on a fait plus de 3km à faible allure, on considère qu'on est sorti de l'autoroute
                 if (distSinceDrop > 3.0) {
                     this.highwayLock = false;
                 } else {
-                    // On est toujours sur l'autoroute (bouchon/ralentissement)
-                    // On renvoie une fausse vitesse de 85 km/h minimum pour forcer la stat "Autoroute"
-                    return Math.max(medianSpeed, 85);
+                    return Math.max(this.kalmanSpeed, 85);
                 }
             }
         }
-        
-        return medianSpeed;
+        return this.kalmanSpeed;
     },
 
     startTracking() {
@@ -79,11 +65,20 @@ export const gps = {
                         alt: pos.coords.altitude ? Math.round(pos.coords.altitude) : null 
                     }; 
                     this.currentSpeed = pos.coords.speed || 0; 
-                    
                     let instantSpeedKmh = pos.coords.speed ? pos.coords.speed * 3.6 : 0;
-                    this.speedHistory.push({ time: Date.now(), speed: instantSpeedKmh });
-                    
                     let accuracy = Math.round(pos.coords.accuracy);
+
+                    // 🚀 FILTRE DE KALMAN (Mise à jour de la vitesse)
+                    let predictedError = this.kalmanError + this.q;
+                    let dynamicR = accuracy > 20 ? this.r * (accuracy / 10) : this.r;
+                    let kalmanGain = predictedError / (predictedError + dynamicR);
+                    
+                    this.kalmanSpeed = this.kalmanSpeed + kalmanGain * (instantSpeedKmh - this.kalmanSpeed);
+                    this.kalmanError = (1 - kalmanGain) * predictedError;
+
+                    // Coupe nette à basse vitesse
+                    if (this.kalmanSpeed < 1.0) this.kalmanSpeed = 0;
+
 
                     if(gpsStatus) { 
                         gpsStatus.innerText = `📍 GPS Actif (${accuracy}m)`; 
