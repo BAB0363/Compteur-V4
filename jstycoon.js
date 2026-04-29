@@ -881,96 +881,145 @@ let savedCarbonKg = 0.25 * km; // 250 g sauvés par kilomètre
             fleetList.className = ''; 
             fleetList.style.display = 'flex';
             fleetList.style.flexDirection = 'column';
-            fleetList.style.gap = '8px';
+            fleetList.style.gap = '15px'; // Espacement entre les groupes
             fleetList.innerHTML = '';
             
+            // 1. GROUPER LES VÉHICULES PAR TYPE
+            let groupedFleet = {};
             this.state.fleet.forEach(v => {
-                let def = this.catalog.fleet[v.type];
-                
-                let isDelivering = status.deliveringVehicles.some(dv => dv.uid === v.uid);
-                let badge = isDelivering ? '📦 LIVRAISON' : '☕ PASSIF';
-                let baseColor = isDelivering ? '#27ae60' : '#3498db';
-                
-let isCritical = (def.fuelTank > 0 && v.fuel <= (def.fuelTank * 0.1)) || v.health <= 30 || (v.tires || 100) <= 10;
-let isWarning = (def.fuelTank > 0 && v.fuel <= (def.fuelTank * 0.3)) || v.health <= 60 || v.kmsSinceService >= (def.serviceInterval * 0.8);
-        let color = isCritical ? "#e74c3c" : (isWarning ? "#f39c12" : baseColor);
-                let statusTxt = isCritical ? "🔴 ACTION REQUISE" : (isWarning ? "🟠 SURVEILLANCE" : badge);
-                
-                let sellPrice = (def.price * 0.60) * (v.health / 100);
-                
-                let vehGains = v.gains || 0;
-                let vehLosses = v.losses || 0;
-                let vehROI = vehGains - vehLosses;
-                let roiColor = vehROI >= 0 ? '#27ae60' : '#e74c3c';
-                let roiSign = vehROI > 0 ? '+' : '';
+                if (!groupedFleet[v.type]) groupedFleet[v.type] = [];
+                groupedFleet[v.type].push(v);
+            });
 
-                fleetList.innerHTML += `
-                    <div style="background:var(--card-bg); border-left: 5px solid ${color}; border-radius:6px; padding: 10px 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); cursor: pointer; overflow:hidden;" onclick="this.querySelector('.details').style.display = this.querySelector('.details').style.display === 'none' ? 'block' : 'none'">
-                        <div style="display:flex; justify-content:space-between; align-items:center;">
-                            <span style="font-size:1.05em; font-weight:bold; color:var(--text-color);">${def.icon} ${def.name} <small style="color:#7f8c8d; font-size:0.8em; font-weight:normal;">#${v.uid.slice(-3)}</small></span>
-                            <span style="font-size:0.7em; font-weight:bold; color:white; background:${color}; padding:4px 8px; border-radius:4px;">${statusTxt}</span>
-                        </div>
-                        
-                        <div class="details" style="display:none; margin-top:12px; border-top:1px solid var(--border-color); padding-top:12px;">
-                            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; font-size:0.85em; margin-bottom: 12px; color:var(--text-color);">
-                             <div>${def.l100 > 0 ? `⛽ <b>${v.fuel.toFixed(1)} / ${def.fuelTank} L</b>` : `🍃 <b>Énergie : Musculaire</b>`}</div>
+            // 2. AFFICHER LA FLOTTE (Catégories cliquables / Accordéons)
+            Object.keys(groupedFleet).forEach(type => {
+                let vehicles = groupedFleet[type];
+                let def = this.catalog.fleet[type];
+                if (!def) return;
 
-                                <div>🔧 État : <b>${Math.round(v.health)}%</b></div>
-                                <div>🛞 Pneus : <b>${Math.round(v.tires || 100)}%</b></div>
-                                <div>🛣️ Révis. : <b>${Math.max(0, Math.round(def.serviceInterval - v.kmsSinceService))} km</b></div>
+                let categoryId = 'fleet-cat-' + type;
+                let vehiclesHtml = '';
+
+                vehicles.forEach(v => {
+                    let isDelivering = status.deliveringVehicles.some(dv => dv.uid === v.uid);
+                    let badge = isDelivering ? '📦 LIVRAISON' : '☕ PASSIF';
+                    let baseColor = isDelivering ? '#27ae60' : '#3498db';
+                    
+                    let isCritical = (def.fuelTank > 0 && v.fuel <= (def.fuelTank * 0.1)) || v.health <= 30 || (v.tires || 100) <= 10;
+                    let isWarning = (def.fuelTank > 0 && v.fuel <= (def.fuelTank * 0.3)) || v.health <= 60 || v.kmsSinceService >= (def.serviceInterval * 0.8);
+                    let color = isCritical ? "#e74c3c" : (isWarning ? "#f39c12" : baseColor);
+                    let statusTxt = isCritical ? "🔴 ACTION REQUISE" : (isWarning ? "🟠 SURVEILLANCE" : badge);
+                    
+                    let sellPrice = (def.price * 0.60) * (v.health / 100);
+                    
+                    let vehGains = v.gains || 0;
+                    let vehLosses = v.losses || 0;
+                    let vehROI = vehGains - vehLosses;
+                    let roiColor = vehROI >= 0 ? '#27ae60' : '#e74c3c';
+                    let roiSign = vehROI > 0 ? '+' : '';
+
+                    vehiclesHtml += `
+                        <div style="background:var(--card-bg); border-left: 5px solid ${color}; border-radius:6px; padding: 10px 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); cursor: pointer; overflow:hidden;" onclick="this.querySelector('.details').style.display = this.querySelector('.details').style.display === 'none' ? 'block' : 'none'">
+                            <div style="display:flex; justify-content:space-between; align-items:center;">
+                                <span style="font-size:1.05em; font-weight:bold; color:var(--text-color);">${def.icon} ${def.name} <small style="color:#7f8c8d; font-size:0.8em; font-weight:normal;">#${v.uid.slice(-3)}</small></span>
+                                <span style="font-size:0.7em; font-weight:bold; color:white; background:${color}; padding:4px 8px; border-radius:4px;">${statusTxt}</span>
                             </div>
                             
-                            <div style="margin-bottom: 12px; border-top: 1px dashed var(--border-color); padding-top: 8px;">
-                                <div style="display:flex; justify-content:space-between; font-size:0.85em;">
-                                    <span style="color:#7f8c8d;">📈 Bénéfices (Passifs + Fret)</span>
-                                    <span style="color:#27ae60; font-weight:bold;">+${vehGains.toLocaleString('fr-FR', {maximumFractionDigits:2})} €</span>
+                            <div class="details" style="display:none; margin-top:12px; border-top:1px solid var(--border-color); padding-top:12px;">
+                                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; font-size:0.85em; margin-bottom: 12px; color:var(--text-color);">
+                                 <div>${def.l100 > 0 ? `⛽ <b>${v.fuel.toFixed(1)} / ${def.fuelTank} L</b>` : `🍃 <b>Énergie : Musculaire</b>`}</div>
+                                    <div>🔧 État : <b>${Math.round(v.health)}%</b></div>
+                                    <div>🛞 Pneus : <b>${Math.round(v.tires || 100)}%</b></div>
+                                    <div>🛣️ Révis. : <b>${Math.max(0, Math.round(def.serviceInterval - v.kmsSinceService))} km</b></div>
                                 </div>
-                                <div style="display:flex; justify-content:space-between; font-size:0.85em; margin-top:2px;">
-                                    <span style="color:#7f8c8d;">📉 Frais (Pompe, Garage...)</span>
-                                    <span style="color:#e74c3c; font-weight:bold;">-${vehLosses.toLocaleString('fr-FR', {maximumFractionDigits:2})} €</span>
+                                
+                                <div style="margin-bottom: 12px; border-top: 1px dashed var(--border-color); padding-top: 8px;">
+                                    <div style="display:flex; justify-content:space-between; font-size:0.85em;">
+                                        <span style="color:#7f8c8d;">📈 Bénéfices (Passifs + Fret)</span>
+                                        <span style="color:#27ae60; font-weight:bold;">+${vehGains.toLocaleString('fr-FR', {maximumFractionDigits:2})} €</span>
+                                    </div>
+                                    <div style="display:flex; justify-content:space-between; font-size:0.85em; margin-top:2px;">
+                                        <span style="color:#7f8c8d;">📉 Frais (Pompe, Garage...)</span>
+                                        <span style="color:#e74c3c; font-weight:bold;">-${vehLosses.toLocaleString('fr-FR', {maximumFractionDigits:2})} €</span>
+                                    </div>
+                                    <div style="display:flex; justify-content:space-between; font-size:0.95em; margin-top:5px; padding-top:5px; border-top: 1px solid rgba(0,0,0,0.05);">
+                                        <span style="color:var(--text-color); font-weight:bold;">💰 Bilan Net</span>
+                                        <span style="color:${roiColor}; font-weight:bold;">${roiSign}${vehROI.toLocaleString('fr-FR', {maximumFractionDigits:2})} €</span>
+                                    </div>
                                 </div>
-                                <div style="display:flex; justify-content:space-between; font-size:0.95em; margin-top:5px; padding-top:5px; border-top: 1px solid rgba(0,0,0,0.05);">
-                                    <span style="color:var(--text-color); font-weight:bold;">💰 Bilan Net</span>
-                                    <span style="color:${roiColor}; font-weight:bold;">${roiSign}${vehROI.toLocaleString('fr-FR', {maximumFractionDigits:2})} €</span>
+                                <div style="display:flex; gap:6px;">
+                             ${def.l100 > 0 ? `<button style="flex:1; background:#27ae60; color:white; border:none; padding:8px; border-radius:4px; font-weight:bold; font-size:0.9em;" onclick="event.stopPropagation(); window.tycoon.refuel('${v.uid}')">⛽ Plein (${(this.state.fuelPrice || 1.80).toFixed(2)}€/L)</button>` : ''}
+                                    <button style="flex:1; background:#3498db; color:white; border:none; padding:8px; border-radius:4px; font-weight:bold; font-size:0.9em;" onclick="event.stopPropagation(); window.tycoon.repair('${v.uid}')">🔧 Révis.</button>
+                                    <button style="flex:1; background:#8e44ad; color:white; border:none; padding:8px; border-radius:4px; font-weight:bold; font-size:0.9em;" onclick="event.stopPropagation(); window.tycoon.changeTires('${v.uid}')">🛞 Pneus</button>
                                 </div>
+                                <button style="margin-top:6px; background:var(--danger-color); color:white; border:none; border-radius:4px; padding:8px; font-weight:bold; cursor:pointer; width:100%; font-size:0.9em;" onclick="event.stopPropagation(); window.tycoon.sellVehicle('${v.uid}')">Revendre (${sellPrice.toLocaleString('fr-FR', {maximumFractionDigits:0})} €)</button>
                             </div>
+                        </div>
+                    `;
+                });
 
-                                                       <div style="display:flex; gap:6px;">
-                         ${def.l100 > 0 ? `<button style="flex:1; background:#27ae60; color:white; border:none; padding:8px; border-radius:4px; font-weight:bold; font-size:0.9em;" onclick="event.stopPropagation(); window.tycoon.refuel('${v.uid}')">⛽ Plein (${(this.state.fuelPrice || 1.80).toFixed(2)}€/L)</button>` : ''}
-    <button style="flex:1; background:#3498db; color:white; border:none; padding:8px; border-radius:4px; font-weight:bold; font-size:0.9em;" onclick="event.stopPropagation(); window.tycoon.repair('${v.uid}')">🔧 Révis.</button>
-                                <button style="flex:1; background:#8e44ad; color:white; border:none; padding:8px; border-radius:4px; font-weight:bold; font-size:0.9em;" onclick="event.stopPropagation(); window.tycoon.changeTires('${v.uid}')">🛞 Pneus</button>
-                            </div>
-
-                            <button style="margin-top:6px; background:var(--danger-color); color:white; border:none; border-radius:4px; padding:8px; font-weight:bold; cursor:pointer; width:100%; font-size:0.9em;" onclick="event.stopPropagation(); window.tycoon.sellVehicle('${v.uid}')">Revendre (${sellPrice.toLocaleString('fr-FR', {maximumFractionDigits:0})} €)</button>
+                // Conteneur de la catégorie avec le bouton déroulant
+                fleetList.innerHTML += `
+                    <div style="background:var(--card-bg); border-radius:8px; box-shadow: 0 4px 10px rgba(0,0,0,0.2); overflow:hidden; border: 1px solid var(--border-color);">
+                        <div style="padding: 12px 15px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; background: linear-gradient(90deg, rgba(52,152,219,0.1), transparent);" onclick="let el = document.getElementById('${categoryId}'); let arrow = document.getElementById('arrow-${categoryId}'); if(el.style.display === 'none') { el.style.display = 'flex'; arrow.innerText = '▲'; } else { el.style.display = 'none'; arrow.innerText = '▼'; }">
+                            <span style="font-size:1.1em; font-weight:bold; color:var(--text-color);">${def.icon} ${def.name}s <span style="background: var(--primary-color); color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.8em; margin-left: 8px;">${vehicles.length}</span></span>
+                            <span id="arrow-${categoryId}" style="color:var(--primary-color); font-size:1em; font-weight: bold;">▼</span>
+                        </div>
+                        <div id="${categoryId}" style="display: none; flex-direction: column; gap: 8px; padding: 10px;">
+                            ${vehiclesHtml}
                         </div>
                     </div>
                 `;
             });
             
+            // 3. AFFICHER LE CATALOGUE D'ACHAT (En masquant ceux à capacité max absolue)
+            let catalogHtml = '<div style="margin-top: 10px; border-top: 2px dashed var(--border-color); padding-top: 15px;"><h4 style="margin-bottom:10px;">🛒 Concessionnaire</h4><div style="display:flex; flex-direction:column; gap:8px;">';
+            let hasCatalogItems = false;
+
             Object.keys(this.catalog.fleet).forEach(k => {
                 let item = this.catalog.fleet[k];
                 let bId = item.buildingId;
-                let maxSlots = (this.state.buildings[bId] || 0) * this.catalog.buildings[bId].slots;
+                let bDef = this.catalog.buildings[bId];
+                
+                // Calcul de la capacité ABSOLUE (Le maximum du jeu)
+                let maxPossibleSlots = bDef.maxLimit * bDef.slots; 
+                let maxCurrentSlots = (this.state.buildings[bId] || 0) * bDef.slots; 
                 let currentUsed = this.state.fleet.filter(v => v.type === k).length;
                 
-                let isFull = currentUsed >= maxSlots;
-                let canBuy = window.app.bankBalance >= item.price && !isFull;
-                let btnTxt = isFull ? (maxSlots > 0 ? "Parking plein" : "Requis") : "Acheter";
+                // Règle Gégé : Si on a atteint le maximum du jeu, on n'affiche plus l'achat !
+                if (currentUsed >= maxPossibleSlots) {
+                    return; 
+                }
 
-                fleetList.innerHTML += `
+                hasCatalogItems = true;
+                
+                let isFull = currentUsed >= maxCurrentSlots;
+                let canBuy = window.app.bankBalance >= item.price && !isFull;
+                let btnTxt = isFull ? (maxCurrentSlots > 0 ? "Parking plein" : "Bâtiment requis") : "Acheter";
+
+                catalogHtml += `
                     <div style="background:var(--card-bg); border-radius:6px; padding: 10px 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display:flex; justify-content:space-between; align-items:center; opacity: 0.85;">
                         <div style="display:flex; flex-direction:column; gap:2px;">
                             <span style="font-size:1em; color:var(--text-color);">${item.icon} <b>${item.name}</b></span>
-                            <span style="font-size:0.75em; color:#7f8c8d;">Places : ${currentUsed}/${maxSlots} | Potentiel : +${item.income.toFixed(2)}€</span>
+                            <span style="font-size:0.75em; color:#7f8c8d;">Places : ${currentUsed}/${maxCurrentSlots} | Potentiel : +${item.income.toFixed(2)}€</span>
                         </div>
                         <div style="display:flex; flex-direction:column; align-items:flex-end;">
                             <span style="font-size:0.85em; font-weight:bold; color:var(--text-color); margin-bottom:4px;">${item.price.toLocaleString('fr-FR')} €</span>
-                                                    <button style="background:var(--primary-color); color:white; border:none; padding:4px 10px; border-radius:4px; font-weight:bold; font-size:0.8em;" ${!canBuy ? 'disabled style="background:#bdc3c7;"' : ''} onclick="window.tycoon.buyVehicle('${k}')">${btnTxt}</button>
+                            <button style="background:var(--primary-color); color:white; border:none; padding:4px 10px; border-radius:4px; font-weight:bold; font-size:0.8em;" ${!canBuy ? 'disabled style="background:#bdc3c7;"' : ''} onclick="window.tycoon.buyVehicle('${k}')">${btnTxt}</button>
                         </div>
                     </div>
                 `;
             });
+            
+            catalogHtml += '</div></div>';
+            
+            if (hasCatalogItems) {
+                fleetList.innerHTML += catalogHtml;
+            } else {
+                fleetList.innerHTML += `<div style="margin-top: 10px; padding: 15px; text-align: center; color: #27ae60; background: rgba(39, 174, 96, 0.1); border-radius: 8px; border: 1px dashed #27ae60;">🎉 Concessionnaire vidé ! Tu as acheté tous les véhicules possibles du jeu ! Gégé est fier de toi.</div>`;
+            }
         }
+
 
         // --- AFFICHAGE DES BORDEREAUX DE L'ENTREPRISE ---
         let financeList = document.getElementById('company-financial-history');
