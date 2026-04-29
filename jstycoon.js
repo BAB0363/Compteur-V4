@@ -514,7 +514,8 @@ export const tycoon = {
 
         // 👇 NOUVEAU : Bonus Carbone Actif (2 kg par km) 👇
         if (veh.type === 'velo' || veh.type === 'cargo') {
-            let savedCarbonKg = 2 * km; // 2 kg sauvés par kilomètre
+let savedCarbonKg = 0.25 * km; // 250 g sauvés par kilomètre
+
             this.addCarbon(-(savedCarbonKg * 1000), 0); // Le bilan global attend des grammes !
             this.state.carbonSavedByBikes = (this.state.carbonSavedByBikes || 0) + savedCarbonKg; // Stocké en kg pour l'affichage
         }
