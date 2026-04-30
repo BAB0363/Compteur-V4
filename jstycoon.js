@@ -101,14 +101,14 @@ export const tycoon = {
     },
 
     getFleetStatus() {
-      let availableFleet = this.state.fleet.filter(v => {
-    let def = this.catalog.fleet[v.type];
-    return v.health > 20 && (def.fuelTank === 0 || v.fuel > 0);
-});
+        let availableFleet = this.state.fleet.filter(v => {
+            let def = this.catalog.fleet[v.type];
+            return v.health > 20 && (def.fuelTank === 0 || v.fuel > 0);
+        });
 
         availableFleet.sort((a, b) => this.catalog.fleet[b.type].capacity - this.catalog.fleet[a.type].capacity);
 
-               let remainingStocks = { ...(this.state.stocks || {}) };
+        let remainingStocks = { ...(this.state.stocks || {}) };
         let deliveringVehicles = [];
         let passiveVehicles = [];
 
@@ -118,17 +118,19 @@ export const tycoon = {
             let cap = def.capacity;
             
             if ((remainingStocks[bId] || 0) > 0) {
+                veh._currentLoad = Math.min(cap, remainingStocks[bId]); // 📦 Mémorise la charge !
                 deliveringVehicles.push(veh);
                 remainingStocks[bId] -= cap; 
                 if (remainingStocks[bId] < 0) remainingStocks[bId] = 0;
             } else {
+                veh._currentLoad = 0;
                 passiveVehicles.push(veh);
             }
         });
 
-
         return { deliveringVehicles, passiveVehicles };
     },
+
 
         getWarehouseCapacity() {
         let totalStorage = 0;
@@ -902,7 +904,9 @@ let savedCarbonKg = 0.25 * km; // 250 g sauvés par kilomètre
 
                 vehicles.forEach(v => {
                     let isDelivering = status.deliveringVehicles.some(dv => dv.uid === v.uid);
-                    let badge = isDelivering ? '📦 LIVRAISON' : '☕ PASSIF';
+                    let currentLoad = v._currentLoad || 0;
+                    let loadStr = currentLoad > 0 ? (currentLoad < 1 ? (currentLoad * 1000).toFixed(0) + ' kg' : currentLoad.toFixed(1) + ' t') : '';
+                    let badge = isDelivering ? `📦 LIV. (${loadStr})` : '☕ PASSIF';
                     let baseColor = isDelivering ? '#27ae60' : '#3498db';
                     
                     let isCritical = (def.fuelTank > 0 && v.fuel <= (def.fuelTank * 0.1)) || v.health <= 30 || (v.tires || 100) <= 10;
@@ -922,7 +926,7 @@ let savedCarbonKg = 0.25 * km; // 250 g sauvés par kilomètre
                         <div style="background:var(--card-bg); border-left: 5px solid ${color}; border-radius:6px; padding: 10px 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); cursor: pointer; overflow:hidden;" onclick="this.querySelector('.details').style.display = this.querySelector('.details').style.display === 'none' ? 'block' : 'none'">
                             <div style="display:flex; justify-content:space-between; align-items:center;">
                                 <span style="font-size:1.05em; font-weight:bold; color:var(--text-color);">${def.icon} ${def.name} <small style="color:#7f8c8d; font-size:0.8em; font-weight:normal;">#${v.uid.slice(-3)}</small></span>
-                                <span style="font-size:0.7em; font-weight:bold; color:white; background:${color}; padding:4px 8px; border-radius:4px;">${statusTxt}</span>
+                                <span style="font-size:0.7em; font-weight:bold; color:white; background:${color}; padding:4px 8px; border-radius:4px; text-align:center;">${statusTxt}</span>
                             </div>
                             
                             <div class="details" style="display:none; margin-top:12px; border-top:1px solid var(--border-color); padding-top:12px;">
@@ -933,6 +937,17 @@ let savedCarbonKg = 0.25 * km; // 250 g sauvés par kilomètre
                                     <div>🛣️ Révis. : <b>${Math.max(0, Math.round(def.serviceInterval - v.kmsSinceService))} km</b></div>
                                 </div>
                                 
+                                ${isDelivering ? `
+                                <div style="margin-bottom: 12px; background: rgba(0,0,0,0.05); padding: 8px; border-radius: 6px;">
+                                    <div style="display:flex; justify-content:space-between; font-size:0.8em; margin-bottom:5px;">
+                                        <span style="color:var(--text-color); font-weight:bold;">📦 En livraison</span>
+                                        <span style="color:#27ae60; font-weight:bold;">${loadStr} / ${def.capacity < 1 ? (def.capacity * 1000).toFixed(0) + ' kg' : def.capacity.toFixed(1) + ' t'}</span>
+                                    </div>
+                                    <div style="height: 6px; background: var(--border-color); border-radius: 3px; overflow: hidden;">
+                                        <div style="height: 100%; width: ${(currentLoad / def.capacity) * 100}%; background: #27ae60;"></div>
+                                    </div>
+                                </div>` : ''}
+
                                 <div style="margin-bottom: 12px; border-top: 1px dashed var(--border-color); padding-top: 8px;">
                                     <div style="display:flex; justify-content:space-between; font-size:0.85em;">
                                         <span style="color:#7f8c8d;">📈 Bénéfices (Passifs + Fret)</span>
@@ -957,6 +972,7 @@ let savedCarbonKg = 0.25 * km; // 250 g sauvés par kilomètre
                         </div>
                     `;
                 });
+
 
                 // Conteneur de la catégorie avec le bouton déroulant
                 fleetList.innerHTML += `
