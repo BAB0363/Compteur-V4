@@ -486,6 +486,8 @@ export const tycoon = {
 
         let needsSave = false;
         let totalProfitThisTick = 0; // Argent généré pour les livraisons terminées CE kilomètre
+        let totalTonsThisTick = 0;   // Tonnes ajoutées au bilan UNIQUEMENT à la fin
+        let finishedDeliveriesCount = 0; 
 
         // --- 1. PHASE DE CHARGEMENT AU DÉPÔT ---
         this.state.fleet.forEach(veh => {
@@ -498,11 +500,15 @@ export const tycoon = {
             // Si le véhicule est vide et en état de rouler, on check l'entrepôt
             if (veh.currentLoad <= 0 && veh.health > 20 && (def.fuelTank === 0 || veh.fuel > 0)) {
                 let stockRestant = this.state.stocks[bId] || 0;
-                // S'il y a du stock (même juste 3 tonnes), on charge et on part !
+                // S'il y a du stock, on charge et on part !
                 if (stockRestant > 0) {
                     let loadAmount = Math.min(def.capacity, stockRestant);
                     this.state.stocks[bId] -= loadAmount; // Retire de l'entrepôt
                     veh.currentLoad = loadAmount;
+                    
+                    // 📦 NOUVEAU : On mémorise la charge de départ pour le ticket de fin
+                    veh.startingLoad = loadAmount; 
+                    
                     // On bloque le prix de vente au moment du départ
                     veh.expectedPayoff = loadAmount * this.getDynamicPrice(); 
                     needsSave = true;
@@ -534,15 +540,21 @@ export const tycoon = {
 
                 veh.currentLoad -= tonsDelivered;
 
-                // Si la livraison vient de se terminer !
+                // 🎉 LIVRAISON TERMINÉE !
                 if (veh.currentLoad <= 0) {
                     veh.currentLoad = 0;
+                    
                     let profit = veh.expectedPayoff || 0;
                     totalProfitThisTick += profit;
-                    veh.gains = (veh.gains || 0) + profit;
-                    veh.expectedPayoff = 0; // On remet le chèque à zéro
                     
-                    if(window.ui) window.ui.showToast(`✅ Tournée terminée ! Ton ${def.name} encaisse +${profit.toFixed(2)}€ !`);
+                    // NOUVEAU : On ajoute les tonnes au bilan UNIQUEMENT maintenant !
+                    totalTonsThisTick += (veh.startingLoad || def.capacity); 
+                    
+                    veh.gains = (veh.gains || 0) + profit;
+                    veh.expectedPayoff = 0; 
+                    veh.startingLoad = 0; // On réinitialise
+                    
+                    finishedDeliveriesCount++;
                 }
             }
 
@@ -569,7 +581,7 @@ export const tycoon = {
                 if (Math.random() < chance) {
                     veh.health = Math.max(0, veh.health - 25);
                     veh.losses = (veh.losses || 0) + 1000;
-                    if (window.app) window.app.addBankTransaction(-1000, `💥 Crevaison (${def.name})`);
+                    if (window.app) window.app.addBankTransaction(-1000, `💥 Crevaison (${def.name})`, true);
                     if(window.ui) window.ui.showToast(`💥 Crevaison de ton ${def.name} ! Dépannage : -1000€`, "anomaly");
                 }
             }
@@ -582,14 +594,23 @@ export const tycoon = {
             needsSave = true;
         });
 
-        // --- 3. PAIEMENT GLOBAL DU TICK ---
-        if (totalProfitThisTick > 0) {
+        // --- 3. PAIEMENT GLOBAL ET NOTIFICATIONS DU TICK ---
+        
+        // Notification groupée Anti-Spam !
+        if (finishedDeliveriesCount > 0 && window.ui) {
+            let s = finishedDeliveriesCount > 1 ? 's' : '';
+            window.ui.showToast(`✅ ${finishedDeliveriesCount} livraison${s} terminée${s} ! +${totalProfitThisTick.toFixed(2)}€`);
+        }
+
+        // Ajout des bénéfices ET des tonnes sur le ticket de session
+        if (totalProfitThisTick > 0 || totalTonsThisTick > 0) {
             if (window.app && window.app.isCarRunning) {
                 window.app.sessionFinance.deliveryProfit = (window.app.sessionFinance.deliveryProfit || 0) + totalProfitThisTick;
+                window.app.sessionFinance.deliveryTons = (window.app.sessionFinance.deliveryTons || 0) + totalTonsThisTick;
                 window.app.sessionBankBalance += totalProfitThisTick;
                 window.app.sessionFinance.gains += totalProfitThisTick;
                 window.app.updateBankUI();
-            } else {
+            } else if (totalProfitThisTick > 0) {
                 window.app.addBankTransaction(totalProfitThisTick, `Livraison Flotte (Terminée)`);
             }
             needsSave = true;
@@ -597,6 +618,7 @@ export const tycoon = {
 
         if (needsSave) this.saveState();
     },
+
 
 
     tickSecond(secondsElapsed) {
