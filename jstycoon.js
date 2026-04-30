@@ -1041,11 +1041,31 @@ export const tycoon = {
         }
 
 
-        // --- AFFICHAGE DES BORDEREAUX DE L'ENTREPRISE ---
+        // --- AFFICHAGE DES BORDEREAUX DE L'ENTREPRISE (Version Trésor !) ---
         let financeList = document.getElementById('company-financial-history');
         if(financeList && window.app) {
-            financeList.innerHTML = '';
-            
+            // 💎 CALCUL DU TRÉSOR ROULANT (Estimation basée sur le stock en soute)
+            let transitValue = 0;
+            let transitTons = 0;
+            let currentPrice = this.getDynamicPrice();
+
+            this.state.fleet.forEach(v => {
+                if ((v.currentLoad || 0) > 0) {
+                    transitValue += (v.currentLoad * currentPrice);
+                    transitTons += v.currentLoad;
+                }
+            });
+
+            // Affichage de l'encadré Trésor
+            financeList.innerHTML = `
+                <div style="background: rgba(46, 204, 113, 0.1); border: 1px solid #2ecc71; padding: 12px; border-radius: 12px; margin-bottom: 15px; text-align: center; box-shadow: 0 4px 10px rgba(46, 204, 113, 0.2);">
+                    <div style="font-size: 0.75em; color: #2ecc71; text-transform: uppercase; letter-spacing: 1.5px; font-weight: bold;">💎 Trésor en Transit</div>
+                    <div style="font-size: 1.6em; font-weight: 900; color: #fff; margin: 5px 0;">${transitValue.toFixed(2)} €</div>
+                    <div style="font-size: 0.75em; color: #bdc3c7;">Cargaison sur la route : <b>${transitTons.toFixed(1)} T</b></div>
+                </div>
+            `;
+
+            // Historique des transactions
             let tycoonHistory = window.app.bankHistory.filter(tx => 
                 tx.reason.includes('Achat') || 
                 tx.reason.includes('Revente') || 
@@ -1056,23 +1076,25 @@ export const tycoon = {
                 tx.reason.includes('Immo') ||
                 tx.reason.includes('Crevaison') ||
                 tx.reason.includes('Panne') ||
-                tx.reason.includes('Entreprise')
+                tx.reason.includes('Entreprise') ||
+                tx.reason.includes('Terminée')
             ).slice(0, 15); 
 
             if (tycoonHistory.length === 0) {
-                financeList.innerHTML = '<span style="color:#7f8c8d; font-size:0.9em; text-align:center;">Aucune transaction mécanique ou immobilière.</span>';
+                financeList.innerHTML += '<span style="color:#7f8c8d; font-size:0.9em; text-align:center; display:block; margin-top:10px;">Aucune transaction mécanique ou immobilière.</span>';
             } else {
                 tycoonHistory.forEach(tx => {
                     let color = tx.amount > 0 ? '#27ae60' : '#e74c3c';
                     let sign = tx.amount > 0 ? '+' : '';
                     financeList.innerHTML += `
-                        <div style="display: flex; justify-content: space-between; font-size: 0.85em; border-bottom: 1px dotted rgba(0,0,0,0.1); padding-bottom: 4px; margin-bottom: 4px;">
-                            <span style="color: #7f8c8d; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-right: 10px;">${tx.time} - ${tx.reason}</span>
+                        <div style="display: flex; justify-content: space-between; font-size: 0.85em; border-bottom: 1px dotted rgba(255,255,255,0.1); padding-bottom: 6px; margin-bottom: 6px;">
+                            <span style="color: #bdc3c7; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-right: 10px;">${tx.time} - ${tx.reason}</span>
                             <span style="color: ${color}; font-weight: bold; white-space: nowrap;">${sign}${tx.amount.toFixed(2)} €</span>
                         </div>
                     `;
                 });
             }
         }
+
     }
 };
