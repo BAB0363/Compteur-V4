@@ -108,20 +108,13 @@ export const tycoon = {
 
         availableFleet.sort((a, b) => this.catalog.fleet[b.type].capacity - this.catalog.fleet[a.type].capacity);
 
-        let remainingStocks = { ...(this.state.stocks || {}) };
         let deliveringVehicles = [];
         let passiveVehicles = [];
 
         availableFleet.forEach(veh => {
-            let def = this.catalog.fleet[veh.type];
-            let bId = def.buildingId;
-            let cap = def.capacity;
-            
-            if ((remainingStocks[bId] || 0) > 0) {
-                veh._currentLoad = Math.min(cap, remainingStocks[bId]); // 📦 Mémorise la charge !
+            if ((veh.currentLoad || 0) > 0) {
+                veh._currentLoad = veh.currentLoad; // Pour l'affichage UI
                 deliveringVehicles.push(veh);
-                remainingStocks[bId] -= cap; 
-                if (remainingStocks[bId] < 0) remainingStocks[bId] = 0;
             } else {
                 veh._currentLoad = 0;
                 passiveVehicles.push(veh);
@@ -130,6 +123,7 @@ export const tycoon = {
 
         return { deliveringVehicles, passiveVehicles };
     },
+
 
 
         getWarehouseCapacity() {
@@ -484,94 +478,92 @@ export const tycoon = {
     },
 
 
-        tickDistance(km) {
+    tickDistance(km) {
         if (!this.state.fleet || this.state.fleet.length === 0) return;
         
-        // 🚨 MODIFICATION : Le Tycoon ne prend l'usure GPS que si le mode Véhicules est actif !
+        // Le Tycoon ne prend l'usure GPS que si le mode Véhicules est actif !
         if (window.app && !window.app.isCarRunning) return;
 
         let needsSave = false;
+        let totalProfitThisTick = 0; // Argent généré pour les livraisons terminées CE kilomètre
 
-        // --- SMART DISPATCH PAR BÂTIMENT ---
-        let hasAnyStock = Object.values(this.state.stocks || {}).some(val => val > 0);
-        if (hasAnyStock) {
-            let status = this.getFleetStatus();
-            let totalDelivered = 0;
-            let price = this.getDynamicPrice();
+        // --- 1. PHASE DE CHARGEMENT AU DÉPÔT ---
+        this.state.fleet.forEach(veh => {
+            let def = this.catalog.fleet[veh.type];
+            let bId = def.buildingId;
+            
+            if (veh.currentLoad === undefined) veh.currentLoad = 0;
+            if (veh.expectedPayoff === undefined) veh.expectedPayoff = 0;
 
-            status.deliveringVehicles.forEach(veh => {
-    let def = this.catalog.fleet[veh.type];
-    let bId = def.buildingId;
-    let power = def.capacity / (def.deliveryKm || 10); 
-    let tons = power * km; 
-
-    let stockRestant = this.state.stocks[bId] || 0;
-    if (tons > stockRestant) tons = stockRestant;
-    
-    if (tons > 0) {
-        this.state.stocks[bId] -= tons;
-        totalDelivered += tons;
-        veh.gains = (veh.gains || 0) + (tons * price);
-        needsSave = true;
-
-        // 👇 NOUVEAU : Bonus Carbone Actif (2 kg par km) 👇
-        if (veh.type === 'velo' || veh.type === 'cargo') {
-let savedCarbonKg = 0.25 * km; // 250 g sauvés par kilomètre
-
-            this.addCarbon(-(savedCarbonKg * 1000), 0); // Le bilan global attend des grammes !
-            this.state.carbonSavedByBikes = (this.state.carbonSavedByBikes || 0) + savedCarbonKg; // Stocké en kg pour l'affichage
-        }
-        // 👆 FIN DE L'AJOUT 👆
-    }
-});
-
-
-                 if (totalDelivered > 0) {
-                let profit = totalDelivered * price; // On garde les micro-centimes !
-                if (window.app && window.app.isCarRunning) {
-
-                    // Accumulation silencieuse pour la session
-                    window.app.sessionFinance.deliveryProfit = (window.app.sessionFinance.deliveryProfit || 0) + profit;
-                    window.app.sessionFinance.deliveryTons = (window.app.sessionFinance.deliveryTons || 0) + totalDelivered;
-                    window.app.sessionBankBalance += profit;
-                    window.app.sessionFinance.gains += profit;
-                    window.app.updateBankUI();
-                } else {
-                    window.app.addBankTransaction(profit, `Livraison Flotte (Dépôts)`);
+            // Si le véhicule est vide et en état de rouler, on check l'entrepôt
+            if (veh.currentLoad <= 0 && veh.health > 20 && (def.fuelTank === 0 || veh.fuel > 0)) {
+                let stockRestant = this.state.stocks[bId] || 0;
+                // S'il y a du stock (même juste 3 tonnes), on charge et on part !
+                if (stockRestant > 0) {
+                    let loadAmount = Math.min(def.capacity, stockRestant);
+                    this.state.stocks[bId] -= loadAmount; // Retire de l'entrepôt
+                    veh.currentLoad = loadAmount;
+                    // On bloque le prix de vente au moment du départ
+                    veh.expectedPayoff = loadAmount * this.getDynamicPrice(); 
+                    needsSave = true;
                 }
-                needsSave = true;
             }
+        });
 
-        }
-        // --- FIN DU SMART DISPATCH ---
-
-
-        let cap = this.getWarehouseCapacity();
-
-        let fillRate = cap > 0 ? (this.state.storedFreight / cap) : 0;
-        let weightPenalty = 1 + fillRate; 
-
+        // --- 2. PHASE DE LIVRAISON, USURE ET CONSO ---
         this.state.fleet.forEach(veh => {
             let def = this.catalog.fleet[veh.type];
             if (!def) return;
 
-            // 1. On mémorise l'état AVANT l'usure
             let wasWarning = veh.fuel <= (def.fuelTank * 0.3) || veh.health <= 60 || veh.kmsSinceService >= (def.serviceInterval * 0.8);
 
             veh.kms = (veh.kms || 0) + km;
             veh.kmsSinceService = (veh.kmsSinceService || 0) + km;
 
+            // Logique de livraison
+            if (veh.currentLoad > 0) {
+                let power = def.capacity / (def.deliveryKm || 10); 
+                let tonsDelivered = power * km; 
+
+                // Bonus Carbone (Vélos)
+                if (veh.type === 'velo' || veh.type === 'cargo') {
+                    let savedCarbonKg = 0.25 * km; 
+                    this.addCarbon(-(savedCarbonKg * 1000), 0); 
+                    this.state.carbonSavedByBikes = (this.state.carbonSavedByBikes || 0) + savedCarbonKg; 
+                }
+
+                veh.currentLoad -= tonsDelivered;
+
+                // Si la livraison vient de se terminer !
+                if (veh.currentLoad <= 0) {
+                    veh.currentLoad = 0;
+                    let profit = veh.expectedPayoff || 0;
+                    totalProfitThisTick += profit;
+                    veh.gains = (veh.gains || 0) + profit;
+                    veh.expectedPayoff = 0; // On remet le chèque à zéro
+                    
+                    if(window.ui) window.ui.showToast(`✅ Tournée terminée ! Ton ${def.name} encaisse +${profit.toFixed(2)}€ !`);
+                }
+            }
+
+            // Usure des pneus
             let tireWear = (km / def.tireLifeKm) * 100;
             veh.tires = Math.max(0, (veh.tires || 100) - tireWear);
+
+            // Consommation de carburant proportionnelle à la charge
+            let vehFillRate = def.capacity > 0 ? ((veh.currentLoad || 0) / def.capacity) : 0;
+            let weightPenalty = 1 + vehFillRate; // 1 (vide) à 2 (plein à craquer)
 
             let fuelConsumed = (km * (def.l100 / 100)) * weightPenalty;
             veh.fuel = Math.max(0, (veh.fuel || def.fuelTank) - fuelConsumed);
 
+            // Usure générale
             if (veh.kmsSinceService > def.serviceInterval) {
                 let penalty = km * 5; 
                 veh.health = Math.max(0, veh.health - penalty);
             }
 
+            // Crevaison
             if (veh.tires <= 10) {
                 let chance = km * 0.05; 
                 if (Math.random() < chance) {
@@ -582,18 +574,30 @@ let savedCarbonKg = 0.25 * km; // 250 g sauvés par kilomètre
                 }
             }
 
-                      // 2. On vérifie l'état APRÈS l'usure pour afficher l'alerte préventive 🟠
             let isWarning = veh.fuel <= (def.fuelTank * 0.3) || veh.health <= 60 || veh.kmsSinceService >= (def.serviceInterval * 0.8);
             if (!wasWarning && isWarning && window.ui) {
                 window.ui.showToast(`🟠 Alerte flotte : Ton ${def.name} passe en zone orange !`, "anomaly");
                 window.ui.playGamiSound('siren');
             }
-
-
             needsSave = true;
         });
+
+        // --- 3. PAIEMENT GLOBAL DU TICK ---
+        if (totalProfitThisTick > 0) {
+            if (window.app && window.app.isCarRunning) {
+                window.app.sessionFinance.deliveryProfit = (window.app.sessionFinance.deliveryProfit || 0) + totalProfitThisTick;
+                window.app.sessionBankBalance += totalProfitThisTick;
+                window.app.sessionFinance.gains += totalProfitThisTick;
+                window.app.updateBankUI();
+            } else {
+                window.app.addBankTransaction(totalProfitThisTick, `Livraison Flotte (Terminée)`);
+            }
+            needsSave = true;
+        }
+
         if (needsSave) this.saveState();
     },
+
 
     tickSecond(secondsElapsed) {
         let stats = this.getStats();
