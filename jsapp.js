@@ -3325,9 +3325,10 @@ if (!isTruck && window.tycoon) {
             }
         }
 
-        if (!isWeekend && (hour >= 21 || hour < 6)) {
+        if (hour >= 21 || hour < 6) {
             statusArr.push("🌙 Nuit (PL&Util /2 | Autres x2.5)"); 
         }
+
         
         if (!isWeekend && (hour === 12 || hour === 13)) {
             statusArr.push("🍱 Gamelle (PL x1.5)");

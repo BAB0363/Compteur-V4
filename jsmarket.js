@@ -88,7 +88,8 @@ export const market = {
         let isContrebande = (currentDay === 6 && hour >= 22) || (currentDay === 0 && hour < 22);
         
         // ⏱️ MODIFICATEURS HORAIRES CLASSIQUES
-        let isNight = !isWeekend && (hour >= 21 || hour < 6);
+        let isNight = (hour >= 21 || hour < 6);
+
         let isRushHourTime = !isWeekend && ((hour >= 7 && hour < 9) || (hour >= 17 && hour < 19));
         let isRushHour = isRushHourTime && speed <= 60;
 
