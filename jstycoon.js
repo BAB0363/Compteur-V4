@@ -180,10 +180,21 @@ export const tycoon = {
         this.saveState();
     },
 
-    getDynamicPrice() {
-        const basePrice = 3.00; 
+    getDynamicPrice(buildingId = null) {
+        const basePrice = 0.15; // 0.15 € par Tonne-Kilomètre (Nouveau standard logistique)
         const cap = this.getWarehouseCapacity();
-        if (cap === 0) return basePrice;
+        
+        // 🚀 NOUVEAU : Multiplicateur de Gabarit (Fret express vs Vrac industriel)
+        let expressMultiplier = 1.0;
+        if (buildingId) {
+            if (buildingId === 'local_velo') expressMultiplier = 15.0; // Fret hyper-express
+            else if (buildingId === 'hub_cargo') expressMultiplier = 8.0;
+            else if (buildingId === 'relais_scooter') expressMultiplier = 5.0;
+            else if (buildingId === 'hangar_urbain') expressMultiplier = 2.0; // Petit utilitaire
+            // Les autres gros dépôts restent à x1.0
+        }
+
+        if (cap === 0) return basePrice * expressMultiplier;
         
         let totalCurrentStock = 0;
         Object.keys(this.state.stocks || {}).forEach(bId => {
@@ -191,14 +202,14 @@ export const tycoon = {
         });
 
         const fillRate = totalCurrentStock / cap;
-
         
         let price = basePrice;
-        if (fillRate < 0.20) price = basePrice * 1.5;
-        if (fillRate > 0.80) price = basePrice * 0.5;
+        if (fillRate < 0.20) price = basePrice * 1.5; // Pénurie = prix monte
+        if (fillRate > 0.80) price = basePrice * 0.5; // Surstock = prix chute
         
-        return price * (this.state.carbonModifier || 1.0);
+        return price * expressMultiplier * (this.state.carbonModifier || 1.0);
     },
+
 
 
     
@@ -506,13 +517,15 @@ export const tycoon = {
                     this.state.stocks[bId] -= loadAmount; // Retire de l'entrepôt
                     veh.currentLoad = loadAmount;
                     
-                    // 📦 NOUVEAU : On mémorise la charge de départ pour le ticket de fin
+                    // 📦 On mémorise la charge de départ
                     veh.startingLoad = loadAmount; 
                     
-                    // On bloque le prix de vente au moment du départ
-                    veh.expectedPayoff = loadAmount * this.getDynamicPrice(); 
+                    // 💡 NOUVEAU : On fixe le tarif au T-KM au départ de l'entrepôt concerné
+                    veh.pricePerTkm = this.getDynamicPrice(bId); 
+                    veh.expectedPayoff = 0; // L'argent sera généré à chaque kilomètre !
                     needsSave = true;
                 }
+
             }
         });
 
@@ -531,7 +544,13 @@ export const tycoon = {
                 let power = def.capacity / (def.deliveryKm || 10); 
                 let tonsDelivered = power * km; 
 
+                // 💸 NOUVEAU : Gain Tonne-Kilomètre PENDANT LE TRAJET !
+                let priceTkm = veh.pricePerTkm || 0.15; // Sécurité rétrocompatibilité
+                let profitThisKm = (veh.startingLoad || def.capacity) * priceTkm * km;
+                veh.expectedPayoff += profitThisKm; // On cumule la cagnotte
+
                 // Bonus Carbone (Vélos)
+
                 if (veh.type === 'velo' || veh.type === 'cargo') {
                     let savedCarbonKg = 0.25 * km; 
                     this.addCarbon(-(savedCarbonKg * 1000), 0); 
@@ -790,10 +809,11 @@ export const tycoon = {
         if(document.getElementById('warehouse-tons')) document.getElementById('warehouse-tons').innerText = totalCurrentStock.toFixed(1) + " t";
 
         if(document.getElementById('warehouse-cap')) {
-            // 📈 NOUVEAU : On récupère le prix dynamique et on l'affiche sous la capacité
-            let prixTonneActuel = this.getDynamicPrice();
-            document.getElementById('warehouse-cap').innerHTML = `Capacité max : ${cap} t<br><span style="color:#f1c40f; font-weight:bold; font-size:1.1em; display:block; margin-top:6px;">💰 Cours du marché : ${prixTonneActuel.toFixed(2)} € / t</span>`;
+            // 📈 NOUVEAU : Affichage du tarif de base (Poids Lourds) au t-km
+            let prixTkmActuel = this.getDynamicPrice(); // Sans paramètre, c'est le tarif de base
+            document.getElementById('warehouse-cap').innerHTML = `Capacité max : ${cap} t<br><span style="color:#f1c40f; font-weight:bold; font-size:1.1em; display:block; margin-top:6px;">💰 Marché (Base) : ${prixTkmActuel.toFixed(2)} € / t-km</span><span style="font-size:0.8em; color:#bdc3c7; display:block;">(Tarif majoré pour le fret express urbain)</span>`;
         }
+
 
         if(document.getElementById('warehouse-bar')) document.getElementById('warehouse-bar').style.width = Math.min(100, fillPct) + "%";
 
