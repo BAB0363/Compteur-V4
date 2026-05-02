@@ -545,6 +545,12 @@ export const tycoon = {
                     veh.currentLoad = 0;
                     
                     let profit = veh.expectedPayoff || 0;
+                    
+                    // 💡 NOUVEAU : Forfait de Prise en Charge (Frais de déplacement)
+                    // On ajoute 2.00 € fixes à chaque fois qu'un véhicule vide sa cargaison !
+                    let forfaitLivraison = 2.00;
+                    profit += forfaitLivraison;
+                    
                     totalProfitThisTick += profit;
                     
                     // NOUVEAU : On ajoute les tonnes au bilan UNIQUEMENT maintenant !
@@ -556,6 +562,7 @@ export const tycoon = {
                     
                     finishedDeliveriesCount++;
                 }
+
             }
 
             // Usure des pneus
@@ -782,7 +789,12 @@ export const tycoon = {
         if(document.getElementById('warehouse-name')) document.getElementById('warehouse-name').innerText = "Stock Global (Tous Dépôts)";
         if(document.getElementById('warehouse-tons')) document.getElementById('warehouse-tons').innerText = totalCurrentStock.toFixed(1) + " t";
 
-        if(document.getElementById('warehouse-cap')) document.getElementById('warehouse-cap').innerText = "Capacité max : " + cap + " t";
+        if(document.getElementById('warehouse-cap')) {
+            // 📈 NOUVEAU : On récupère le prix dynamique et on l'affiche sous la capacité
+            let prixTonneActuel = this.getDynamicPrice();
+            document.getElementById('warehouse-cap').innerHTML = `Capacité max : ${cap} t<br><span style="color:#f1c40f; font-weight:bold; font-size:1.1em; display:block; margin-top:6px;">💰 Cours du marché : ${prixTonneActuel.toFixed(2)} € / t</span>`;
+        }
+
         if(document.getElementById('warehouse-bar')) document.getElementById('warehouse-bar').style.width = Math.min(100, fillPct) + "%";
 
         let carbTotal = this.state.companyCarbon || 0;
