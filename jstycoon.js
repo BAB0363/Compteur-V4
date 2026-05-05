@@ -727,19 +727,67 @@ export const tycoon = {
             }
             });
 
-            // --- ÉVÉNEMENTS ALÉATOIRES DE L'ENTREPRISE ---
+            // --- ÉVÉNEMENTS ALÉATOIRES DE L'ENTREPRISE (Système RPG) ---
             let stats = this.getStats();
             if (stats.usedSlots > 0 && Math.random() < 0.05) { 
-                if (Math.random() > 0.5) {
-                    let bonus = Math.round(stats.incomePerMin * 5); 
-                    window.app.addBankTransaction(bonus, "🏢 Fret exceptionnel (Entreprise)");
-                    if(window.ui) { window.ui.showToast(`🏢 Ton entreprise a décroché un fret express : +${bonus} € !`); window.ui.playGamiSound('cash'); }
+                let isBonus = Math.random() > 0.5;
+                let amount = 0;
+                let title = "";
+                let msg = "";
+
+                // 🟢 TIER 1 : La petite startup (Revenu faible, surtout des vélos/scooters)
+                if (stats.incomePerMin < 0.5) {
+                    if (isBonus) {
+                        amount = 15 + Math.round(Math.random() * 10); // Entre 15€ et 25€ fixes
+                        title = "Pourboire client";
+                        msg = `Un client a laissé un super pourboire à un coursier : +${amount} € !`;
+                    } else {
+                        amount = 10 + Math.round(Math.random() * 10); // Entre 10€ et 20€ fixes
+                        title = "Déraillement";
+                        msg = `Un vélo a déraillé en pleine livraison. Frais de réparation : -${amount} €`;
+                    }
+                }
+                // 🟠 TIER 2 : La PME qui monte (Utilitaires, petits porteurs)
+                else if (stats.incomePerMin < 5.0) {
+                    if (isBonus) {
+                        amount = Math.round(stats.incomePerMin * 8); // Multiplicateur moyen
+                        title = "Fret Express";
+                        msg = `Belle course express de dernière minute : +${amount} € !`;
+                    } else {
+                        amount = Math.round(stats.incomePerMin * 5);
+                        title = "Déviation urbaine";
+                        msg = `Bouchons monstres, perte de temps et de carburant : -${amount} €`;
+                    }
+                }
+                // 🔴 TIER 3 : L'Empire Logistique (Poids lourds, Plateformes)
+                else {
+                    if (isBonus) {
+                        amount = Math.round(stats.incomePerMin * 15); // Gros multiplicateur
+                        title = "Contrat Majeur";
+                        msg = `Ton entreprise a remporté un appel d'offre régional : +${amount} € !`;
+                    } else {
+                        amount = Math.round(stats.incomePerMin * 10);
+                        title = "Saisie des Douanes";
+                        msg = `Immobilisation d'un convoi pour contrôle poussé : -${amount} €`;
+                    }
+                }
+
+                // Application de la transaction
+                if (isBonus) {
+                    window.app.addBankTransaction(amount, `🏢 ${title}`);
+                    if(window.ui) { 
+                        window.ui.showToast(`🏢 ${msg}`); 
+                        window.ui.playGamiSound('cash'); 
+                    }
                 } else {
-                    let malus = Math.round(stats.incomePerMin * 3); 
-                    window.app.addBankTransaction(-malus, "🏢 Réparation d'urgence (Entreprise)");
-                    if(window.ui) { window.ui.showToast(`⚠️ Incident logistique ! Frais : -${malus} €`, 'anomaly'); window.ui.playGamiSound('crash'); }
+                    window.app.addBankTransaction(-amount, `🏢 ${title}`);
+                    if(window.ui) { 
+                        window.ui.showToast(`⚠️ ${msg}`, 'anomaly'); 
+                        window.ui.playGamiSound('crash'); 
+                    }
                 }
             }
+
             
             if (needsRender && window.ui && window.ui.activeTab === 'company') {
                 this.renderUI();
