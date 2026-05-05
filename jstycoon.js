@@ -626,7 +626,9 @@ export const tycoon = {
         if (finishedDeliveriesCount > 0 && window.ui) {
             let s = finishedDeliveriesCount > 1 ? 's' : '';
             window.ui.showToast(`✅ ${finishedDeliveriesCount} livraison${s} terminée${s} ! +${totalProfitThisTick.toFixed(2)}€`);
+            window.ui.playGamiSound('cash'); // 🎵 Le petit son qui fait plaisir au patron !
         }
+
 
         // Ajout des bénéfices ET des tonnes sur le ticket de session
         if (totalProfitThisTick > 0 || totalTonsThisTick > 0) {
