@@ -448,22 +448,32 @@ export const tycoon = {
 
         // 3. Les Loteries selon le véhicule !
         if (triggerVehicle === "Utilitaires") {
-            // Règle 1 : L'utilitaire a 50% de chance de livrer un petit bâtiment (50 à 250 kg)
+            // Règle 1 : L'utilitaire a 50% de chance de livrer entre 50 et 250 kg vers un petit bâtiment
             if (Math.random() <= 0.50) {
                 deliver(petitsBatiments, 0.050, 0.250);
             }
+            // Règle 2 : 25% de chance de livrer entre 800 et 1500 kg vers un petit bâtiment
+            if (Math.random() <= 0.25) {
+                deliver(petitsBatiments, 0.800, 1.500);
+            }
         } 
         else if (triggerVehicle === "Camions") {
-            // Règle 2 : Le Poids Lourd a 50% de chance de livrer un gros bâtiment (5 à 24 tonnes)
+            // Règle 3 : Le Poids Lourd a 50% de chance de livrer entre 5 et 30 tonnes vers un grand bâtiment
             if (Math.random() <= 0.50) {
-                deliver(grosBatiments, 5.0, 24.0);
+                deliver(grosBatiments, 5.0, 30.0);
             }
             
-            // Règle 3 : Le Poids Lourd a un 2ème dé ! 25% de chance de faire un largage bonus aux petits (500 à 1000 kg)
+            // Règle 4 : 1er dé caché ! 25% de chance de faire un largage bonus aux petits (500 à 1000 kg)
             if (Math.random() <= 0.25) {
                 deliver(petitsBatiments, 0.500, 1.000);
             }
+
+            // Règle 5 : 2ème dé caché ! 10% de chance de faire un gros largage bonus aux petits (2.5 à 5 tonnes)
+            if (Math.random() <= 0.10) {
+                deliver(petitsBatiments, 2.500, 5.000);
+            }
         }
+
     },
 
 
