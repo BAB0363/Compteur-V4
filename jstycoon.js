@@ -1028,10 +1028,26 @@ export const tycoon = {
                     let badge = isDelivering ? `📦 LIV. (${loadStr})` : '☕ PASSIF';
                     let baseColor = isDelivering ? '#27ae60' : '#3498db';
                     
-                    let isCritical = (def.fuelTank > 0 && v.fuel <= (def.fuelTank * 0.1)) || v.health <= 30 || (v.tires || 100) <= 10;
-                    let isWarning = (def.fuelTank > 0 && v.fuel <= (def.fuelTank * 0.3)) || v.health <= 60 || v.kmsSinceService >= (def.serviceInterval * 0.8);
-                    let color = isCritical ? "#e74c3c" : (isWarning ? "#f39c12" : baseColor);
-                    let statusTxt = isCritical ? "🔴 ACTION REQUISE" : (isWarning ? "🟠 SURVEILLANCE" : badge);
+     // --- DÉBUT DIAGNOSTIC MÉCANIQUE ---
+let alertReasons = [];
+// 1. Alerte Essence (<= 30%)
+if (def.fuelTank > 0 && v.fuel <= (def.fuelTank * 0.3)) alertReasons.push("⛽"); 
+// 2. Alerte Santé ou Révision kilométrique
+if (v.health <= 60 || v.kmsSinceService >= (def.serviceInterval * 0.8)) alertReasons.push("🔧"); 
+// 3. Alerte Pneus (Alerte préventive ajoutée à <= 20%)
+if ((v.tires || 100) <= 20) alertReasons.push("🛞"); 
+
+let reasonSuffix = alertReasons.length > 0 ? " " + alertReasons.join("") : "";
+
+let isCritical = (def.fuelTank > 0 && v.fuel <= (def.fuelTank * 0.1)) || v.health <= 30 || (v.tires || 100) <= 10;
+let isWarning = alertReasons.length > 0;
+
+let color = isCritical ? "#e74c3c" : (isWarning ? "#f39c12" : baseColor);
+
+// J'ai raccourci les textes pour que les icônes rentrent bien dans le badge sur mobile !
+let statusTxt = isCritical ? "🔴 URGENCE" + reasonSuffix : (isWarning ? "🟠 SURV." + reasonSuffix : badge);
+// --- FIN DIAGNOSTIC MÉCANIQUE ---
+
                     
                     let sellPrice = (def.price * 0.60) * (v.health / 100);
                     
