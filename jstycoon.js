@@ -341,7 +341,7 @@ export const tycoon = {
         }
     },
 
-        refuel(uid) {
+    refuel(uid) {
         let v = this.state.fleet.find(f => f.uid === uid);
         if (!v) return;
         let def = this.catalog.fleet[v.type];
@@ -352,19 +352,61 @@ export const tycoon = {
         let currentFuelPrice = this.state.fuelPrice || 1.80;
         let cost = needed * currentFuelPrice;
 
-        
         if (window.app.bankBalance < cost) {
             if(window.ui) window.ui.showToast("❌ Pas assez d'argent pour l'essence !");
             return;
         }
         
         window.app.addBankTransaction(-cost, `Plein ${def.name}`, true);
-;
         v.fuel = def.fuelTank;
         v.losses = (v.losses || 0) + cost;
         this.saveState();
         this.renderUI();
     },
+
+    refuelCategory(type) {
+        let def = this.catalog.fleet[type];
+        if (!def || def.fuelTank === 0) return; // Pas de réservoir sur ce modèle
+
+        let vehicles = this.state.fleet.filter(f => f.type === type);
+        let currentFuelPrice = this.state.fuelPrice || 1.80;
+        let totalCost = 0;
+
+        // 1. Calculer le coût total nécessaire pour toute la catégorie
+        vehicles.forEach(v => {
+            let needed = def.fuelTank - v.fuel;
+            if (needed > 0) {
+                totalCost += needed * currentFuelPrice;
+            }
+        });
+
+        // 2. Vérifications avant paiement
+        if (totalCost === 0) {
+            if(window.ui) window.ui.showToast(`✅ Tous tes ${def.name}s ont déjà le plein !`);
+            return;
+        }
+
+        if (window.app.bankBalance < totalCost) {
+            if(window.ui) window.ui.showToast(`❌ Fonds insuffisants pour le plein complet ! (${totalCost.toFixed(2)} € requis)`);
+            return;
+        }
+
+        // 3. Payer et remplir les réservoirs
+        window.app.addBankTransaction(-totalCost, `Plein complet ${def.name}s`, true);
+
+        vehicles.forEach(v => {
+            let needed = def.fuelTank - v.fuel;
+            if (needed > 0) {
+                v.fuel = def.fuelTank;
+                v.losses = (v.losses || 0) + (needed * currentFuelPrice);
+            }
+        });
+
+        this.saveState();
+        this.renderUI();
+        if(window.ui) window.ui.showToast(`⛽ Plein fait pour tous les ${def.name}s !`);
+    },
+
 
     changeTires(uid) {
         let v = this.state.fleet.find(f => f.uid === uid);
@@ -1020,6 +1062,19 @@ export const tycoon = {
 
                 let categoryId = 'fleet-cat-' + type;
                 let vehiclesHtml = '';
+                
+                // ---> VARIABLES POUR LE BADGE D'ALERTE DE CATÉGORIE <---
+                let catHasCritical = false;
+                let catHasWarning = false;
+
+                // ---> ⛽ AJOUT DU BOUTON PLEIN COMPLET ICI <---
+                if (def.l100 > 0 && vehicles.length > 0) {
+                    vehiclesHtml += `
+                        <button style="background:#27ae60; color:white; border:none; padding:10px; border-radius:6px; font-weight:bold; font-size:0.95em; cursor:pointer; margin-bottom:12px; width:100%; box-shadow: 0 2px 4px rgba(0,0,0,0.2);" onclick="event.stopPropagation(); window.tycoon.refuelCategory('${type}')">
+                            ⛽ Faire le plein de tous les ${def.name}s
+                        </button>
+                    `;
+                }
 
                 vehicles.forEach(v => {
                     let isDelivering = status.deliveringVehicles.some(dv => dv.uid === v.uid);
@@ -1028,27 +1083,30 @@ export const tycoon = {
                     let badge = isDelivering ? `📦 LIV. (${loadStr})` : '☕ PASSIF';
                     let baseColor = isDelivering ? '#27ae60' : '#3498db';
                     
-     // --- DÉBUT DIAGNOSTIC MÉCANIQUE ---
-let alertReasons = [];
-// 1. Alerte Essence (<= 30%)
-if (def.fuelTank > 0 && v.fuel <= (def.fuelTank * 0.3)) alertReasons.push("⛽"); 
-// 2. Alerte Santé ou Révision kilométrique
-if (v.health <= 60 || v.kmsSinceService >= (def.serviceInterval * 0.8)) alertReasons.push("🔧"); 
-// 3. Alerte Pneus (Alerte préventive ajoutée à <= 20%)
-if ((v.tires || 100) <= 20) alertReasons.push("🛞"); 
+                    // --- DÉBUT DIAGNOSTIC MÉCANIQUE ---
+                    let alertReasons = [];
+                    // 1. Alerte Essence (<= 30%)
+                    if (def.fuelTank > 0 && v.fuel <= (def.fuelTank * 0.3)) alertReasons.push("⛽"); 
+                    // 2. Alerte Santé ou Révision kilométrique
+                    if (v.health <= 60 || v.kmsSinceService >= (def.serviceInterval * 0.8)) alertReasons.push("🔧"); 
+                    // 3. Alerte Pneus (Alerte préventive ajoutée à <= 20%)
+                    if ((v.tires || 100) <= 20) alertReasons.push("🛞"); 
 
-let reasonSuffix = alertReasons.length > 0 ? " " + alertReasons.join("") : "";
+                    let reasonSuffix = alertReasons.length > 0 ? " " + alertReasons.join("") : "";
 
-let isCritical = (def.fuelTank > 0 && v.fuel <= (def.fuelTank * 0.1)) || v.health <= 30 || (v.tires || 100) <= 10;
-let isWarning = alertReasons.length > 0;
+                    let isCritical = (def.fuelTank > 0 && v.fuel <= (def.fuelTank * 0.1)) || v.health <= 30 || (v.tires || 100) <= 10;
+                    let isWarning = alertReasons.length > 0;
 
-let color = isCritical ? "#e74c3c" : (isWarning ? "#f39c12" : baseColor);
+                    // ---> MISE À JOUR DE L'ÉTAT GLOBAL DE LA CATÉGORIE <---
+                    if (isCritical) catHasCritical = true;
+                    else if (isWarning) catHasWarning = true;
 
-// J'ai raccourci les textes pour que les icônes rentrent bien dans le badge sur mobile !
-let statusTxt = isCritical ? "🔴 URGENCE" + reasonSuffix : (isWarning ? "🟠 SURV." + reasonSuffix : badge);
-// --- FIN DIAGNOSTIC MÉCANIQUE ---
+                    let color = isCritical ? "#e74c3c" : (isWarning ? "#f39c12" : baseColor);
 
-                    
+                    // J'ai raccourci les textes pour que les icônes rentrent bien dans le badge sur mobile !
+                    let statusTxt = isCritical ? "🔴 URGENCE" + reasonSuffix : (isWarning ? "🟠 SURV." + reasonSuffix : badge);
+                    // --- FIN DIAGNOSTIC MÉCANIQUE ---
+
                     let sellPrice = (def.price * 0.60) * (v.health / 100);
                     
                     let vehGains = v.gains || 0;
@@ -1108,12 +1166,19 @@ let statusTxt = isCritical ? "🔴 URGENCE" + reasonSuffix : (isWarning ? "🟠 
                     `;
                 });
 
+                // ---> CRÉATION DU BADGE VISUEL DE LA CATÉGORIE <---
+                let alertBadgeHtml = '';
+                if (catHasCritical) {
+                    alertBadgeHtml = `<span style="background: #e74c3c; color: white; padding: 2px 6px; border-radius: 6px; font-size: 0.8em; margin-left: 8px;">🔴 Alerte</span>`;
+                } else if (catHasWarning) {
+                    alertBadgeHtml = `<span style="background: #f39c12; color: white; padding: 2px 6px; border-radius: 6px; font-size: 0.8em; margin-left: 8px;">🟠 Entretien</span>`;
+                }
 
                 // Conteneur de la catégorie avec le bouton déroulant
                 fleetList.innerHTML += `
                     <div style="background:var(--card-bg); border-radius:8px; box-shadow: 0 4px 10px rgba(0,0,0,0.2); overflow:hidden; border: 1px solid var(--border-color);">
                         <div style="padding: 12px 15px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; background: linear-gradient(90deg, rgba(52,152,219,0.1), transparent);" onclick="let el = document.getElementById('${categoryId}'); let arrow = document.getElementById('arrow-${categoryId}'); if(el.style.display === 'none') { el.style.display = 'flex'; arrow.innerText = '▲'; } else { el.style.display = 'none'; arrow.innerText = '▼'; }">
-                            <span style="font-size:1.1em; font-weight:bold; color:var(--text-color);">${def.icon} ${def.name}s <span style="background: var(--primary-color); color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.8em; margin-left: 8px;">${vehicles.length}</span></span>
+                            <span style="font-size:1.1em; font-weight:bold; color:var(--text-color);">${def.icon} ${def.name}s <span style="background: var(--primary-color); color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.8em; margin-left: 8px;">${vehicles.length}</span>${alertBadgeHtml}</span>
                             <span id="arrow-${categoryId}" style="color:var(--primary-color); font-size:1em; font-weight: bold;">▼</span>
                         </div>
                         <div id="${categoryId}" style="display: none; flex-direction: column; gap: 8px; padding: 10px;">
@@ -1122,6 +1187,7 @@ let statusTxt = isCritical ? "🔴 URGENCE" + reasonSuffix : (isWarning ? "🟠 
                     </div>
                 `;
             });
+
             
             // 3. AFFICHER LE CATALOGUE D'ACHAT (En masquant ceux à capacité max absolue)
             let catalogHtml = '<div style="margin-top: 10px; border-top: 2px dashed var(--border-color); padding-top: 15px;"><h4 style="margin-bottom:10px;">🛒 Concessionnaire</h4><div style="display:flex; flex-direction:column; gap:8px;">';
